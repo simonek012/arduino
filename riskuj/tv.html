@@ -4381,7 +4381,7 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
   const api = (path, body) => fetch('/api/' + path, body !== undefined
     ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}
     : {cache: 'no-store'}).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
-  let phoneUrl = '', phones = [], lastMode = '', armEpoch = -1, polling = false, qrFor = '', serverOk = true;
+  let phoneUrl = '', phones = [], lastMode = '', armEpoch = -1, polling = false, qrFor = '', serverOk = true, online = false;
   let lastLocked = '', lastTurn = null, freeSince = 0;
   const tileKey = () => `${S.code}-${S.round}-${S.cur.c}-${S.cur.t}`;
   // poradie prihlásených pre aktuálnu otázku (indexy hráčov)
@@ -4389,7 +4389,10 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
 
   api('info').then(i => {
     const ip = (i.ips || [])[0];
-    phoneUrl = ip ? `http://${ip}:${i.port}/m` : '';
+    online = !!i.public;                                         // spustené cez online.bat – hráči sú na internete
+    phoneUrl = online ? i.public : ip ? `http://${ip}:${i.port}/m` : '';
+    const panel = document.getElementById('phones');
+    if (panel) panel.outerHTML = panelHtml();
     paintPanel();
   }).catch(() => { serverOk = false; paintPanel(); });
 
@@ -4400,8 +4403,11 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
   function panelHtml() {
     return `<section class="phones" id="phones"><h3>📱 Prihlasovanie cez mobily</h3>
       <div class="phone-grid"><div class="qr" id="qr"></div><div style="display:flex;flex-direction:column;gap:10px">
-        <p class="hint" style="margin:0">Hráči sa pripoja na <b>tú istú Wi-Fi</b> ako tento počítač, naskenujú QR kód alebo v mobile otvoria:</p>
+        <p class="hint" style="margin:0">${online
+          ? '🌍 <b>Hra cez internet.</b> Pošli hráčom tento odkaz (napr. cez WhatsApp) alebo im odfoť QR kód. Môžu byť kdekoľvek, stačí im internet:'
+          : 'Hráči sa pripoja na <b>tú istú Wi-Fi</b> ako tento počítač, naskenujú QR kód alebo v mobile otvoria:'}</p>
         <p class="purl" id="purl"></p>
+        ${online ? '<div><button class="lnk" data-act="copyurl">📋 Skopírovať odkaz</button></div>' : ''}
         <p class="hint" style="margin:0">Napíšu meno a dostanú veľké tlačidlo. Každý pripojený mobil dostane vlastného hráča (najviac 6). Kliknutie na hráča funguje ďalej aj bez mobilov.</p>
         <div class="pchips" id="plist">${listHtml()}</div>
         <div><button class="lnk" data-act="phonesreset">Odpojiť všetky mobily</button></div>
@@ -4456,6 +4462,12 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
 
   const _act = act;
   act = function (a, el) {
+    if (a === 'copyurl') {
+      const hotovo = () => toast('Odkaz je skopírovaný – vlož ho kamarátom do správy');
+      if (navigator.clipboard) navigator.clipboard.writeText(phoneUrl).then(hotovo).catch(() => prompt('Skopíruj odkaz:', phoneUrl));
+      else prompt('Skopíruj odkaz:', phoneUrl);
+      return;
+    }
     if (a === 'phonesreset') {
       api('reset', {}).then(() => { phones = []; S.players.forEach(p => { p.phone = null; }); paintPanel(); toast('Mobily sú odpojené'); }).catch(() => {});
       return;

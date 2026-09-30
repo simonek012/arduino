@@ -112,7 +112,7 @@ async function doJoin(name, id) {
     const r = await api('join', {name, id: id || (me && me.id)});
     me = {id: r.id, name: r.name}; saveMe(); showGame(); paint(); keepAwake();
   } catch (e) {
-    $('#jstatus').textContent = 'Nepodarilo sa pripojiť. Si na tej istej Wi-Fi ako počítač?';
+    $('#jstatus').textContent = 'Nepodarilo sa pripojiť. Skontroluj internet alebo Wi-Fi a skús znova.';
   }
   $('#goBtn').disabled = false;
 }

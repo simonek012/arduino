@@ -1,10 +1,12 @@
 ﻿# Riskuj! s mobilmi – malý server pre domácu Wi-Fi.
 # Nič netreba inštalovať, stačí PowerShell, ktorý je súčasťou Windows.
 # TV/počítač:  http://localhost:8080      Mobily:  http://<IP počítača>:8080/m
+# Hra cez internet: spusti online.bat (server spúšťa sám, s adresou tunela v -PublicUrl).
 param(
   [int]$Port = 8080,
   [switch]$LocalOnly,   # len na skúšku: počúva iba na tomto počítači
-  [switch]$NoBrowser
+  [switch]$NoBrowser,
+  [string]$PublicUrl = ''   # verejná adresa z Cloudflare tunela (vyplní online.bat)
 )
 $ErrorActionPreference = 'Stop'
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
@@ -95,21 +97,33 @@ function TryParse($ms) {
   $lines = $text.Substring(0, $idx) -split "`r`n"
   $first = $lines[0] -split ' '
   $len = 0
-  foreach ($h in $lines) { if ($h -match '^Content-Length:\s*(\d+)') { $len = [int]$matches[1] } }
+  $remote = $false
+  foreach ($h in $lines) {
+    if ($h -match '^Content-Length:\s*(\d+)') { $len = [int]$matches[1] }
+    if ($h -match '^(Cf-Connecting-Ip|Cf-Ray):') { $remote = $true }   # prišlo z internetu cez Cloudflare tunel
+  }
   $start = $idx + 4
   if ($bytes.Length - $start -lt $len) { return $null }
   $body = if ($len) { $utf8.GetString($bytes, $start, $len) } else { '' }
-  return @{ method = $first[0]; path = $first[1]; body = $body }
+  return @{ method = $first[0]; path = $first[1]; body = $body; remote = $remote }
 }
 
 function Handle($client, $req) {
   $path = ($req.path -split '\?')[0]
   $data = $null
   if ($req.body) { try { $data = $req.body | ConvertFrom-Json } catch {} }
+  # Z internetu je dostupné len to, čo potrebujú mobily. Moderátorská obrazovka a jej
+  # ovládanie ostávajú len na tomto počítači – aj holý odkaz otvorí hráčom tlačidlo.
+  if ($req.remote) {
+    if ($path -eq '/' -or $path -eq '/m') { SendFile $client 'mobil.html'; return }
+    if ($path -notin '/api/state', '/api/join', '/api/buzz', '/api/finalsubmit') {
+      Send $client 404 'text/plain; charset=utf-8' ($utf8.GetBytes('Nenájdené')); return
+    }
+  }
   switch ($path) {
     '/'           { SendFile $client 'tv.html'; return }
     '/m'          { SendFile $client 'mobil.html'; return }
-    '/api/info'   { SendJson $client @{ ips = @(Get-LanIPs); port = $Port }; return }
+    '/api/info'   { SendJson $client @{ ips = @(Get-LanIPs); port = $Port; public = $PublicUrl }; return }
     '/api/state'  {
       $me = QueryParam $req.path 'id'
       if ($me -and (FindPlayer $me)) { $lastSeen[$me] = [DateTime]::UtcNow }
@@ -208,6 +222,7 @@ Write-Host ''
 Write-Host '  RISKUJ! S MOBILMI – server beží' -ForegroundColor Yellow
 Write-Host "  Na TV / počítači otvor:   http://localhost:$Port"
 foreach ($a in Get-LanIPs) { Write-Host "  Mobily (rovnaká Wi-Fi):   http://${a}:$Port/m" -ForegroundColor Cyan }
+if ($PublicUrl) { Write-Host "  Mobily cez internet:      $PublicUrl" -ForegroundColor Green }
 if ($players.Count) { Write-Host "  Zapamätaní hráči: $(($players | ForEach-Object { $_.name }) -join ', ')" }
 Write-Host '  Toto okno nechaj otvorené. Hru ukončíš zatvorením okna.'
 Write-Host ''
