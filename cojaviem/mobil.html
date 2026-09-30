@@ -211,7 +211,7 @@ async function doJoin(name, id) {
     ok = true;
     nudge();
   } catch (e) {
-    $('#jstatus').textContent = 'Nepodarilo sa pripojiť. Si na tej istej Wi-Fi ako počítač a beží na ňom server?';
+    $('#jstatus').textContent = 'Nepodarilo sa pripojiť. Skontroluj internet alebo Wi-Fi a skús znova.';
   }
   $('#goBtn').disabled = false;
   return ok;

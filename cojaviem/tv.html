@@ -959,7 +959,8 @@ function vSetup() {
   const ips = (srv.info && srv.info.ips) || [];
   const ip = ips[0] || 'IP-počítača';
   const port = (srv.info && srv.info.port) || 8081;
-  phoneUrl = srv.info ? 'http://' + ip + ':' + port + '/m' : '';
+  const cezNet = !!(srv.info && srv.info.public);               // spustené cez online.bat – hráči sú na internete
+  phoneUrl = cezNet ? srv.info.public : srv.info ? 'http://' + ip + ':' + port + '/m' : '';
   return `<section class="card" style="text-align:center">
       <h1 class="logobox"><span class="l1">Čo ja</span><span class="l2">Viem</span><span class="l3">domáca verzia</span></h1>
       <p class="muted" style="max-width:66ch;margin:16px auto 0">Náročnejšie otázky z celého okruhu všeobecných znalostí. Vyberáš si z troch možností, zoraďuješ alebo priraďuješ – všetci naraz na vlastnom mobile. Každá otázka má <b>2 body</b>, pri rovnosti rozhoduje kratší čas. Moderátor otázku prečíta, po uplynutí času ukáže, kto za čo hlasoval, a potom odhalí správnu odpoveď aj zaujímavosť.</p>
@@ -987,9 +988,11 @@ function vSetup() {
     <div class="phones">
       <div class="qr" id="qr"></div>
       <div>
-        <p style="font-size:22px;font-weight:800;margin:8px 0">http://${esc(ip)}:${port}/m</p>
-        <p class="muted">Hráči sa pripoja na tú istú Wi-Fi, naskenujú QR kód alebo napíšu adresu a potom svoje meno. Otázku uvidia aj na mobile. Hrať môžu až ôsmi, na vyskúšanie stačí aj jeden mobil.</p>
-        ${ips.length > 1 ? `<p class="muted">Ak sa mobil nevie pripojiť, skús inú adresu: ${ips.slice(1).map(a => `<b>http://${esc(a)}:${port}/m</b>`).join(', ')}</p>` : ''}
+        <p style="font-size:22px;font-weight:800;margin:8px 0;overflow-wrap:anywhere">${esc(phoneUrl || 'http://' + ip + ':' + port + '/m')}</p>
+        ${cezNet ? `<p class="muted">🌍 <b>Hra cez internet.</b> Pošli hráčom tento odkaz (napr. cez WhatsApp) alebo im odfoť QR kód. Môžu byť kdekoľvek, stačí im internet. Potom napíšu svoje meno. Hrať môžu až ôsmi.</p>
+        <div class="row"><button class="btn ghost" data-act="copyurl">📋 Skopírovať odkaz</button></div>`
+        : '<p class="muted">Hráči sa pripoja na tú istú Wi-Fi, naskenujú QR kód alebo napíšu adresu a potom svoje meno. Otázku uvidia aj na mobile. Hrať môžu až ôsmi, na vyskúšanie stačí aj jeden mobil.</p>'}
+        ${!cezNet && ips.length > 1 ? `<p class="muted">Ak sa mobil nevie pripojiť, skús inú adresu: ${ips.slice(1).map(a => `<b>http://${esc(a)}:${port}/m</b>`).join(', ')}</p>` : ''}
       </div>
     </div>
     <div class="players" style="margin-top:12px">${list.length ? list.map(p =>
@@ -1148,6 +1151,10 @@ function act(a, el) {
       if (!online.length) return toast('Najprv pripoj aspoň jeden mobil');
       startGame(online, mode); break;
     }
+    case 'copyurl':
+      if (navigator.clipboard) navigator.clipboard.writeText(phoneUrl).then(() => toast('Odkaz je skopírovaný – vlož ho kamarátom do správy')).catch(() => prompt('Skopíruj odkaz:', phoneUrl));
+      else prompt('Skopíruj odkaz:', phoneUrl);
+      break;
     case 'forget': api('reset').then(() => { srv.players = []; lastSig = ''; render(); }).catch(() => {}); break;
     case 'ask': if (S.step === 'read') askQuestion(); break;
     case 'cas-': zmenCas(-1); break;
