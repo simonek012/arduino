@@ -24,9 +24,10 @@ $script:held = $false
 $script:expired = $false
 $script:epoch = 0
 $script:open = $false
-$script:kind = ''                                    # abc | order
+$script:kind = ''                                    # abc | order | match
 $script:count = 3                                    # počet možností / položiek
-$script:items = @()                                  # texty položiek pre zoraďovanie
+$script:items = @()                                  # texty možností / položiek (pri priraďovaní ľavá strana A, B, C…)
+$script:items2 = @()                                 # pri priraďovaní pravá strana 1, 2, 3…
 $script:askedAt = [DateTime]::UtcNow
 $script:seconds = 20
 $script:qtext = ''                                      # znenie otázky pre mobily
@@ -103,6 +104,7 @@ function StateObj([string]$me) {
     kind    = $script:kind
     count   = $script:count
     items   = @($script:items)
+    items2  = @($script:items2)
     left    = $left
     seconds = $script:seconds
     q       = $script:qtext
@@ -201,10 +203,12 @@ function Handle($client, $req) {
     # nová otázka: vyčistí odpovede a spustí čas
     '/api/ask' {
       $answers.Clear(); $shownAt.Clear()
-      $script:kind = if ([string]$data.kind -eq 'order') { 'order' } else { 'abc' }
+      $script:kind = switch ([string]$data.kind) { 'order' { 'order' } 'match' { 'match' } default { 'abc' } }
       $script:count = [Math]::Max(2, [Math]::Min(6, [int]$data.count))
       $script:items = @()
       if ($data.items) { foreach ($it in $data.items) { $script:items += [string]$it } }
+      $script:items2 = @()
+      if ($data.items2) { foreach ($it in $data.items2) { $script:items2 += [string]$it } }
       $script:seconds = [Math]::Max(3, [Math]::Min(120, [int]$data.seconds))
       $script:qtext = ([string]$data.q).Trim()
       if ($script:qtext.Length -gt 300) { $script:qtext = $script:qtext.Substring(0, 300) }
@@ -215,7 +219,7 @@ function Handle($client, $req) {
       Bump
       SendJson $client @{ epoch = $script:epoch }; return
     }
-    # odpoveď z mobilu: abc = číslo možnosti, order = poradie ako "2,0,3,1"
+    # odpoveď z mobilu: abc = číslo možnosti, order = poradie ako "2,0,3,1", match = ku každému písmenu číslo ako "1,2,0"
     '/api/answer' {
       $id = [string]$data.id
       $ok = $false

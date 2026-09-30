@@ -34,7 +34,19 @@ button{font:inherit;color:inherit;cursor:pointer}
 .ord button{display:flex;gap:10px;align-items:center;text-align:left;width:100%;padding:14px;border-radius:12px;border:2px solid var(--line);background:rgba(255,255,255,.12);color:var(--text);font:700 16px/1.25 system-ui}
 .ord button.on{border-color:#fff;background:rgba(255,255,255,.3)}
 .ord .num{width:28px;height:28px;flex:0 0 28px;border-radius:8px;background:rgba(0,0,0,.2);display:grid;place-items:center;font:900 15px system-ui;color:var(--muted)}
-.ord button.on .num{background:#fff;color:#C7410A}
+.ord button.on .num{background:#FFC53D;color:#5E1A00}
+.ord .lt,.par .lt,.cis b{width:28px;height:28px;flex:0 0 28px;border-radius:8px;display:grid;place-items:center;font:900 15px system-ui;background:#fff;color:#C7410A}
+.cis{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,.14)}
+.cis div{display:flex;gap:10px;align-items:center;font:700 16px/1.25 system-ui}
+.cis b{background:var(--b);color:#5E1A00}
+.par{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:12px;border:2px solid var(--line);background:rgba(255,255,255,.12)}
+.par.on{border-color:#fff;background:rgba(255,255,255,.22)}
+.par .nm{display:flex;gap:10px;align-items:center;font:700 16px/1.25 system-ui}
+.par .nums{display:flex;gap:8px}
+.par .nums button{flex:1;padding:10px 0;border-radius:10px;border:2px solid var(--line);background:rgba(0,0,0,.14);color:#fff;font:900 18px system-ui}
+.par .nums button.on{background:#FFC53D;border-color:#FFC53D;color:#5E1A00}
+.kod{font:900 30px/1.1 system-ui;letter-spacing:.12em;text-align:center;margin:8px 0 0}
+.kod.maly{font-size:22px;margin:10px 0 0}
 .row{display:flex;gap:10px}
 .row button{flex:1;padding:14px;border-radius:12px;border:0;font:800 17px system-ui}
 .send{background:#fff;color:#C7410A}
@@ -83,7 +95,15 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS = 'cojaviem-me';
 let me = null, st = {}, pickOrder = [], lastEpoch = -1, sentFor = -1, sentVal = '', missedFor = -1, byloOtvorene = false;
-let deadline = 0, lastKey = '', lastBack = null, rejoining = false;
+let deadline = 0, lastKey = '', lastBack = null, rejoining = false, pary = [];
+const PISM = 'ABCDEF';
+function kod(v) {                                              // odpoveď v krátkom tvare: A, CADB alebo A2B3C1
+  if (v == null || v === '') return '';
+  if (st.kind === 'abc') return PISM[+v] || '?';
+  const a = String(v).split(',').map(Number);
+  if (st.kind === 'order') return a.map(i => PISM[i] || '?').join('');
+  return a.map((j, i) => PISM[i] + (j >= 0 ? j + 1 : '–')).join('');
+}
 const now = () => performance.now();
 const leftMs = () => Math.max(0, deadline - now());           // odpočet si mobil počíta sám, plynulo
 const isOpen = () => !!st.open && leftMs() > 0;
@@ -222,6 +242,13 @@ function toggleOrder(i) {
   obnov();
 }
 function sendOrder() { if (pickOrder.length === st.count) sendAnswer(pickOrder.join(',')); }
+function pickPar(i, j) {                                       // k písmenu i priradí číslo j; každé číslo len raz
+  if (pary[i] === j) pary[i] = -1;
+  else { pary = pary.map(x => x === j ? -1 : x); pary[i] = j; }
+  obnov();
+}
+const paryHotove = () => (st.items || []).every((_, i) => pary[i] >= 0);
+function sendMatch() { if (paryHotove()) sendAnswer(st.items.map((_, i) => pary[i]).join(',')); }
 
 function casovac() {                                           // len posunie čísla a pásik, nič neprekresľuje
   const el = document.getElementById('cas'), bar = document.getElementById('casbar');
@@ -236,7 +263,7 @@ function obnov() {
   const open = isOpen();
   if (byloOtvorene && !open) drama();                          // čas práve vypršal
   byloOtvorene = open;
-  const key = [st.epoch, open, answered(), st.mine, sentVal, missedFor === st.epoch, pickOrder.join(','), st.kind, st.q, (st.items || []).join('|')].join('#');
+  const key = [st.epoch, open, answered(), st.mine, sentVal, missedFor === st.epoch, pickOrder.join(','), pary.join(','), st.kind, st.q, (st.items || []).join('|'), (st.items2 || []).join('|')].join('#');
   if (key !== lastKey) { lastKey = key; paint(open); }
   casovac();
 }
@@ -253,22 +280,25 @@ function paint(open) {
     b.innerHTML = `<div class="state"><div class="big">${st.q ? 'Čas vypršal' : 'Čakaj'}</div><p class="muted">${done ? 'Odpoveď je odoslaná. Pozeraj na TV.' : st.q ? 'Moderátor ukazuje, kto za čo hlasoval.' : 'Moderátor o chvíľu prečíta otázku.'}</p>${bolo}</div>`;
     return;
   }
-  const head = `<div class="top" style="margin-bottom:10px"><span class="muted">${st.kind === 'order' ? 'Zoraď na mobile' : 'Vyber odpoveď'}</span><span class="me" id="cas"></span></div>
+  const head = `<div class="top" style="margin-bottom:10px"><span class="muted">${st.kind === 'order' ? 'Zoraď na mobile' : st.kind === 'match' ? 'Priraď na mobile' : 'Vyber odpoveď'}</span><span class="me" id="cas"></span></div>
     <div class="bar" style="margin-bottom:12px"><i id="casbar"></i></div>
     ${st.q ? `<p class="qm">${esc(st.q)}</p>` : ''}`;
   if (done) {
     const mine = st.mine !== undefined ? st.mine : sentVal;
     const txt = st.kind === 'order'
       ? String(mine).split(',').map((x, n) => `${n + 1}. ${esc(st.items[+x] || '?')}`).join('<br>')
-      : 'Možnosť <b>' + ('ABC'[+mine] || '?') + '</b> – ' + esc(st.items[+mine] || '');
-    b.innerHTML = head + `<div class="state"><div class="sent">Odoslané ✓</div><p class="muted" style="margin-top:8px">${txt}</p></div>`;
+      : st.kind === 'match'
+      ? String(mine).split(',').map((j, i) => `${PISM[i]} ${esc(st.items[i] || '')} → ${esc((st.items2 || [])[+j] || '?')}`).join('<br>')
+      : esc(st.items[+mine] || '');
+    b.innerHTML = head + `<div class="state"><div class="sent">Odoslané ✓</div><p class="kod">${kod(mine)}</p><p class="muted" style="margin-top:8px">${txt}</p></div>`;
     return;
   }
   if (st.kind === 'order') {
     b.innerHTML = head + `<div class="ord">${st.items.map((it, i) => {
       const at = pickOrder.indexOf(i);
-      return `<button type="button" class="${at >= 0 ? 'on' : ''}" data-o="${i}"><span class="num">${at >= 0 ? at + 1 : '–'}</span><span>${esc(it)}</span></button>`;
+      return `<button type="button" class="${at >= 0 ? 'on' : ''}" data-o="${i}"><span class="num">${at >= 0 ? at + 1 : '–'}</span><b class="lt">${PISM[i]}</b><span>${esc(it)}</span></button>`;
     }).join('')}</div>
+    <p class="kod maly">${pickOrder.length ? kod(pickOrder.join(',')) + '_'.repeat(st.count - pickOrder.length) : '&nbsp;'}</p>
     <div class="row" style="margin-top:12px">
       <button class="again" type="button" id="clr">Vyčistiť</button>
       <button class="send" type="button" id="snd"${pickOrder.length === st.count ? '' : ' disabled'}>Odoslať</button>
@@ -277,6 +307,22 @@ function paint(open) {
     b.querySelectorAll('[data-o]').forEach(el => el.onclick = () => toggleOrder(+el.dataset.o));
     $('#clr').onclick = () => { pickOrder = []; obnov(); };
     $('#snd').onclick = sendOrder;
+    return;
+  }
+  if (st.kind === 'match') {
+    const prava = st.items2 || [];
+    b.innerHTML = head + `<div class="cis">${prava.map((it, j) => `<div><b>${j + 1}</b><span>${esc(it)}</span></div>`).join('')}</div>
+    <div class="ord">${st.items.map((it, i) => `<div class="par ${pary[i] >= 0 ? 'on' : ''}"><div class="nm"><b class="lt">${PISM[i]}</b><span>${esc(it)}</span></div>
+      <div class="nums">${prava.map((_, j) => `<button type="button" class="${pary[i] === j ? 'on' : ''}" data-p="${i},${j}">${j + 1}</button>`).join('')}</div></div>`).join('')}</div>
+    <p class="kod maly">${pary.some(x => x >= 0) ? kod(st.items.map((_, i) => pary[i] >= 0 ? pary[i] : -1).join(',')) : '&nbsp;'}</p>
+    <div class="row" style="margin-top:12px">
+      <button class="again" type="button" id="clr">Vyčistiť</button>
+      <button class="send" type="button" id="snd"${paryHotove() ? '' : ' disabled'}>Odoslať</button>
+    </div>
+    <p class="hint">Ku každému písmenu ťukni číslo, ktoré k nemu patrí.</p>`;
+    b.querySelectorAll('[data-p]').forEach(el => el.onclick = () => { const [i, j] = el.dataset.p.split(',').map(Number); pickPar(i, j); });
+    $('#clr').onclick = () => { pary = []; obnov(); };
+    $('#snd').onclick = sendMatch;
     return;
   }
   b.innerHTML = head + `<div class="opts">${st.items.map((it, i) =>
@@ -289,7 +335,7 @@ function paint(open) {
 function prijmi(s) {                                           // nový stav zo servera
   const t = now();
   if (s.epoch !== lastEpoch) {
-    lastEpoch = s.epoch; pickOrder = []; sentFor = -1; sentVal = ''; missedFor = -1; deadline = 0;
+    lastEpoch = s.epoch; pickOrder = []; pary = []; sentFor = -1; sentVal = ''; missedFor = -1; deadline = 0;
     if (s.open && navigator.vibrate) navigator.vibrate(60);
   }
   st = s;

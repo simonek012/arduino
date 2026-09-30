@@ -46,6 +46,13 @@ kbd{font:700 12px ui-monospace,Consolas,monospace;background:rgba(0,0,0,.22);bor
 .opt.wrong{opacity:.45}
 .ordlist{display:flex;flex-direction:column;gap:10px}
 .ordlist .opt i{background:#fff;color:#C7410A}
+.match{display:grid;gap:12px;margin-top:6px}
+@media(min-width:900px){.match{grid-template-columns:1fr 1fr}}
+.match .cisla .opt i{background:var(--b);color:#5E1A00}
+.ordlist .opt.right i{background:#C7410A;color:#fff}
+.opt .sip{opacity:.7}
+.kod{font:900 clamp(34px,5vw,60px)/1 var(--disp);letter-spacing:.12em;margin:0 0 12px}
+.pl .hlas{font:900 clamp(20px,2.2vw,28px)/1.1 var(--disp);letter-spacing:.08em}
 .timer{display:flex;align-items:center;gap:16px;margin:10px 0 4px}
 .timer .bar{flex:1;height:14px;border-radius:99px;background:rgba(0,0,0,.22);border:2px solid var(--line);overflow:hidden}
 .timer .bar i{display:block;height:100%;background:#fff;transition:width .2s linear}
@@ -106,36 +113,30 @@ kbd{font:700 12px ui-monospace,Consolas,monospace;background:rgba(0,0,0,.22);bor
 <script>
 /* ---------- otázky: 1 = ľahšie, 2 = stredné, 3 = ťažké ----------
    Posledné číslo je čas na odpoveď v sekundách:
-   výber z troch – 4 veľmi ľahká, 5 trochu ťažšia, 8 ťažká;
-   zoraďovanie   – 5 ľahká, 10 bežná, 20 veľmi ťažká. */
+   výber z troch – 5 bežná, 6–8 na zamyslenie alebo s chytákom, 10 počtová;
+   zoraďovanie   – 10 bežná, 20 veľmi ťažká;
+   priraďovanie  – 8 až 12 bežná, 20 veľmi ťažká.
+   abc(otázka, [možnosti], index správnej, zaujímavosť, čas)
+   ord(otázka, [položky v správnom poradí], zaujímavosť, čas)
+   pri(otázka, [[ľavá, pravá], …] – správne dvojice, zaujímavosť, čas) */
 const abc = (q, o, c, f, t) => ({q, o, c, f, t});
 const ord = (q, items, f, t) => ({q, ord: items, f, t});
+const pri = (q, pary, f, t) => ({q, pri: pary, f, t});
 
 BANK[1] = [
-  abc("Čo sa meria v decibeloch?", ["Hlasitosť zvuku", "Jas svetla", "Rýchlosť vetra"], 0, "Stupnica je logaritmická – zvuk o desať decibelov vyšší je desaťkrát silnejší. Bolesť v ušiach začína okolo 120 decibelov.", 4),
-  abc("Koľko kostí má dospelý človek?", ["206", "256", "306"], 0, "Dieťa sa rodí s približne 270 kosťami, časť z nich počas rastu zrastie.", 4),
   abc("Ktorá planéta sa okolo svojej osi otočí najrýchlejšie?", ["Zem", "Jupiter", "Mars"], 1, "Jupiter sa otočí za necelých desať hodín, preto je na póloch viditeľne sploštený.", 5),
-  abc("Čo meria jednotka pascal?", ["Tlak", "Teplo", "Svetlo"], 0, "Blaise Pascal dokázal, že tlak vzduchu klesá s výškou – poslal švagra na horu s ortuťovou trubicou.", 4),
-  abc("Ktoré more je také slané, že sa v ňom nedá potopiť?", ["Mŕtve more", "Červené more", "Baltské more"], 0, "V Mŕtvom mori je soli takmer desaťkrát viac ako v oceáne a jeho hladina každý rok klesá o vyše meter.", 4),
   abc("Kto napísal knihu Alchymista?", ["Paulo Coelho", "Gabriel García Márquez", "Umberto Eco"], 0, "Prvé vydanie predalo len necelú tisícku kusov a vydavateľ zmluvu zrušil. Dnes je kniha preložená do vyše osemdesiatich jazykov.", 5),
   abc("Čo znamená názov Wi-Fi?", ["Wireless Fidelity", "Nič, je to vymyslené meno", "Wide Field"], 1, "Meno vymyslela reklamná agentúra ako slovnú hračku na hi-fi. Vysvetlenie „wireless fidelity“ dodali až dodatočne, aby to dávalo zmysel.", 5),
   abc("Ktoré zviera má najdlhšie tehotenstvo?", ["Slon", "Veľryba", "Žirafa"], 0, "Slonica nosí mláďa takmer dva roky a rodí postojačky; mláďa má pri narodení okolo sto kíl.", 5),
   abc("V ktorom meste sídli Európska centrálna banka?", ["Brusel", "Frankfurt nad Mohanom", "Luxemburg"], 1, "Banka sídli v dvojitom mrakodrape postavenom na mieste bývalej veľkoobchodnej tržnice s ovocím.", 5),
-  abc("Ktorý vitamín si telo vyrobí zo slnečného svetla?", ["C", "D", "B12"], 1, "V lete stačí asi štvrťhodina na slnku, v zime u nás slnko nemá dosť sily a vitamín sa prakticky netvorí.", 4),
-  abc("Čo je to fatamorgána?", ["Optický klam nad horúcim vzduchom", "Silný vietor v púšti", "Druh piesočnej duny"], 0, "Meno má po čarodejnici Morgane z artušovských legiend, ktorá vraj na mori vytvárala prízračné hrady.", 4),
   abc("Kde vznikli prvé papierové peniaze?", ["V Číne", "V Taliansku", "V Egypte"], 0, "Číňania ich používali už v 11. storočí. Marco Polo o nich písal a v Európe mu to nechceli veriť.", 5),
   abc("Koľko pádov má dnešná spisovná slovenčina?", ["Šesť", "Sedem", "Osem"], 0, "Siedmy pád, vokatív, sa vytratil; zostal len v slovách ako otče, Bože alebo synku.", 5),
   abc("Čo je to kaldera?", ["Prepadnutý sopečný kráter", "Morský prúd", "Púštna búrka"], 0, "Kalderu má aj ostrov Santorini – výbuch, ktorý ju vytvoril, zrejme prispel k zániku minojskej civilizácie.", 5),
   abc("Ktorý kov vedie elektrinu najlepšie?", ["Meď", "Striebro", "Zlato"], 1, "Striebro vedie najlepšie, ale do káblov sa dáva meď, pretože je mnohonásobne lacnejšia.", 5),
-  abc("Ako vznikol názov mesiaca júl?", ["Podľa Julia Caesara", "Podľa bohyne Juno", "Podľa latinského slova pre teplo"], 0, "Caesar si mesiac pomenoval sám po reforme kalendára. August potom dostal meno po cisárovi Augustovi.", 4),
   ord("Zoraď vesmírne telesá od najmenšieho", ["Mesiac", "Merkúr", "Mars", "Zem"], "Merkúr je len o tretinu väčší ako náš Mesiac a je zároveň najmenšou planétou slnečnej sústavy.", 10),
   ord("Zoraď mestá podľa počtu obyvateľov, od najmenšieho", ["Bratislava", "Praha", "Budapešť", "Viedeň"], "Viedeň má takmer dva milióny obyvateľov, Bratislava necelých päťstotisíc – aj tak sú od seba len hodinu cesty.", 10),
-  ord("Zoraď od najstaršieho po najmladšie", ["Rímska ríša", "Veľká Morava", "Uhorské kráľovstvo", "Československo"], "Veľká Morava trvala necelých sto rokov, Uhorsko takmer deväťsto.", 5),
   ord("Zoraď rieky podľa dĺžky, od najkratšej", ["Nitra", "Hron", "Váh", "Dunaj"], "Váh je najdlhšia rieka celá na našom území, Dunaj je najdlhší zo všetkých, ale Slovenskom preteká len asi 170 kilometrov.", 10),
   ord("Zoraď vrchy podľa výšky, od najnižšieho", ["Kriváň", "Rysy", "Lomnický štít", "Gerlachovský štít"], "Rysy sú jediný z tejto štvorice, na ktorý vedie značkovaný chodník bez sprievodcu.", 10),
-  ord("Zoraď vynálezy od najstaršieho", ["Kníhtlač", "Parný stroj", "Telefón", "Internet"], "Od kníhtlače k internetu ubehlo vyše päťsto rokov, no posledné dva vynálezy delí necelé storočie.", 5),
-  ord("Zoraď planéty podľa vzdialenosti od Slnka", ["Merkúr", "Venuša", "Zem", "Mars"], "Najhorúcejšia planéta nie je Merkúr, ale Venuša – hrubá atmosféra v nej drží teplo nad 460 stupňov.", 5),
-  ord("Zoraď osobnosti podľa narodenia, od najstaršej", ["Ľudovít Štúr", "Milan Rastislav Štefánik", "Alexander Dubček", "Peter Sagan"], "Štúr sa narodil v roku 1815 v Uhrovci – v tom istom dome sa o vyše sto rokov neskôr narodil Alexander Dubček.", 5)
 ];
 
 BANK[2] = [
@@ -143,24 +144,18 @@ BANK[2] = [
   abc("Ako sa volá jav, keď gravitácia ohne svetlo vzdialenej hviezdy?", ["Gravitačná šošovka", "Červený posun", "Paralaxa"], 0, "Jav predpovedal Einstein a potvrdili ho pri zatmení Slnka v roku 1919 – vtedy sa z Einsteina zo dňa na deň stala celebrita.", 5),
   abc("Koľko percent tela dospelého človeka tvorí voda?", ["Asi 40 %", "Asi 60 %", "Asi 80 %"], 1, "Novorodenec má vody okolo 75 percent, starší človek asi polovicu. Najviac vody je v pľúcach a mozgu.", 5),
   abc("Ktorá krajina má najdlhšiu pobrežnú čiaru na svete?", ["Rusko", "Kanada", "Austrália"], 1, "Kanadské pobrežie má vyše dvestotisíc kilometrov, väčšinu tvoria ostrovy v Arktíde. Obtočilo by Zem päťkrát.", 5),
-  abc("Čo skúma epidemiológia?", ["Šírenie chorôb v populácii", "Kožné choroby", "Pôvod slov"], 0, "Za zakladateľa sa považuje John Snow: v Londýne v roku 1854 zastavil choleru tým, že dal z nakazenej pumpy odmontovať kľuku.", 4),
   abc("Ktorá mena sa používa najdlhšie bez prerušenia?", ["Britská libra", "Švédska koruna", "Ruský rubeľ"], 0, "Libra sa používa od 8. storočia a jej meno pochádza z libry striebra, z ktorej sa razilo 240 mincí.", 5),
-  abc("Čo je to palindróm?", ["Slovo čitateľné rovnako aj odzadu", "Dvojica protikladov", "Prastaré písmo"], 0, "Najznámejší slovenský palindróm je „kobyla má malý bok“; po anglicky je to napríklad meno Hannah.", 4),
   abc("Kto vymyslel slovo robot?", ["Karel Čapek", "Josef Čapek", "Isaac Asimov"], 1, "Karel Čapek slovo použil v hre R. U. R., ale sám priznal, že mu ho poradil brat Josef. Vychádza zo slova robota.", 5),
   abc("Koľko je približne jeden svetelný rok?", ["9,5 bilióna kilometrov", "9,5 miliardy kilometrov", "950 miliónov kilometrov"], 0, "Svetlo zo Slnka k nám letí osem minút, z najbližšej hviezdy Proxima Centauri vyše štyri roky.", 8),
   abc("V ktorej časti tela je väčšina buniek imunitného systému?", ["V slezine", "V črevách", "V pečeni"], 1, "V črevách je asi sedemdesiat percent imunitných buniek a mikróbov v nich máme viac, ako má telo vlastných buniek.", 5),
-  abc("Čo znamená hudobné tempo allegro?", ["Rýchlo a veselo", "Veľmi pomaly", "Postupne zosilňovať"], 0, "Po taliansky allegro doslova znamená veselý; hudobné označenie rýchlosti sa z toho stalo až neskôr.", 4),
   abc("Ktoré zviera má najväčší mozog?", ["Slon", "Vorvaň", "Človek"], 1, "Mozog vorvaňa váži až osem kilogramov, ľudský asi 1,4. Podľa pomeru k telu je však na tom najlepšie mravec.", 5),
   abc("Ktorá krajina má najviac ostrovov?", ["Nórsko", "Švédsko", "Fínsko"], 1, "Švédsko ich má vyše dvestopäťdesiattisíc, obývaných je z nich len asi tisíc.", 5),
-  abc("Ktorý prvok je najrozšírenejší vo vesmíre?", ["Vodík", "Hélium", "Kyslík"], 0, "Vodík tvorí asi tri štvrtiny hmoty vesmíru. Hélium objavili najskôr v slnečnom svetle a až potom na Zemi – odtiaľ jeho meno podľa boha Hélia.", 4),
   abc("Koľko percent územia Slovenska pokrývajú lesy?", ["Asi 20 %", "Asi 40 %", "Asi 60 %"], 1, "Lesy pokrývajú okolo 41 percent územia, takže Slovensko patrí medzi najzalesnenejšie krajiny Európy.", 5),
   abc("Čo je to bod varu vody vo vysokých horách?", ["Vyšší ako 100 °C", "Nižší ako 100 °C", "Stále 100 °C"], 1, "Na Mount Evereste vrie voda pri zhruba 70 stupňoch – práve preto sa tam jedlo poriadne neuvarí.", 5),
   ord("Zoraď krajiny podľa rozlohy, od najmenšej", ["Slovensko", "Česko", "Rakúsko", "Maďarsko"], "Slovensko je z tejto štvorice najmenšie, no má najvyššie hory.", 10),
-  ord("Zoraď svetové udalosti od najstaršej", ["Kolumbus doplával do Ameriky", "Francúzska revolúcia", "Prvý let bratov Wrightovcov", "Pristátie na Mesiaci"], "Od prvého motorového letu k pristátiu na Mesiaci ubehlo len 66 rokov – jeden ľudský život.", 5),
   ord("Zoraď moria podľa hĺbky, od najplytšieho", ["Azovské more", "Baltské more", "Čierne more", "Stredozemné more"], "Azovské more má priemernú hĺbku asi sedem metrov, dá sa v ňom takmer prejsť.", 20),
   ord("Zoraď skladateľov podľa narodenia, od najstaršieho", ["Johann Sebastian Bach", "Wolfgang Amadeus Mozart", "Ludwig van Beethoven", "Fryderyk Chopin"], "Beethoven sa s Mozartom podľa všetkého stretol ako sedemnásťročný vo Viedni, no dôkaz o tom neexistuje.", 10),
   ord("Zoraď ihriská podľa dĺžky, od najkratšieho", ["Tenisový dvorec", "Basketbalové ihrisko", "Hokejové klzisko", "Futbalové ihrisko"], "Futbalové ihrisko nemá presný rozmer – pravidlá povoľujú dĺžku od 90 do 120 metrov.", 10),
-  ord("Zoraď tieto drobnosti od najmenšej", ["Vírus", "Baktéria", "Ľudská bunka", "Zrnko piesku"], "Do bodky na konci vety by sa zmestilo vyše milióna vírusov.", 5),
   ord("Zoraď tieto vynálezy od najstaršieho", ["Kompas", "Okuliare", "Ďalekohľad", "Žiarovka"], "Okuliare vznikli v Taliansku okolo roku 1285 a ich vynálezca je dodnes neznámy.", 10),
   ord("Zoraď slovenské mestá podľa počtu obyvateľov, od najmenšieho", ["Trnava", "Nitra", "Prešov", "Košice"], "Košice majú vyše dvestotisíc obyvateľov, čo je viac ako Trnava, Nitra a Prešov dokopy.", 10)
 ];
@@ -177,7 +172,6 @@ BANK[3] = [
   abc("Čo je Higgsov bozón?", ["Častica spojená s hmotnosťou", "Najmenšia jednotka svetla", "Druh neutrína"], 0, "Hľadali ho takmer päťdesiat rokov a potvrdili až v roku 2012 v CERN-e. Prezývka „božská častica“ vznikla z názvu knihy, ktorú vydavateľ nechcel nazvať inak.", 5),
   abc("Ktorá rieka preteká najviac krajinami?", ["Dunaj", "Níl", "Amazonka"], 0, "Dunaj tečie desiatimi krajinami a štyri z nich majú na ňom hlavné mesto – viac ako ktorákoľvek iná rieka.", 5),
   abc("Ako sa volá jav, keď neškodné zviera napodobní nebezpečné?", ["Mimikry", "Symbióza", "Konvergencia"], 0, "Pestrica vyzerá ako osa, ale žihadlo nemá. Niektoré húsenice zas napodobňujú hadiu hlavu.", 5),
-  abc("Kto je autorom Ilkovičovej rovnice, ktorú chemici používajú dodnes?", ["Dionýz Ilkovič", "Jaroslav Heyrovský", "Aurel Stodola"], 0, "Heyrovský dostal za polarografiu Nobelovu cenu a Slovák Dionýz Ilkovič k nej dodal rovnicu, ktorá meranie umožnila počítať.", 4),
   abc("Čo znamená kvantové previazanie?", ["Stav dvoch častíc, kde jedna určuje druhú", "Zrážka atómových jadier", "Strata elektrického odporu"], 0, "Einstein to nazval strašidelným pôsobením na diaľku a neveril tomu. V roku 2022 zaň dali Nobelovu cenu.", 8),
   abc("V ktorom roku korunovali v Bratislave Máriu Teréziu?", ["1741", "1780", "1711"], 0, "V Dóme svätého Martina sa korunovalo jedenásť panovníkov a osem manželiek; Mária Terézia bola jediná žena s titulom kráľa, nie kráľovnej.", 8),
   abc("Čo označuje pojem umbra pri zatmení Slnka?", ["Plný tieň", "Polotieň", "Slnečná koróna"], 0, "Kto stojí v umbre, vidí úplné zatmenie. Pás plného tieňa má na Zemi šírku len okolo sto kilometrov.", 5),
@@ -195,93 +189,176 @@ BANK[3] = [
 <script>
 /* ---------- druhá dávka otázok (pre dlhú hru) ---------- */
 BANK[1].push(
-  abc("Koľko čiernych kláves má klavír v jednej oktáve?", ["Päť", "Štyri", "Šesť"], 0, "Päť čiernych a sedem bielych, spolu dvanásť poltónov. Celý klavír má osemdesiatosem kláves.", 4),
-  abc("Čo je to tsunami?", ["Vlna po zemetrasení pod morom", "Silný pobrežný vietor", "Studený morský prúd"], 0, "Na otvorenom mori má vlna často len desiatky centimetrov a loď ju takmer nepocíti. Nebezpečnou sa stane až pri plytkom pobreží.", 4),
-  abc("Ktorý plyn rastliny pri fotosyntéze prijímajú?", ["Oxid uhličitý", "Kyslík", "Dusík"], 0, "V noci fotosyntéza nebeží a rastlina kyslík naopak spotrebúva – preto je povera o kvetoch v spálni len poverou, množstvá sú zanedbateľné.", 4),
-  abc("Ktorý ostrov je najväčší na svete?", ["Grónsko", "Nová Guinea", "Madagaskar"], 0, "Na bežných mapách vyzerá Grónsko väčšie ako Afrika, hoci je v skutočnosti asi štrnásťkrát menšie – za to môže spôsob zobrazenia gule na papier.", 4),
-  abc("Čo je v tenise eso?", ["Podanie, ktoré súper vôbec netrafí", "Víťazný úder pri sieti", "Gem získaný bez straty loptičky"], 0, "Najrýchlejšie namerané podanie letelo vyše dvestošesťdesiat kilometrov za hodinu – súper má na reakciu menej ako pol sekundy.", 4),
-  abc("Čo je laktóza?", ["Mliečny cukor", "Mliečny tuk", "Mliečna bielkovina"], 0, "Väčšina dospelých ľudí na svete ju trávi zle. Schopnosť piť mlieko aj v dospelosti je pomerne mladá zmena v génoch, rozšírená najmä v Európe.", 4),
-  abc("Čo vyjadruje Richterova stupnica?", ["Silu zemetrasenia", "Rýchlosť vetra", "Hĺbku mora"], 0, "Každý stupeň znamená zhruba tridsaťnásobok uvoľnenej energie, takže sedmička je oproti šestke obrovský rozdiel.", 4),
-  abc("Ktoré zviera je v znaku organizácie WWF?", ["Panda", "Tiger", "Slon"], 0, "Logo vzniklo podľa pandy Čchi-Čchi, ktorá v roku 1961 žila v londýnskej zoo. Čiernobiela kresba bola aj lacnejšia na tlač.", 4),
-  abc("Čo bola akropola?", ["Opevnená vyvýšená časť gréckeho mesta", "Divadlo pod holým nebom", "Trhovisko"], 0, "Najznámejšia je tá aténska s Partenónom, ktorý stojí vyše dvetisíc štyristo rokov a slúžil aj ako kostol i mešita.", 5),
   abc("Čo znamená v šachu pat?", ["Remíza, keď hráč nemá ťah a nie je v šachu", "Výhra bieleho", "Strata dámy"], 0, "Pat zachránil nejednu prehratú partiu: kto je na ťahu, nemá kam potiahnuť a pritom nie je v šachu, remizuje.", 5),
-  abc("Čo je atol?", ["Prstencový koralový ostrov s lagúnou", "Podmorská sopka", "Dlhá piesočná pláž"], 0, "Vznikne tak, že sopečný ostrov postupne klesne pod hladinu a zostane po ňom len koralový veniec okolo pokojnej lagúny.", 5),
-  abc("Čím sa živí koala?", ["Listami eukalyptu", "Bambusom", "Trávou"], 0, "Listy sú málo výživné a mierne jedovaté, preto koala prespí aj dvadsať hodín denne.", 4),
-  abc("Kto sformuloval teóriu evolúcie prirodzeným výberom?", ["Charles Darwin", "Gregor Mendel", "Louis Pasteur"], 0, "Darwin knihu odkladal vyše dvadsať rokov. Vydal ju, až keď mu Alfred Wallace poslal list s takmer rovnakou myšlienkou.", 4),
-  abc("Ktoré mesto je hlavným mestom Kanady?", ["Ottawa", "Toronto", "Montreal"], 0, "Ottawu vybrala v roku 1857 kráľovná Viktória ako kompromis medzi anglicky a francúzsky hovoriacou časťou krajiny.", 4),
   abc("Ktorý živočích si dokáže dorastiť odtrhnutú nohu?", ["Mlok", "Jašterica", "Žaba"], 0, "Mlokom dorastá noha, časť oka aj srdca. Jašterici narastie len chvost, a ten už býva bez stavcov.", 5),
-  abc("Ako sa nazýva súbor pravidiel slušného správania v spoločnosti?", ["Etiketa", "Etika", "Estetika"], 0, "Podľa rozšíreného vysvetlenia pochádza slovo z lístkov, ktoré na dvore Ľudovíta XIV. hosťom oznamovali, kam smú a kam nie.", 5),
-  abc("Čo je gejzír?", ["Prameň horúcej vody tryskajúci do výšky", "Podzemné jazero", "Vyhasnutý kráter"], 0, "Meno má podľa islandského prameňa Geysir. Najznámejší Old Faithful v Yellowstone vystrelí zhruba každých deväťdesiat minút.", 4),
-  abc("Ktoré mesto sa nazýva Večné mesto?", ["Rím", "Atény", "Jeruzalem"], 0, "Prezývku dal Rímu básnik Tibullus ešte v prvom storočí pred naším letopočtom, keď mesto zďaleka nebolo najstaršie.", 4),
-  abc("Koľko farieb sa tradične počíta v dúhe?", ["Sedem", "Päť", "Deväť"], 0, "Isaac Newton pridal indigo, aby ich bolo sedem ako tónov v hudobnej stupnici. V skutočnosti farby prechádzajú plynulo.", 4),
-  ord("Zoraď podľa počtu nôh, od najmenšieho počtu", ["Človek", "Pes", "Chrobák", "Pavúk"], "Hmyz má vždy šesť nôh, pavúkovce osem – práve podľa toho ich biológovia rozlišujú.", 5),
-  ord("Zoraď pohoria podľa najvyššieho vrchu, od najnižšieho", ["Malé Karpaty", "Veľká Fatra", "Nízke Tatry", "Vysoké Tatry"], "Záruby v Malých Karpatoch majú 768 metrov, Gerlachovský štít 2 655 – rozdiel takmer dvetisíc metrov.", 5),
-  ord("Zoraď podľa rýchlosti, od najpomalšieho", ["Slimák", "Človek pri chôdzi", "Kôň v cvale", "Gepard"], "Gepard zrýchli na sto kilometrov za hodinu za pár sekúnd, ale vydrží to len niekoľko stoviek metrov.", 5),
-  ord("Zoraď stavby podľa veku, od najstaršej", ["Pyramídy v Gíze", "Koloseum", "Eiffelova veža", "Burdž Chalífa"], "Keď Rimania stavali Koloseum, pyramídy už stáli vyše dvetisíc päťsto rokov.", 5),
-  ord("Zoraď nástroje podľa výšky tónu, od najvyššieho", ["Pikola", "Husle", "Violončelo", "Kontrabas"], "Pikola znie o oktávu vyššie ako bežná priečna flauta a v orchestri ju počuť aj cez celé teleso.", 5),
-  ord("Zoraď podľa teploty, od najnižšej", ["Bod mrazu vody", "Izbová teplota", "Telesná teplota", "Bod varu vody"], "Telesná teplota kolíše počas dňa asi o pol stupňa, najnižšia býva nadránom.", 5),
-  ord("Zoraď zvieratá podľa hmotnosti, od najľahšieho", ["Mačka", "Vlk", "Medveď hnedý", "Slon africký"], "Slon africký váži aj šesť ton a denne zje okolo stopäťdesiat kilogramov rastlín.", 5),
-  ord("Zoraď slovenské mestá od západu na východ", ["Bratislava", "Nitra", "Banská Bystrica", "Košice"], "Slovensko je zo západu na východ dlhé asi 430 kilometrov, autom je to približne päť hodín.", 5)
 );
 
 BANK[2].push(
   abc("Ktorý kov sa roztopí už v dlani?", ["Gálium", "Hliník", "Zinok"], 0, "Gálium sa topí pri tridsiatich stupňoch, takže lyžička z neho zmizne v horúcom čaji. Používa sa v polovodičoch a LED diódach.", 5),
-  abc("Čo znamená inflácia?", ["Rast cien a pokles hodnoty peňazí", "Pokles výroby", "Rast nezamestnanosti"], 0, "Najvyššiu infláciu v dejinách zažilo Maďarsko v roku 1946, keď sa ceny zdvojnásobovali približne každých pätnásť hodín.", 4),
   abc("Ktorý mesiac slnečnej sústavy je najväčší?", ["Ganymedes", "Titan", "Európa"], 0, "Jupiterov Ganymedes je väčší ako planéta Merkúr a ako jediný mesiac má vlastné magnetické pole.", 5),
-  abc("Čo je algoritmus?", ["Presne určený postup krokov", "Druh šifry", "Počítačový vírus"], 0, "Slovo vzniklo z mena perzského matematika al-Chvárizmího, ktorý žil v deviatom storočí – dávno pred prvým počítačom.", 4),
   abc("Ktoré zviera má najsilnejší stisk čeľustí?", ["Krokodíl morský", "Lev", "Žralok biely"], 0, "Stláča silou vyše dvoch ton, no svaly na otvorenie papule má také slabé, že ju udrží aj ľudská ruka.", 5),
-  abc("Čo skúma paleontológia?", ["Skameneliny dávnych organizmov", "Staré jazyky", "Staroveké mince"], 0, "Slovo dinosaurus vymyslel v roku 1842 Richard Owen a znamená doslova strašný jašter.", 4),
   abc("Čo je palimpsest?", ["Pergamen, z ktorého zotreli starší text a napísali nový", "Stredoveká pečať", "Kláštorná knižnica"], 0, "Pergamen bol drahý, a tak sa používal znova. Pod novým textom vedci ultrafialovým svetlom našli aj stratené Archimedove spisy.", 8),
   abc("Ktorá výprava ako prvá oboplávala Zem?", ["Magalhãesova", "Kolumbova", "Cookova"], 0, "Magalhães cestu neprežil. Do Španielska sa po troch rokoch vrátila jediná loď s osemnástimi mužmi z vyše dvestočlennej posádky.", 5),
-  abc("Ktorý ľudský orgán dokáže dorásť aj po odobratí veľkej časti?", ["Pečeň", "Oblička", "Pľúca"], 0, "Pečeň dorastie do pôvodnej veľkosti aj z tretiny, preto môže žijúci darca darovať jej časť.", 4),
-  abc("Čo je monzún?", ["Sezónny vietor prinášajúci dažde", "Morský prúd", "Piesočná búrka"], 0, "V Indii prinesie až osemdesiat percent ročných zrážok, takže jeho meškanie ovplyvní úrodu pre miliardu ľudí.", 4),
-  abc("Ktorá krajina má najviac obyvateľov v Európskej únii?", ["Nemecko", "Francúzsko", "Taliansko"], 0, "Nemecko má vyše osemdesiattri miliónov obyvateľov, teda približne pätinu všetkých obyvateľov únie.", 4),
-  abc("Kto namaľoval sériu obrazov Slnečnice?", ["Vincent van Gogh", "Claude Monet", "Paul Gauguin"], 0, "Van Gogh nimi vyzdobil izbu pre Gauguina, ktorý ho prišiel navštíviť do Arles. Ich spoločné bývanie sa skončilo hádkou a odrezaným uchom.", 4),
-  abc("Čo je permafrost?", ["Trvalo zamrznutá pôda", "Ľadovec plávajúci v mori", "Sneh, ktorý neroztopí ani leto"], 0, "Pokrýva asi pätinu pevniny severnej pologule. Keď sa rozmŕza, uvoľňuje metán a prepadávajú sa cesty aj domy.", 4),
-  abc("Ktorá kosť v ľudskom tele je najdlhšia?", ["Stehenná", "Píšťala", "Ramenná"], 0, "Meria zhruba štvrtinu výšky človeka, takže antropológovia podľa nej dokážu odhadnúť postavu aj z jedinej nájdenej kosti.", 4),
-  abc("Čo je inkubačná doba choroby?", ["Čas od nákazy po prvé príznaky", "Čas liečby", "Čas, kým vydrží imunita"], 0, "Pri ovčích kiahňach trvá aj tri týždne, takže sa choroba šíri dávno predtým, než o nej niekto vie.", 4),
   abc("Ktorý štát má ako jediný neobdĺžnikovú štátnu vlajku?", ["Nepál", "Švajčiarsko", "Bhután"], 0, "Nepálska vlajka je zložená z dvoch trojuholníkov a jej presný tvar určuje ústava pomocou geometrického návodu.", 5),
   abc("Koľko veršov má sonet?", ["Štrnásť", "Dvanásť", "Šestnásť"], 0, "Shakespeare ich napísal stopäťdesiatštyri. Anglický sonet má iné rozdelenie veršov ako starší taliansky Petrarcov.", 5),
   abc("Čo je ozón?", ["Kyslík s troma atómami v molekule", "Zmes dusíka a kyslíka", "Vodná para vo veľkej výške"], 0, "Ozónová vrstva je vo výške dvadsať až tridsať kilometrov. Keby sa stlačila k zemi, mala by hrúbku len niekoľko milimetrov.", 5),
   abc("Ktoré more nemá pobrežie?", ["Sargasové", "Karibské", "Beringovo"], 0, "Ohraničujú ho len morské prúdy a plávajú v ňom obrovské koberce chalúh. Práve v ňom sa neresia úhory z celej Európy.", 8),
   ord("Zoraď panovníkov podľa doby vlády, od najstaršieho", ["Karol Veľký", "Matej Korvín", "Mária Terézia", "František Jozef I."], "František Jozef I. vládol šesťdesiatosem rokov, najdlhšie z celého rodu Habsburgovcov.", 10),
-  ord("Zoraď vojny od najstaršej", ["Tridsaťročná vojna", "Napoleonské vojny", "Prvá svetová vojna", "Druhá svetová vojna"], "Tridsaťročná vojna sa skončila v roku 1648 vestfálskym mierom, z ktorého vychádza dnešné chápanie samostatných štátov.", 5),
   ord("Zoraď kovy podľa teploty topenia, od najnižšej", ["Cín", "Hliník", "Meď", "Železo"], "Cín sa topí pri 232 stupňoch, železo až pri 1 538 – preto sa z cínu odlievali figúrky doma na sporáku.", 10),
-  ord("Zoraď podľa vzdialenosti od Zeme, od najbližšieho", ["Vesmírna stanica ISS", "Mesiac", "Slnko", "Proxima Centauri"], "Stanica ISS lieti len štyristo kilometrov nad nami a Zem obletí za deväťdesiat minút.", 5),
   ord("Zoraď stavby podľa výšky, od najnižšej", ["Socha slobody", "Eiffelova veža", "Empire State Building", "Burdž Chalífa"], "Eiffelova veža mala po výstave stáť len dvadsať rokov. Zachránila ju rádiová anténa na vrchole.", 10),
   ord("Zoraď dopravné vynálezy od najstaršieho", ["Parná lokomotíva", "Automobil", "Lietadlo", "Vrtuľník"], "Leonardo da Vinci kreslil lietajúcu skrutku už okolo roku 1490, prvý sériový vrtuľník vzlietol až o štyri a pol storočia neskôr.", 10),
   ord("Zoraď európske metropoly podľa počtu obyvateľov, od najmenšej", ["Praha", "Viedeň", "Berlín", "Londýn"], "Londýn bol prvým mestom na svete, ktoré malo milión obyvateľov – dosiahol to krátko po roku 1800.", 10),
-  ord("Zoraď obdobia Zeme od najstaršieho", ["Prvohory", "Druhohory", "Treťohory", "Štvrtohory"], "Dinosaury vymreli na konci druhohôr pred šesťdesiatimi šiestimi miliónmi rokov, dávno pred prvými ľuďmi.", 5)
 );
 
 BANK[3].push(
   abc("Čo hovorí Gödelova veta o neúplnosti?", ["V dosť bohatej matematike sú pravdivé tvrdenia, ktoré sa nedajú dokázať", "Každá rovnica má riešenie", "Nekonečno sa nedá spočítať"], 0, "Gödel ju dokázal ako dvadsaťpäťročný a zrútil ňou Hilbertov plán postaviť celú matematiku na úplnom systéme axióm.", 8),
   abc("Čo robí katalyzátor?", ["Urýchli reakciu a sám sa nespotrebuje", "Reakciu zastaví", "Zvýši teplotu varu"], 0, "V autách premieňa výfukové plyny na menej škodlivé a obsahuje platinu, paládium a ródium – preto ho zlodeji vypiľujú spod áut.", 5),
   abc("Čo spôsobuje polárnu žiaru?", ["Častice zo Slnka narážajúce do atmosféry", "Odraz svetla od ľadovcov", "Výboje v búrkových mrakoch"], 0, "Farbu určuje plyn, do ktorého častice narazia: kyslík svieti zeleno a červeno, dusík dofialova.", 5),
-  abc("Kto objavil základné zákony dedičnosti?", ["Gregor Mendel", "Charles Darwin", "Louis Pasteur"], 0, "Mendel bol opát v Brne. Jeho pokusy s hrachom si vedci všimli až tridsaťpäť rokov po vydaní, keď už nežil.", 4),
   abc("Ktorý Slovák sa preslávil prácou o parných turbínach?", ["Aurel Stodola", "Jozef Murgaš", "Ján Bahýľ"], 0, "Stodola učil v Zürichu a jedným z jeho poslucháčov bol aj Albert Einstein. Navrhol tiež jednu z prvých ovládateľných protéz ruky.", 5),
   abc("Čo označuje inflácia v kozmológii?", ["Prudké rozpínanie vesmíru hneď po veľkom tresku", "Postupné chladnutie hviezd", "Zrážky galaxií"], 0, "Trvala nepatrný zlomok sekundy a vysvetľuje, prečo je vesmír v každom smere takmer rovnako teplý.", 5),
-  abc("Ktorá kultúra postavila Machu Picchu?", ["Inkovia", "Mayovia", "Aztékovia"], 0, "Mesto postavili v pätnástom storočí bez malty a bez kolesa. Kamene do seba zapadajú tak tesne, že medzi ne nevsuniete ani nôž.", 4),
   abc("Čo je bazálny metabolizmus?", ["Energia, ktorú telo spotrebuje v úplnom pokoji", "Rýchlosť trávenia", "Množstvo spáleného tuku pri športe"], 0, "Tvorí väčšinu denného výdaja energie a samotný mozog z neho spotrebuje asi pätinu, aj keď nič nerobíte.", 5),
   abc("Čo hovorí Heisenbergov princíp neurčitosti?", ["Polohu a hybnosť častice nemožno naraz zmerať presne", "Energia sa nedá zničiť", "Rýchlosť svetla je vždy rovnaká"], 0, "Nejde o nedokonalé prístroje, ale o vlastnosť samotnej prírody – čím presnejšie poznáme jedno, tým menej presne to druhé.", 8),
   abc("Ktorá teória vysvetľuje pohyb kontinentov?", ["Tektonika litosférických platní", "Teória zmršťovania Zeme", "Gravitačná teória prílivu"], 0, "Alfredovi Wegenerovi sa v roku 1912 vysmiali. Uznanie prišlo až v šesťdesiatych rokoch po meraniach na dne oceánov.", 5),
   abc("Čo je plazma ako skupenstvo?", ["Ionizovaný plyn", "Veľmi hustá kvapalina", "Zmes roztavených kovov"], 0, "Je to najrozšírenejšie skupenstvo vo vesmíre – hviezdy, blesky aj polárna žiara sú plazma.", 5),
-  abc("Z ktorého románu pochádza pojem Veľký brat?", ["1984", "Krásny nový svet", "451 stupňov Fahrenheita"], 0, "George Orwell knihu písal na odľahlom škótskom ostrove Jura, už ťažko chorý na tuberkulózu. Vyšla v roku 1949, rok pred jeho smrťou.", 4),
-  abc("Od čoho sa počíta Kelvinova stupnica?", ["Od absolútnej nuly", "Od bodu mrazu vody", "Od priemernej teploty vesmíru"], 0, "Absolútna nula je mínus 273,15 stupňa Celzia. Dosiahnuť sa ju nepodarilo, vedci sa k nej priblížili na miliardtiny stupňa.", 4),
-  abc("Ktorý filozof napísal Myslím, teda som?", ["René Descartes", "Immanuel Kant", "John Locke"], 0, "Descartes hľadal jediný bod, o ktorom sa nedá pochybovať: aj keď o všetkom pochybujem, niekto ten, kto pochybuje, byť musí.", 4),
   abc("Čo je supravodivosť?", ["Vedenie prúdu úplne bez odporu", "Vedenie tepla bez strát", "Mimoriadne vysoký elektrický odpor"], 0, "Objavili ju v roku 1911 na ortuti chladenej tekutým héliom. Dnes na nej stoja magnety v nemocničnej magnetickej rezonancii.", 5),
   abc("Kto viedol prvú úspešnú výpravu na južný pól?", ["Roald Amundsen", "Robert Scott", "Ernest Shackleton"], 0, "Amundsen bol na póle o tridsaťštyri dní skôr ako Scott. Scottova skupina cestu späť neprežila.", 5),
   abc("Čo znamená antibiotická rezistencia?", ["Baktérie prestanú byť citlivé na liek", "Pacient je alergický na liek", "Liek sa v tele rýchlo rozloží"], 0, "Alexander Fleming na ňu upozornil už vo svojej nobelovskej prednáške v roku 1945, krátko po tom, ako sa penicilín začal vyrábať masovo.", 5),
   abc("Čo je Dopplerov jav?", ["Zmena vnímanej frekvencie pri pohybe zdroja", "Ohyb svetla okolo prekážky", "Zosilnenie zvuku v uzavretom priestore"], 0, "Počuť ho pri sirene sanitky a vďaka nemu astronómovia zistili, že sa od nás galaxie vzďaľujú – ich svetlo sa posúva do červena.", 5),
-  abc("Ktorá svetová organizácia vznikla v roku 1945?", ["Organizácia Spojených národov", "NATO", "Európske hospodárske spoločenstvo"], 0, "Zakladajúcu chartu podpísalo päťdesiat štátov v San Franciscu. Dnes má organizácia stodeväťdesiattri členov.", 4),
-  ord("Zoraď jednotky dĺžky od najmenšej", ["Nanometer", "Mikrometer", "Milimeter", "Centimeter"], "Vlákno pavučiny má priemer okolo troch mikrometrov, teda asi dvadsaťkrát menej ako ľudský vlas.", 5),
-  ord("Zoraď vedcov podľa narodenia, od najstaršieho", ["Galileo Galilei", "Isaac Newton", "Albert Einstein", "Stephen Hawking"], "Hawking sa narodil presne tristo rokov po Galileiho smrti a zomrel v deň Einsteinových narodenín.", 5),
   ord("Zoraď objavy v medicíne od najstaršieho", ["Očkovanie proti pravým kiahňam", "Narkóza pri operácii", "Penicilín", "Prvá transplantácia srdca"], "Edward Jenner použil kravské kiahne, a preto máme slovo vakcína – z latinského vacca, krava.", 10),
   ord("Zoraď svetové rieky podľa dĺžky, od najkratšej", ["Visla", "Dunaj", "Mississippi", "Amazonka"], "Cez hlavný tok Amazonky nevedie ani jeden most, hoci je dlhá vyše šesťtisíc kilometrov.", 10),
   ord("Zoraď žiarenie podľa energie, od najmenšej", ["Rádiové vlny", "Viditeľné svetlo", "Röntgenové žiarenie", "Gama žiarenie"], "Gama žiarenie vzniká pri jadrových premenách a zastaví ho až hrubá vrstva olova či betónu.", 10),
   ord("Zoraď štáty podľa rozlohy, od najmenšieho", ["Island", "Nemecko", "Egypt", "Rusko"], "Rusko je také veľké, že má jedenásť časových pásiem – keď sa na východe raňajkuje, v Moskve sa ešte spí.", 10),
-  ord("Zoraď udalosti 20. storočia od najstaršej", ["Vznik Československa", "Veľká hospodárska kríza", "Pád Berlínskeho múru", "Rozdelenie Česko-Slovenska"], "Berlínsky múr padol po tlačovej konferencii, na ktorej hovorca omylom povedal, že nové cestovné pravidlá platia okamžite.", 5),
-  ord("Zoraď podľa veľkosti, od najmenšieho", ["Kvark", "Protón", "Atóm", "Molekula vody"], "Keby mal atóm veľkosť futbalového štadióna, jeho jadro by bolo asi ako hrášok v strede ihriska.", 5)
+);
+</script>
+<script>
+/* ---------- tretia dávka: otázky na zamyslenie, s chytákom a priraďovanie ---------- */
+BANK[1].push(
+  abc("Koľko zvierat od každého druhu vzal Mojžiš na archu?", ["Žiadne, archu staval Noe", "Dve", "Sedem"], 0, "Tento chyták sa volá Mojžišova ilúzia – väčšina ľudí si zámenu mien vôbec nevšimne, lebo obaja patria do biblických príbehov.", 8),
+  abc("Ktorý mesiac má 28 dní?", ["Každý", "Len február", "Február, v priestupnom roku aj marec"], 0, "Dvadsaťosem dní majú všetky mesiace – väčšina z nich má ešte dva či tri navyše. Priestupné roky zaviedol už Július Caesar.", 8),
+  abc("Čo je ťažšie: kilogram peria, alebo kilogram železa?", ["Rovnako", "Železo", "Perie"], 0, "Obe majú kilogram. Na obyčajnej váhe by však perie ukázalo o chlp menej – má veľký objem a vzduch ho nadnáša ako balón.", 6),
+  abc("Z ktorej krajiny pôvodne pochádzajú panamské klobúky?", ["Z Ekvádoru", "Z Panamy", "Z Kolumbie"], 0, "Meno dostali, keď ich nosili robotníci pri stavbe Panamského prieplavu. Pletú sa v Ekvádore dodnes.", 8),
+  abc("Akú farbu má čierna skrinka v lietadle?", ["Oranžovú", "Čiernu", "Striebornú"], 0, "Jasná oranžová pomáha nájsť ju medzi troskami. Zapisovač musí vydržať obrovský náraz aj hodinu v ohni nad tisíc stupňov.", 6),
+  abc("Z čoho je tuha v obyčajnej ceruzke?", ["Z grafitu a hliny", "Z olova", "Z dreveného uhlia"], 0, "Olovo v ceruzkách nikdy nebolo. Omyl vznikol v 16. storočí, keď ľudia grafit považovali za druh olova.", 6),
+  abc("Akú farbu má krv v našich žilách?", ["Tmavočervenú", "Modrú", "Fialovú"], 0, "Žily sa cez kožu zdajú modré len preto, ako koža pohlcuje a rozptyľuje svetlo. Krv bez kyslíka je len tmavšia červená.", 6),
+  abc("Koľko nôh má motýľ?", ["Šesť", "Štyri", "Osem"], 0, "Motýľ je hmyz, a ten má vždy šesť nôh. Babôčky majú predné nohy zakrpatené, preto to vyzerá, že majú len štyri.", 6),
+  abc("Koľko percent mozgu človek bežne využíva?", ["Takmer celý mozog", "Asi 10 %", "Asi 30 %"], 0, "Desať percent je mýtus. Aj v spánku pracujú všetky časti mozgu, len v rôznom čase rôzne intenzívne.", 6),
+  abc("Akú farbu má koža ľadového medveďa?", ["Čiernu", "Bielu", "Ružovú"], 0, "Ani jeho srsť nie je biela – chlpy sú priehľadné a duté a biele sa zdajú len preto, ako rozptyľujú svetlo.", 6),
+  abc("Čo dopadne vo vákuu na zem skôr: pierko, alebo kladivo?", ["Dopadnú naraz", "Kladivo", "Pierko"], 0, "Astronaut David Scott to v roku 1971 vyskúšal priamo na Mesiaci s kladivom a sokolím perom – dopadli naraz.", 6),
+  abc("Kde sa zvuk šíri rýchlejšie?", ["Vo vode", "Vo vzduchu", "Všade rovnako"], 0, "Vo vode letí zvuk asi štyrikrát rýchlejšie ako vo vzduchu, v oceli ešte asi štyrikrát rýchlejšie ako vo vode.", 6),
+  abc("Koľko vody dokáže smädná ťava vypiť naraz?", ["Vyše 100 litrov", "Asi 20 litrov", "Asi 50 litrov"], 0, "Toľko zvládne za pár minút. V hrboch pritom vodu nemá – je v nich tuk, zásoba energie na horšie časy.", 6),
+  abc("Bežíš preteky a predbehneš druhého bežca. Na ktorom mieste si?", ["Na druhom", "Na prvom", "Na treťom"], 0, "Zaujal si jeho miesto, takže si druhý. Posledného bežca pritom predbehnúť nejde vôbec – kto by bol za ním?", 8),
+  abc("Lekár ti dá tri tabletky, jednu máš zobrať každú polhodinu. Za koľko minút zoberieš všetky?", ["Za 60", "Za 90", "Za 30"], 0, "Prvú zoberieš hneď, druhú o polhodinu, tretiu o ďalšiu polhodinu – spolu hodina, nie hodina a pol.", 10),
+  abc("Otec Márie má päť dcér: Nana, Nene, Nini, Nono. Ako sa volá piata?", ["Mária", "Nunu", "Nany"], 0, "Hádanka funguje, lebo mozog pokračuje vo vzorci a meno z prvých slov otázky prehliadne.", 10),
+  abc("Koľko je 1000 + 40 + 1000 + 30 + 1000 + 20 + 1000 + 10?", ["4 100", "5 000", "4 200"], 0, "Pri rýchlom počítaní v hlave veľa ľudí povie päťtisíc – pri prechode cez celú tisícku sa ľahko pomýli.", 10),
+  abc("Ktorý je najväčší orgán ľudského tela?", ["Koža", "Pečeň", "Pľúca"], 0, "Koža dospelého má plochu okolo dvoch metrov štvorcových. Pečeň je najväčší orgán vo vnútri tela.", 5),
+  abc("Čo je morský koník?", ["Ryba", "Mäkkýš", "Kôrovec"], 0, "Morské koníky sú zvláštne aj tým, že mláďatá nosí vo vaku a rodí samec.", 6),
+  abc("Aký vysoký bol Napoleon?", ["Priemerný, okolo 168 cm", "Veľmi malý, okolo 150 cm", "Vysoký, okolo 185 cm"], 0, "Mýtus o malom Napoleonovi vznikol z rozdielu francúzskych a anglických palcov a z britských posmešných karikatúr.", 8),
+  abc("Ktorá je najjasnejšia hviezda nočnej oblohy?", ["Sírius", "Polárka", "Vega"], 0, "Polárka je až okolo päťdesiateho miesta. Známa je len tým, že sa na oblohe takmer nehýbe a ukazuje na sever.", 6),
+  abc("Ktorá krajina má najviac jazier?", ["Kanada", "Fínsko", "Rusko"], 0, "Kanada má viac jazier ako všetky ostatné krajiny sveta dokopy. Fínsku sa hovorí krajina tisícich jazier, no má ich ,len‘ asi 188 tisíc.", 6),
+
+  ord("Zoraď hlavné mestá od severu na juh", ["Oslo", "Kodaň", "Berlín", "Viedeň"], "Oslo leží zhruba na rovnakej zemepisnej šírke ako južný cíp Grónska a Kodaň takmer presne ako Moskva.", 10),
+  ord("Zoraď výsledky od najmenšieho", ["Tretina zo 60", "Polovica zo 42", "Štvrtina zo 100", "Pätina zo 150"], "Na delenie tretinami, štvrtinami aj pätinami sa hodí číslo 60 – preto Babylončania počítali v šesťdesiatkach a hodina má 60 minút.", 20),
+  ord("Zoraď od najmenšieho počtu", ["Hráči volejbalového družstva na ihrisku", "Nohy pavúka", "Hráči futbalového mužstva na ihrisku", "Dni v dvoch týždňoch"], "Pavúk má osem nôh, no pri ústach má aj dve makadlá, takže to niekedy vyzerá, že ich má desať.", 10),
+  ord("Zoraď sviatky od začiatku roka", ["Traja králi", "Veľká noc", "Sviatok práce", "Vianoce"], "Veľká noc nemá pevný dátum – je to prvá nedeľa po prvom jarnom splne, takže vychádza medzi 22. marec a 25. apríl.", 10),
+
+  pri("Priraď hlavné mestá ku krajinám", [["Austrália", "Canberra"], ["Kanada", "Ottawa"], ["Turecko", "Ankara"]], "Canberru postavili ako kompromis, lebo Sydney a Melbourne sa nevedeli dohodnúť, ktoré z nich bude hlavným mestom.", 10),
+  pri("Priraď rozprávky k autorom", [["Hans Christian Andersen", "Malá morská víla"], ["Bratia Grimmovci", "Snehulienka"], ["Carlo Collodi", "Pinocchio"]], "Socha Malej morskej víly v Kodani má len 1,25 metra a turisti bývajú prekvapení, aká je malá.", 8),
+  pri("Priraď športy k počtu hráčov jedného družstva na ihrisku", [["Volejbal", "6"], ["Basketbal", "5"], ["Hádzaná", "7"]], "Volejbal vymyslel v roku 1895 učiteľ telocviku William Morgan ako pokojnejšiu hru, než bol basketbal.", 10),
+  pri("Priraď zvieratá k rekordom", [["Gepard", "Najrýchlejší beh"], ["Sokol sťahovavý", "Najrýchlejší strmhlavý let"], ["Plachetník", "Najrýchlejšie plávanie"]], "Sokol sťahovavý pri strmhlavom lete presahuje 300 km/h, teda je rýchlejší ako väčšina vlakov.", 10),
+  pri("Priraď nástroje k skupinám", [["Trúbka", "Plechové dychové"], ["Saxofón", "Drevené dychové"], ["Harfa", "Strunové brnkacie"]], "Saxofón je z kovu, ale patrí medzi drevené dychové nástroje, lebo tón mu dáva plátok z trstiny.", 10),
+  pri("Priraď mestá k riekam, ktoré nimi pretekajú", [["Londýn", "Temža"], ["Paríž", "Seina"], ["Varšava", "Visla"]], "Najstarší most cez Seinu v Paríži sa paradoxne volá Nový most – Pont Neuf.", 10),
+  pri("Priraď planéty k tomu, čím vynikajú", [["Venuša", "Najhorúcejšia planéta"], ["Mars", "Najvyššia sopka"], ["Saturn", "Hustota menšia ako voda"]], "Sopka Olympus Mons na Marse je asi dva a pol raza vyššia ako Mount Everest.", 12),
+  pri("Priraď jedlá ku krajinám", [["Paella", "Španielsko"], ["Guláš", "Maďarsko"], ["Pierogi", "Poľsko"]], "Pôvodný maďarský gulyás je skôr hustá polievka, ktorú varili pastieri dobytka v kotlíkoch.", 8)
+);
+
+BANK[2].push(
+  abc("Ako dlho trvala storočná vojna?", ["116 rokov", "100 rokov", "99 rokov"], 0, "Anglicko a Francúzsko bojovali s prestávkami od roku 1337 do roku 1453.", 8),
+  abc("Ktorá rieka je najdlhšia v Európe?", ["Volga", "Dunaj", "Rýn"], 0, "Volga meria okolo 3 500 kilometrov a vlieva sa do Kaspického mora, ktoré je vlastne obrovské jazero.", 6),
+  abc("Kto zložil Štyri ročné obdobia?", ["Antonio Vivaldi", "Johann Sebastian Bach", "Joseph Haydn"], 0, "Vivaldi bol kňaz a pre ryšavé vlasy ho volali Červený kňaz.", 5),
+  abc("Ktorý štát USA je rozlohou najväčší?", ["Aljaška", "Texas", "Kalifornia"], 0, "USA kúpili Aljašku od Ruska v roku 1867 za 7,2 milióna dolárov a mnohí to vtedy považovali za hlúposť.", 6),
+  abc("Ktorá je najväčšia púšť na svete?", ["Antarktída", "Sahara", "Gobi"], 0, "Púšť sa určuje podľa množstva zrážok, nie podľa teploty. Sahara je najväčšia horúca púšť.", 8),
+  abc("Ktorého plynu je vo vzduchu najviac?", ["Dusíka", "Kyslíka", "Oxidu uhličitého"], 0, "Dusíka je vo vzduchu asi 78 percent, kyslíka necelých 21.", 6),
+  abc("Ktorá je najmenšia kosť v ľudskom tele?", ["Strmienok v uchu", "Článok malíčka", "Kostrč"], 0, "Strmienok meria asi tri milimetre a spolu s kladivkom a nákovkou prenáša zvuk do vnútorného ucha.", 6),
+  abc("Koľko sŕdc má chobotnica?", ["Tri", "Jedno", "Dve"], 0, "Dve srdcia ženú krv cez žiabre, tretie do tela. Krv má modrú, lebo kyslík v nej prenáša meď namiesto železa.", 6),
+  abc("Ktorý Slovák si dal v USA patentovať padák?", ["Štefan Banič", "Ján Bahýľ", "Jozef Murgaš"], 0, "Banič padák predviedol v roku 1914 skokom zo strechy vo Washingtone a patent potom daroval americkej armáde.", 6),
+  abc("Ktoré zviera má odtlačky prstov takmer ako človek?", ["Koala", "Šimpanz", "Mačka"], 0, "Odtlačky koaly sú také podobné ľudským, že by ich vraj pod mikroskopom ťažko rozoznal aj vyšetrovateľ.", 8),
+  abc("V ktorej krajine je najviac pyramíd?", ["V Sudáne", "V Egypte", "V Mexiku"], 0, "Sudán má okolo dvesto nubijských pyramíd, Egypt zhruba polovicu. Sú menšie, ale strmšie.", 8),
+  abc("Ktorá krajina má najviac časových pásiem, ak rátame aj zámorské územia?", ["Francúzsko", "Rusko", "USA"], 0, "Vďaka ostrovom v troch oceánoch a Francúzskej Guyane má Francúzsko dvanásť časových pásiem, Rusko jedenásť.", 8),
+  abc("Aký tvar má padajúca dažďová kvapka?", ["Zospodu sploštená guľa", "Slza so špičkou hore", "Presná guľa"], 0, "Tvar slzy je len z obrázkov. Malé kvapky sú guľaté, väčšie odpor vzduchu sploští zospodu ako žemľu.", 8),
+  abc("Koľko planét slnečnej sústavy má prstence?", ["Štyri", "Jedna", "Dve"], 0, "Okrem Saturna majú slabšie prstence aj Jupiter, Urán a Neptún. Saturnove sú široké státisíce kilometrov, no hrubé väčšinou len desiatky metrov.", 8),
+  abc("V ktorom meste podpísali Deklaráciu nezávislosti USA?", ["Vo Filadelfii", "Vo Washingtone", "V Bostone"], 0, "Mesto Washington v roku 1776 ešte neexistovalo – založili ho až v roku 1790.", 8),
+  abc("Ktoré mesto je hlavným mestom Švajčiarska?", ["Žiadne, Bern je len spolkové mesto", "Zürich", "Ženeva"], 0, "Švajčiarska ústava hlavné mesto vôbec neurčuje. Vláda a parlament sídlia v Berne, ktorý sa úradne volá spolkové mesto.", 8),
+  abc("Ktorý vták znáša najväčšie vajce v pomere k svojmu telu?", ["Kivi", "Pštros", "Emu"], 0, "Vajce kivi má asi pätinu hmotnosti samice – ako keby žena porodila štvorročné dieťa.", 8),
+  abc("Koľko kostí má žralok?", ["Žiadnu", "Asi 200", "Asi 100"], 0, "Kostra žraloka je celá z chrupavky – je ľahšia a pružnejšia ako kosť.", 6),
+  abc("Akú farbu dostaneš, keď zmiešaš svetlo všetkých farieb?", ["Bielu", "Čiernu", "Hnedú"], 0, "Pri farbách na papieri je to naopak – zmiešaním vznikne tmavá, takmer čierna.", 6),
+  abc("Na ktorú stranu sa točí voda odtekajúca z umývadla na južnej pologuli?", ["Na ktorúkoľvek – podľa tvaru umývadla", "V smere hodinových ručičiek", "Proti smeru hodinových ručičiek"], 0, "Coriolisova sila je na také malé množstvo vody príliš slabá. Prejaví sa až pri obrovských víroch, ako sú cyklóny.", 8),
+  abc("Koľko ľudí zatiaľ chodilo po Mesiaci?", ["Dvanásť", "Dvaja", "Šesť"], 0, "Všetci dvanásti boli Američania a na Mesiaci boli v rokoch 1969 až 1972.", 8),
+  abc("S ktorým štátom má Slovensko najdlhšiu hranicu?", ["S Maďarskom", "S Poľskom", "S Českom"], 0, "Hranica s Maďarskom meria takmer 655 kilometrov a veľkú časť z nej tvoria Dunaj a Ipeľ.", 8),
+  abc("Ktorý prvok tvorí najväčšiu časť zemskej kôry?", ["Kyslík", "Kremík", "Železo"], 0, "Kyslík tvorí takmer polovicu hmotnosti zemskej kôry – je viazaný v horninách, napríklad v kremeni.", 8),
+  abc("Ktoré z tohto ovocia je botanicky bobuľa?", ["Banán", "Jahoda", "Malina"], 0, "Jahoda ani malina bobule nie sú, zato banán, paradajka aj uhorka áno.", 8),
+  abc("Ako dlho letí svetlo z Mesiaca na Zem?", ["Asi 1,3 sekundy", "Asi 8 minút", "Asi 1 minútu"], 0, "Keď sa riadiace stredisko rozprávalo s astronautmi na Mesiaci, odpoveď prišla s oneskorením necelé tri sekundy.", 8),
+  abc("Kto bol prvý Slovák vo vesmíre?", ["Ivan Bella", "Vladimír Remek", "Eugene Cernan"], 0, "Remek bol Čech a Cernan Američan so slovenskými predkami z Kysúc – bol aj posledným človekom na Mesiaci.", 8),
+  abc("Ktoré mesto bolo hlavným mestom Uhorska takmer 250 rokov?", ["Prešporok (Bratislava)", "Budín", "Ostrihom"], 0, "Prešporok bol hlavným mestom od roku 1536, keď Turci ovládli veľkú časť Uhorska, až do roku 1783.", 8),
+
+  ord("Zoraď mestá od západu na východ", ["Praha", "Viedeň", "Bratislava", "Budapešť"], "Mnohí tipujú Viedeň západnejšie, no Praha leží od Viedne asi o dva stupne na západ.", 10),
+  ord("Zoraď od najstaršieho", ["Stavba Veľkej pyramídy", "Založenie Ríma", "Život Kleopatry", "Pristátie na Mesiaci"], "Kleopatra žila bližšie k pristátiu na Mesiaci ako k stavbe Veľkej pyramídy.", 10),
+  ord("Zoraď zvieratá podľa dĺžky života, od najkratšej", ["Myš domová", "Pes", "Kôň", "Žralok grónsky"], "Žralok grónsky sa dožíva vyše 250 rokov a dospelý je až okolo stopäťdesiatky.", 10),
+  ord("Zoraď štáty podľa počtu obyvateľov, od najmenšieho", ["Chorvátsko", "Slovensko", "Švédsko", "Kanada"], "Kanada je obrovská, no žije v nej len okolo 40 miliónov ľudí – väčšina do dvesto kilometrov od hranice s USA.", 10),
+  ord("Zoraď planéty podľa počtu mesiacov, od najmenej", ["Merkúr", "Zem", "Mars", "Jupiter"], "Merkúr a Venuša nemajú ani jeden mesiac. Jupiter a Saturn si s novými objavmi neustále preberajú prvenstvo.", 10),
+  ord("Zoraď prezidentov Slovenska od prvého", ["Michal Kováč", "Rudolf Schuster", "Ivan Gašparovič", "Andrej Kiska"], "Rudolf Schuster bol prvým prezidentom zvoleným priamo ľuďmi – predtým prezidenta volil parlament.", 10),
+  ord("Zoraď letné olympijské hry od najstarších", ["Atény – prvé novodobé", "Berlín", "Moskva", "Peking"], "Na prvých novodobých hrách v roku 1896 súťažili len muži, ženy sa pridali až o štyri roky neskôr v Paríži.", 10),
+  ord("Zoraď látky podľa bodu varu, od najnižšieho", ["Kyslík", "Lieh", "Voda", "Ortuť"], "Ortuť vrie až pri 357 stupňoch, no vyparuje sa aj pri izbovej teplote – preto sú výpary z rozbitého teplomera nebezpečné.", 10),
+
+  pri("Priraď vynálezy k vynálezcom", [["Telefón", "Alexander Graham Bell"], ["Dynamit", "Alfred Nobel"], ["Kníhtlač", "Johannes Gutenberg"]], "Nobel z bohatstva z dynamitu založil Nobelove ceny. Podľa známeho príbehu ho k tomu pohol predčasný nekrológ, ktorý ho nazval obchodníkom so smrťou.", 10),
+  pri("Priraď meny ku krajinám", [["Jen", "Japonsko"], ["Forint", "Maďarsko"], ["Zlotý", "Poľsko"]], "Forint dostal meno podľa zlatých mincí z Florencie – florénov, aké sa kedysi razili aj v Kremnici.", 10),
+  pri("Priraď objavy k vedcom", [["Gravitačný zákon", "Isaac Newton"], ["Teória relativity", "Albert Einstein"], ["Slnko v strede sústavy", "Mikuláš Kopernik"]], "Kopernik svoju knihu vydal až v roku smrti 1543. Podľa legendy prvý výtlačok dostal na smrteľnej posteli.", 10),
+  pri("Priraď jazyky ku krajinám, kde sú úradné", [["Portugalčina", "Brazília"], ["Španielčina", "Argentína"], ["Francúzština", "Senegal"]], "V Brazílii žije asi dvadsaťkrát viac ľudí hovoriacich po portugalsky ako v samotnom Portugalsku.", 10),
+  pri("Priraď speváka k skupine", [["Freddie Mercury", "Queen"], ["John Lennon", "The Beatles"], ["Mick Jagger", "The Rolling Stones"]], "Rolling Stones prvýkrát vystúpili v roku 1962 a koncertujú dodnes, viac ako šesťdesiat rokov.", 8),
+  pri("Priraď slovenských športovcov k športom", [["Peter Sagan", "Cyklistika"], ["Petra Vlhová", "Zjazdové lyžovanie"], ["Anastasia Kuzminová", "Biatlon"]], "Petra Vlhová v sezóne 2020/21 ako prvá Slovenka vyhrala celkové poradie Svetového pohára a veľký krištáľový glóbus.", 8),
+  pri("Priraď vrchy k pohoriam", [["Mont Blanc", "Alpy"], ["Aconcagua", "Andy"], ["Elbrus", "Kaukaz"]], "Elbrus je spiaca sopka vysoká 5 642 metrov a ak hranicu Európy vedieme po Kaukaze, je to jej najvyšší vrch.", 12),
+  pri("Priraď slovenských spisovateľov k dielam", [["Martin Kukučín", "Dom v stráni"], ["Pavol Országh Hviezdoslav", "Hájnikova žena"], ["Jozef Gregor Tajovský", "Maco Mlieč"]], "Kukučín bol lekár a veľkú časť života prežil na chorvátskom ostrove Brač a v Južnej Amerike.", 12),
+  pri("Priraď pamiatky ku krajinám", [["Angkor Vat", "Kambodža"], ["Petra", "Jordánsko"], ["Chichén Itzá", "Mexiko"]], "Angkor Vat je najväčšia náboženská stavba na svete a Kambodža ho má aj na štátnej vlajke.", 12),
+  pri("Priraď slová k jazykom, z ktorých pochádzajú", [["Robot", "Čeština"], ["Algebra", "Arabčina"], ["Kajak", "Inuitčina"]], "Slovo algebra vzniklo z názvu knihy perzského učenca al-Chvárizmího; z jeho mena je zasa slovo algoritmus.", 12),
+  pri("Priraď jednotky k veličinám", [["Joule", "Energia"], ["Newton", "Sila"], ["Watt", "Výkon"]], "Watt je pomenovaný po Jamesovi Wattovi, ktorý vylepšil parný stroj a na porovnanie s koňmi zaviedol aj konskú silu.", 10),
+  pri("Priraď autorov k dielam", [["Janko Matúška", "Nad Tatrou sa blýska"], ["Pavol Dobšinský", "Prostonárodné slovenské povesti"], ["Samo Chalupka", "Mor ho!"]], "Matúška napísal text hymny v roku 1844 ako študent, keď štúrovci na protest proti zosadeniu Štúra odchádzali z Bratislavy.", 12)
+);
+
+BANK[3].push(
+  abc("Ktorý prvok priťahuje elektróny najsilnejšie zo všetkých?", ["Fluór", "Kyslík", "Chlór"], 0, "Fluór je taký reaktívny, že napáda aj sklo, a viacerí chemici, čo sa ho snažili získať, sa pri pokusoch otrávili.", 8),
+  abc("Kto bol posledným známym panovníkom Veľkej Moravy?", ["Mojmír II.", "Svätopluk I.", "Rastislav"], 0, "O jeho smrti správy nemáme. Veľká Morava zanikla krátko po roku 906 pod náporom starých Maďarov.", 8),
+  abc("Koľko je približne Avogadrova konštanta?", ["6,02 × 10²³", "3,00 × 10⁸", "9,81"], 0, "Toľko molekúl je v 18 gramoch vody, čo je zhruba polievková lyžica.", 8),
+  abc("Ktorý zo siedmich divov starovekého sveta stojí dodnes?", ["Veľká pyramída v Gíze", "Maják na ostrove Faros", "Visuté záhrady Semiramidine"], 0, "Pyramída bola takmer štyritisíc rokov najvyššou stavbou sveta, kým ju okolo roku 1311 neprekonala katedrála v Lincolne.", 6),
+  abc("Ktorá časť bunky vyrába väčšinu jej energie?", ["Mitochondria", "Ribozóm", "Golgiho aparát"], 0, "Mitochondrie majú vlastnú DNA a dedíme ich len po matke.", 6),
+  abc("Ktorý panovník vydal Zlatú bulu, ktorá upravila voľbu rímskeho kráľa?", ["Karol IV.", "Žigmund Luxemburský", "Rudolf II."], 0, "Zlatá bula z roku 1356 platila vyše štyristo rokov, až do zániku Svätej ríše rímskej v roku 1806.", 8),
+  abc("Ktorá hviezda je najbližšie k Zemi?", ["Slnko", "Proxima Centauri", "Sírius"], 0, "Chyták – aj Slnko je hviezda. Jeho svetlo k nám letí osem minút, svetlo z Proximy Centauri vyše štyri roky.", 8),
+  abc("Kto napísal Božskú komédiu?", ["Dante Alighieri", "Giovanni Boccaccio", "Francesco Petrarca"], 0, "Dante ju nazval len Komédia. Prívlastok božská pridal až jeho obdivovateľ Boccaccio.", 6),
+  abc("Čo meria Mohsova stupnica?", ["Tvrdosť nerastov", "Kyslosť roztokov", "Jas hviezd"], 0, "Na jej vrchole je diamant s desiatkou, mastenec s jednotkou sa dá poškriabať nechtom.", 6),
+  abc("V ktorom roku dobyli Osmani Konštantínopol?", ["1453", "1204", "1571"], 0, "Pri obliehaní Osmani použili obrovské delo, ktoré im odlial uhorský majster Urban.", 8),
+  abc("Ktorá krvná skupina je univerzálny darca?", ["0 negatívna", "AB pozitívna", "A negatívna"], 0, "Krvné skupiny objavil v roku 1901 Karl Landsteiner a do štyroch skupín ich ako prvý rozdelil Čech Jan Janský.", 8),
+  abc("Za čo dostal Albert Einstein Nobelovu cenu?", ["Za vysvetlenie fotoelektrického javu", "Za teóriu relativity", "Za vzorec E = mc²"], 0, "Teória relativity bola v roku 1921 ešte sporná, preto komisia radšej ocenila fotoefekt.", 8),
+  abc("Ktorá krajina má na vlajke iný obrázok z každej strany?", ["Paraguaj", "Portugalsko", "Mexiko"], 0, "Paraguajská vlajka má na prednej strane štátny znak a na zadnej pečať štátnej pokladnice.", 8),
+  abc("Ktorá krajina má viac obyvateľov?", ["Kanada", "Poľsko", "Obe presne rovnako"], 0, "Kanada je asi tridsaťkrát väčšia ako Poľsko a v posledných rokoch ho predbehla aj počtom obyvateľov, hlavne vďaka prisťahovalcom.", 8),
+  abc("Z koľkých kociek sa skladá Rubikova kocka 3 × 3 × 3?", ["Z 26", "Z 27", "Z 54"], 0, "Na pohľad je ich 27, ale tá v strede neexistuje – jej miesto zaberá otočný mechanizmus. Päťdesiatštyri je počet farebných políčok.", 10),
+  abc("Ktoré zviera patrí medzi najbližších žijúcich príbuzných slona?", ["Daman", "Nosorožec", "Hroch"], 0, "Daman vyzerá ako väčší svišť, no so slonmi ho spájajú napríklad zuby, kosti nôh aj pôvod.", 8),
+  abc("Ktorý svetadiel má najvyššiu priemernú nadmorskú výšku?", ["Antarktída", "Ázia", "Južná Amerika"], 0, "Vďaka ľadovej pokrývke má Antarktída priemernú výšku vyše dvoch kilometrov – ľad je miestami hrubý takmer päť kilometrov.", 8),
+
+  ord("Zoraď od najstaršieho", ["Stavba Veľkej pyramídy", "Vyhynutie posledných mamutov", "Založenie Ríma", "Narodenie Krista"], "Posledné mamuty prežívali na Wrangelovom ostrove ešte stovky rokov po tom, čo Egypťania postavili Veľkú pyramídu.", 20),
+  ord("Zoraď od najstaršieho", ["Na Oxforde sa začalo učiť", "Aztékovia založili Tenochtitlan", "Inkovia postavili Machu Picchu", "Založili Harvardovu univerzitu"], "Na Oxforde sa učilo už okolo roku 1096 – vyše dvesto rokov predtým, ako Aztékovia založili Tenochtitlan na mieste dnešného mesta Mexiko.", 20),
+  ord("Zoraď vynálezy od najstaršieho", ["Fax", "Telefón", "Žiarovka Edisonovho typu", "Rádio"], "Prvý fax si dal patentovať škótsky hodinár Alexander Bain už v roku 1843, o 33 rokov skôr ako Bell telefón.", 20),
+  ord("Zoraď prvky podľa protónového čísla, od najmenšieho", ["Hélium", "Uhlík", "Kyslík", "Železo"], "Všetko železo v našej krvi vzniklo v jadrách dávnych hviezd, ktoré neskôr vybuchli.", 20),
+  ord("Zoraď hviezdy podľa priemeru, od najmenšej", ["Neutrónová hviezda", "Biely trpaslík", "Slnko", "Betelgeuse"], "Neutrónová hviezda má priemer okolo dvadsať kilometrov, no lyžička jej hmoty by vážila miliardy ton.", 10),
+  ord("Zoraď udalosti od najstaršej", ["Pád Západorímskej ríše", "Príchod Cyrila a Metoda", "Objavenie Ameriky", "Francúzska revolúcia"], "Cyril a Metod prišli na Veľkú Moravu v roku 863 a pre slovanský jazyk vytvorili vlastné písmo, hlaholiku.", 10),
+  ord("Zoraď vesmírne misie od najstaršej", ["Sputnik 1", "Apollo 11", "Hubblov teleskop", "Webbov teleskop"], "Webbov teleskop je poldruha milióna kilometrov od Zeme, takže ho na rozdiel od Hubbla nemôžu astronauti opraviť.", 10),
+
+  pri("Priraď vedcov k objavom", [["Dmitrij Mendelejev", "Periodická tabuľka prvkov"], ["Alexander Fleming", "Penicilín"], ["Ernest Rutherford", "Atómové jadro"]], "Mendelejev v tabuľke nechal prázdne miesta pre ešte neobjavené prvky a ich vlastnosti predpovedal takmer presne.", 12),
+  pri("Priraď výroky k autorom", [["Sokrates", "Viem, že nič neviem"], ["Hérakleitos", "Všetko plynie"], ["Archimedes", "Heuréka!"]], "Sokrates nenapísal ani riadok, jeho myšlienky poznáme hlavne zo spisov jeho žiaka Platóna.", 12),
+  pri("Priraď bitky k rokom", [["Bitka na Bielej hore", "1620"], ["Bitka pri Slavkove", "1805"], ["Bitka pri Waterloo", "1815"]], "Pri Slavkove neďaleko Brna Napoleon porazil ruského aj rakúskeho cisára naraz, preto sa jej hovorí bitka troch cisárov.", 20),
+  pri("Priraď chemické značky k prvkom", [["Na", "Sodík"], ["K", "Draslík"], ["Sn", "Cín"]], "Značky sú z latinčiny: natrium, kalium a stannum – preto sa na slovenské názvy vôbec nepodobajú.", 12),
+  pri("Priraď maliarov k umeleckým smerom", [["Claude Monet", "Impresionizmus"], ["Salvador Dalí", "Surrealizmus"], ["Pablo Picasso", "Kubizmus"]], "Impresionizmus dostal meno podľa Monetovho obrazu Impresia, východ slnka, ktorý si kritik v roku 1874 robil posmech.", 12),
+  pri("Priraď hlavné mestá ku krajinám", [["Kazachstan", "Astana"], ["Nigéria", "Abuja"], ["Brazília", "Brasília"]], "Brasíliu postavili na zelenej lúke za necelé štyri roky a zhora má pôdorys v tvare lietadla.", 10),
+  pri("Priraď žľazy k hormónom", [["Štítna žľaza", "Tyroxín"], ["Nadobličky", "Adrenalín"], ["Podžalúdková žľaza", "Inzulín"]], "Adrenalín v nebezpečenstve za pár sekúnd zrýchli srdce a rozšíri zreničky – telo sa chystá na útek alebo boj.", 12),
+  pri("Priraď opery ku skladateľom", [["Giuseppe Verdi", "Aida"], ["Wolfgang Amadeus Mozart", "Čarovná flauta"], ["Georges Bizet", "Carmen"]], "Carmen pri premiére v roku 1875 prepadla a Bizet o tri mesiace zomrel bez tušenia, že napísal jednu z najhranejších opier.", 12),
+  pri("Priraď jednotky k veličinám", [["Hertz", "Frekvencia"], ["Ampér", "Elektrický prúd"], ["Kelvin", "Teplota"]], "Heinrich Hertz dokázal existenciu rádiových vĺn a vraj tvrdil, že nebudú mať žiadne praktické využitie.", 12)
 );
 </script>
 <script>
@@ -289,13 +366,21 @@ const app = document.getElementById('app');
 const KEY_USED = 'cojaviem-used', KEY_LAST = 'cojaviem-last', KEY_MODE = 'cojaviem-mode', KEY_SND = 'cojaviem-zvuk';
 const BOD = 2;                                                 // podľa štatútu: každá otázka má hodnotu 2 body
 const MODE = {
-  kratka: {nazov: 'Krátka hra', popis: '18 otázok v 3 kolách', slovo: 'kolo', naBlok: 6,
+  kratka: {nazov: 'Krátka hra', popis: '18 otázok v 3 kolách', slovo: 'kolo', naBlok: 6, zor: 2, pri: 1,
            plan: [[[1, 6]], [[2, 6]], [[3, 6]]]},
-  dlha:   {nazov: 'Dlhá hra', popis: '50 otázok v 5 blokoch – ako v relácii', slovo: 'blok', naBlok: 10,
+  dlha:   {nazov: 'Dlhá hra', popis: '50 otázok v 5 blokoch – ako v relácii', slovo: 'blok', naBlok: 10, zor: 2, pri: 2,
            plan: [[[1, 10]], [[1, 5], [2, 5]], [[2, 10]], [[2, 5], [3, 5]], [[3, 10]]]}
 };
-const SEC = {abc: [0, 8, 8, 8], order: [0, 10, 10, 10]};       // záloha, keď otázka nemá vlastný čas
-const ORD_NA_BLOK = 2;
+const SEC = {abc: [0, 8, 8, 8], order: [0, 10, 10, 10], match: [0, 10, 12, 12]};   // záloha, keď otázka nemá vlastný čas
+const PISM = 'ABCDEF';                                         // možnosti a položky sa označujú písmenami
+function kod(q, v) {                                           // odpoveď v krátkom tvare: A, CADB alebo A2B3C1
+  if (v == null || v === '') return '';
+  if (q.kind === 'abc') return PISM[+v] || '?';
+  const a = String(v).split(',').map(Number);
+  if (q.kind === 'order') return a.map(i => PISM[i] || '?').join('');
+  return a.map((j, i) => PISM[i] + (j >= 0 ? j + 1 : '?')).join('');
+}
+const kodSpravny = q => kod(q, q.kind === 'abc' ? q.correct : q.correct.join(','));
 
 let S = {phase: 'setup'}, srv = {players: []}, timerId = null, lastKey = '', lastSig = '';
 let ozvucene = new Set();                                      // komu už cinklo pri tejto otázke
@@ -441,6 +526,7 @@ function zvukDrop() {                                          // keď sa hlasov
   drone = {tony: [], sumy: [src], celk: g};
 }
 function hudbaNahrada(sekundy) {                               // keby sa nahrávka nedala prehrať
+  const a = ac(); if (!a) return;
   const t = a.currentTime, koniec = t + sekundy;
   const celk = a.createGain();
   celk.gain.setValueAtTime(0.0001, t);
@@ -533,6 +619,12 @@ function pickQuestions(md) {
   const M = MODE[md];
   const treba = {1: 0, 2: 0, 3: 0};
   M.plan.forEach(blok => blok.forEach(([lvl, cnt]) => treba[lvl] += cnt));
+  const trebaTyp = {1: {ord: 0, pri: 0}, 2: {ord: 0, pri: 0}, 3: {ord: 0, pri: 0}};   // koľko zoraďovačiek a priraďovačiek treba z každej úrovne
+  M.plan.forEach(blok => [['ord', M.zor], ['pri', M.pri]].forEach(([typ, kolko]) => {
+    for (let k = 0; k < kolko; k++) trebaTyp[blok[k % blok.length][0]][typ]++;
+  }));
+  for (const lvl of [1, 2, 3]) trebaTyp[lvl].abc = treba[lvl] - trebaTyp[lvl].ord - trebaTyp[lvl].pri;
+  const jeTyp = (q, typ) => typ === 'abc' ? !q.ord && !q.pri : !!q[typ];
   let used = [], last = [];
   try { used = JSON.parse(localStorage.getItem(KEY_USED)) || []; } catch (e) {}
   try { last = JSON.parse(localStorage.getItem(KEY_LAST)) || []; } catch (e) {}
@@ -545,20 +637,27 @@ function pickQuestions(md) {
       free = all.filter(q => !lastSet.has(q.id));              // otázky z minulej hry ešte vynecháme
       if (free.length < treba[lvl]) free = all;
     }
-    pools[lvl] = {ord: shuffle(free.filter(q => q.ord)), abc: shuffle(free.filter(q => !q.ord))};
+    for (const typ of ['abc', 'ord', 'pri']) {                 // keď sa minie jeden typ otázok, ten začneme odznova
+      if (free.filter(q => jeTyp(q, typ)).length >= trebaTyp[lvl][typ]) continue;
+      all.filter(q => jeTyp(q, typ)).forEach(q => usedSet.delete(q.id));
+      free = free.concat(all.filter(q => jeTyp(q, typ) && !free.includes(q) && !lastSet.has(q.id)));
+    }
+    pools[lvl] = {ord: shuffle(free.filter(q => q.ord)), pri: shuffle(free.filter(q => q.pri)), abc: shuffle(free.filter(q => !q.ord && !q.pri))};
   }
   const out = [];
   M.plan.forEach(blok => {
     const chcem = {}, vybrane = [];
     blok.forEach(([lvl, cnt]) => chcem[lvl] = (chcem[lvl] || 0) + cnt);
-    for (let k = 0; k < ORD_NA_BLOK; k++) {                     // zoraďovacie otázky rozdelené medzi úrovne bloku
-      const lvl = blok[k % blok.length][0];
-      const q = pools[lvl].ord.shift();
-      if (q) { vybrane.push(q); chcem[lvl]--; }
-    }
+    [['ord', M.zor], ['pri', M.pri]].forEach(([typ, kolko]) => {  // zoraďovačky a priraďovačky rozdelené medzi úrovne bloku
+      for (let k = 0; k < kolko; k++) {
+        const lvl = blok[k % blok.length][0];
+        const q = chcem[lvl] > 0 && pools[lvl][typ].shift();
+        if (q) { vybrane.push(q); chcem[lvl]--; }
+      }
+    });
     blok.forEach(([lvl]) => {
       for (let k = 0; k < Math.max(0, chcem[lvl]); k++) {
-        const q = pools[lvl].abc.shift() || pools[lvl].ord.shift();
+        const q = pools[lvl].abc.shift() || pools[lvl].ord.shift() || pools[lvl].pri.shift();
         if (q) vybrane.push(q);
       }
       chcem[lvl] = 0;
@@ -571,6 +670,12 @@ function pickQuestions(md) {
     localStorage.setItem(KEY_LAST, JSON.stringify(out.map(q => q.id)));
   } catch (e) {}
   return out.map(q => {
+    if (q.pri) {                                               // ľavá strana A, B, C…; pravá zamiešaná a očíslovaná 1, 2, 3…
+      let idx = shuffle(q.pri.map((_, i) => i));
+      for (let t = 0; t < 8 && idx.every((v, i) => v === i); t++) idx = shuffle(idx);
+      return {kind: 'match', lvl: q.lvl, q: q.q, items: q.pri.map(p => p[0]), items2: idx.map(i => q.pri[i][1]),
+              correct: q.pri.map((_, i) => idx.indexOf(i)), fact: q.f, sec: q.t || SEC.match[q.lvl]};
+    }
     if (!q.ord) {                                              // poradie možností sa mieša, aby správna nebola stále rovnaké písmeno
       const mix = shuffle([0, 1, 2]);
       return {kind: 'abc', lvl: q.lvl, q: q.q, items: mix.map(i => q.o[i]), correct: mix.indexOf(q.c), fact: q.f, sec: q.t || SEC.abc[q.lvl]};
@@ -612,7 +717,7 @@ function vyhodnot(odpovede) {                                    // z odpovedí 
   S.players.forEach(p => {
     const a = odpovede[p.id];
     if (!a) { res[p.id] = {none: true, ok: false}; return; }
-    res[p.id] = {ok: jeSpravne(q, a.v), v: a.v, ms: a.ms, hits: q.kind === 'order' ? trafene(q, a.v) : 0};
+    res[p.id] = {ok: jeSpravne(q, a.v), v: a.v, ms: a.ms, hits: q.kind === 'abc' ? 0 : trafene(q, a.v)};
   });
   S.result = res; S.step = 'votes';                            // najprv sa ukáže, kto za čo hlasoval
   render();
@@ -642,10 +747,10 @@ async function askQuestion() {
   S.step = 'live'; S.result = null;
   srv.sent = {}; srv.epoch = -1;                               // staré odpovede sa nesmú počítať do novej otázky
   ozvucene = new Set(); srv.odpovede = {};
-  try { const r = await api('ask', {kind: q.kind, count: q.items.length, items: q.items, seconds: q.sec, q: q.q}); S.epoch = r.epoch; }
+  try { const r = await api('ask', {kind: q.kind, count: q.items.length, items: q.items, items2: q.items2 || [], seconds: q.sec, q: q.q}); S.epoch = r.epoch; }
   catch (e) { toast('Server neodpovedá'); }
   S.deadline = Date.now() + q.sec * 1000;
-  hudbaStart(q.sec);
+  try { hudbaStart(q.sec); } catch (e) {}                      // chyba zvuku nesmie zastaviť hru
   render();
 }
 function nextQuestion() {
@@ -701,15 +806,23 @@ function optsHtml(q, reveal) {
       return `<div class="opt ${'abc'[i]} ${cls}"><i>${'ABC'[i]}</i><span>${esc(it)}</span></div>`;
     }).join('')}</div>`;
   }
-  const list = reveal ? q.correct.map(i => q.items[i]) : q.items;
-  return `<div class="opts ordlist">${list.map((it, i) =>
-    `<div class="opt ${reveal ? 'right' : ''}"><i>${reveal ? i + 1 : '?'}</i><span>${esc(it)}</span></div>`).join('')}</div>`;
+  if (q.kind === 'match') {
+    if (reveal) return `<p class="kod">${kodSpravny(q)}</p><div class="opts ordlist">${q.items.map((it, i) =>
+      `<div class="opt right"><i>${PISM[i]}</i><span>${esc(it)} <b class="sip">→</b> ${q.correct[i] + 1}. ${esc(q.items2[q.correct[i]])}</span></div>`).join('')}</div>`;
+    return `<div class="match"><div class="opts ordlist">${q.items.map((it, i) =>
+      `<div class="opt"><i>${PISM[i]}</i><span>${esc(it)}</span></div>`).join('')}</div>
+      <div class="opts ordlist cisla">${q.items2.map((it, j) =>
+      `<div class="opt"><i>${j + 1}</i><span>${esc(it)}</span></div>`).join('')}</div></div>`;
+  }
+  if (reveal) return `<p class="kod">${kodSpravny(q)}</p><div class="opts ordlist">${q.correct.map((i, n) =>
+    `<div class="opt right"><i>${PISM[i]}</i><span><b>${n + 1}.</b> ${esc(q.items[i])}</span></div>`).join('')}</div>`;
+  return `<div class="opts ordlist">${q.items.map((it, i) =>
+    `<div class="opt"><i>${PISM[i]}</i><span>${esc(it)}</span></div>`).join('')}</div>`;
 }
 function hlasHtml(q, p) {                                      // čo hráč tipoval
   const r = (S.result && S.result[p.id]) || {};
   if (r.none) return 'neodpovedal';
-  if (q.kind === 'abc') return 'ABC'[+r.v] + ' – ' + (q.items[+r.v] || '');
-  return String(r.v).split(',').map((x, n) => (n + 1) + '. ' + (q.items[+x] || '?')).join(', ');
+  return kod(q, r.v);
 }
 function vSetup() {
   const list = srv.players || [];
@@ -720,7 +833,7 @@ function vSetup() {
   phoneUrl = srv.info ? 'http://' + ip + ':' + port + '/m' : '';
   return `<section class="card" style="text-align:center">
       <h1 class="logobox"><span class="l1">Čo ja</span><span class="l2">Viem</span><span class="l3">domáca verzia</span></h1>
-      <p class="muted" style="max-width:66ch;margin:16px auto 0">Náročnejšie otázky z celého okruhu všeobecných znalostí. Vyberáš si z troch možností alebo zoraďuješ – všetci naraz na vlastnom mobile. Každá otázka má <b>2 body</b>, pri rovnosti rozhoduje kratší čas. Moderátor otázku prečíta, po uplynutí času ukáže, kto za čo hlasoval, a potom odhalí správnu odpoveď aj zaujímavosť.</p>
+      <p class="muted" style="max-width:66ch;margin:16px auto 0">Náročnejšie otázky z celého okruhu všeobecných znalostí. Vyberáš si z troch možností, zoraďuješ alebo priraďuješ – všetci naraz na vlastnom mobile. Každá otázka má <b>2 body</b>, pri rovnosti rozhoduje kratší čas. Moderátor otázku prečíta, po uplynutí času ukáže, kto za čo hlasoval, a potom odhalí správnu odpoveď aj zaujímavosť.</p>
     </section>
 
   <section class="card"><span class="eyebrow">Ako dlho budeme hrať?</span>
@@ -768,17 +881,19 @@ function vQuestion() {
   const body = hidden
     ? `<div class="card" style="text-align:center">
         <h2 class="logobox"><span class="l1">Čo ja</span><span class="l2">Viem</span></h2>
-        <p class="muted" style="margin-top:14px">${q.kind === 'order' ? 'Zoraďovanie' : 'Tri možnosti'} · otázka ${(S.i % M().naBlok) + 1} z ${M().naBlok}</p>
+        <p class="muted" style="margin-top:14px">${q.kind === 'order' ? 'Zoraďovanie' : q.kind === 'match' ? 'Priraďovanie' : 'Tri možnosti'} · otázka ${(S.i % M().naBlok) + 1} z ${M().naBlok}</p>
       </div>`
     : `<div class="card">
-        <span class="eyebrow">${reveal ? 'Správna odpoveď je' : hlasy ? 'Čas vypršal – takto ste hlasovali' : q.kind === 'order' ? 'Zoraď správne' : 'Vyber jednu z troch'}</span>
+        <span class="eyebrow">${reveal ? 'Správna odpoveď je' : hlasy ? 'Čas vypršal – takto ste hlasovali' : q.kind === 'order' ? 'Zoraď správne' : q.kind === 'match' ? 'Priraď k písmenám správne čísla' : 'Vyber jednu z troch'}</span>
         <p class="qtext" style="margin:10px 0 16px">${esc(q.q)}</p>
         ${S.step === 'live' ? `<div class="timer ${secs <= Math.min(5, Math.ceil(q.sec / 2)) ? 'low' : ''}"><div class="bar"><i style="width:${pct}%"></i></div><span class="sec">${secs}</span></div>` : ''}
         ${optsHtml(q, reveal)}
       </div>`;
   let mod = '';
   if (seesAns() && !reveal) {
-    const right = q.kind === 'abc' ? 'ABC'[q.correct] + ' – ' + q.items[q.correct] : q.correct.map((i, n) => (n + 1) + '. ' + q.items[i]).join('   ');
+    const right = kodSpravny(q) + '  ·  ' + (q.kind === 'abc' ? q.items[q.correct]
+      : q.kind === 'order' ? q.correct.map((i, n) => (n + 1) + '. ' + q.items[i]).join('   ')
+      : q.items.map((it, i) => PISM[i] + ' ' + it + ' → ' + q.items2[q.correct[i]]).join('   '));
     mod = `<div class="secret"><span class="lbl">Správna odpoveď · vidíš len ty${hlasy ? ' · teraz ju prečítaj nahlas' : ''}</span><div class="val">${esc(right)}</div></div>`;
   }
   if (reveal && (seesAns() || ROLE === 'solo'))
@@ -788,8 +903,8 @@ function vQuestion() {
     detail = `<div class="card"><span class="eyebrow">${hlasy ? 'Za čo ste hlasovali' : 'Ako odpovedali'}</span><div class="players" style="margin-top:10px">${S.players.map(p => {
       const r = S.result[p.id] || {};
       const co = hlasy ? hlasHtml(q, p)
-        : (r.none ? 'neodpovedal' : q.kind === 'abc' ? 'ABC'[+r.v] + ' – ' + (q.items[+r.v] || '') : (r.ok ? 'celé správne' : r.hits + ' z ' + q.correct.length + ' na mieste'));
-      return `<div class="pl ${!hlasy && r.ok ? 'done' : ''}"><span class="nm">${esc(p.name)}</span><span class="ans">${esc(co)}</span>${
+        : (r.none ? 'neodpovedal' : kod(q, r.v));
+      return `<div class="pl ${!hlasy && r.ok ? 'done' : ''}"><span class="nm">${esc(p.name)}</span><span class="${r.none ? 'ans' : 'hlas'}">${esc(co)}</span>${
         hlasy ? '' : `<span class="gain">${r.ok ? '✓' : '✗'}</span>`}${
         r.ms != null ? `<span class="ans">${cas(r.ms)}</span>` : ''}</div>`;
     }).join('')}</div>${hlasy && !cistaTV() ? '<p class="muted" style="margin-top:10px">Prečítaj správnu odpoveď nahlas a potom ju ukáž.</p>' : ''}</div>`;
