@@ -714,7 +714,8 @@ function hlasHtml(q, p) {                                      // čo hráč tip
 function vSetup() {
   const list = srv.players || [];
   const online = list.filter(p => p.online);
-  const ip = (srv.info && srv.info.ips && srv.info.ips[0]) || 'IP-počítača';
+  const ips = (srv.info && srv.info.ips) || [];
+  const ip = ips[0] || 'IP-počítača';
   const port = (srv.info && srv.info.port) || 8081;
   phoneUrl = srv.info ? 'http://' + ip + ':' + port + '/m' : '';
   return `<section class="card" style="text-align:center">
@@ -746,6 +747,7 @@ function vSetup() {
       <div>
         <p style="font-size:22px;font-weight:800;margin:8px 0">http://${esc(ip)}:${port}/m</p>
         <p class="muted">Hráči sa pripoja na tú istú Wi-Fi, naskenujú QR kód alebo napíšu adresu a potom svoje meno. Otázku uvidia aj na mobile. Hrať môžu až ôsmi, na vyskúšanie stačí aj jeden mobil.</p>
+        ${ips.length > 1 ? `<p class="muted">Ak sa mobil nevie pripojiť, skús inú adresu: ${ips.slice(1).map(a => `<b>http://${esc(a)}:${port}/m</b>`).join(', ')}</p>` : ''}
       </div>
     </div>
     <div class="players" style="margin-top:12px">${list.length ? list.map(p =>
@@ -974,7 +976,7 @@ async function poll() {
       if (el) el.outerHTML = playersHtml();
     }
   } catch (e) {}
-  setTimeout(poll, 900);
+  setTimeout(poll, S.phase === 'q' && S.step === 'live' ? 300 : 900);   // počas hlasovania častejšie, nech hneď vidno, kto odpovedal
 }
 document.addEventListener('pointerdown', () => ac(), {once: true});
 api('info').then(i => { srv.info = i; if (S.phase === 'setup') render(true); }).catch(() => {});

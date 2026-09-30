@@ -23,7 +23,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .link{background:none;border:0;color:var(--muted);text-decoration:underline;font-size:14px;padding:0}
 .muted{color:var(--muted);font-size:14px}
 .bar{height:10px;border-radius:99px;background:rgba(0,0,0,.22);overflow:hidden;border:2px solid var(--line)}
-.bar i{display:block;height:100%;background:#fff;width:100%;transition:width .2s linear}
+.bar i{display:block;height:100%;background:#fff;width:100%;transition:width .1s linear}
 .opts{display:flex;flex-direction:column;gap:10px}
 .opt{display:flex;gap:12px;align-items:center;text-align:left;width:100%;padding:16px;border-radius:14px;border:2px solid var(--line);background:rgba(255,255,255,.12);color:var(--text);font:700 17px/1.25 system-ui}
 .opt b{width:34px;height:34px;flex:0 0 34px;border-radius:10px;display:grid;place-items:center;font:900 18px system-ui}
@@ -82,7 +82,11 @@ button{font:inherit;color:inherit;cursor:pointer}
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS = 'cojaviem-me';
-let me = null, st = {}, pickOrder = [], lastEpoch = -1, sentFor = -1, byloOtvorene = false;
+let me = null, st = {}, pickOrder = [], lastEpoch = -1, sentFor = -1, sentVal = '', missedFor = -1, byloOtvorene = false;
+let deadline = 0, lastKey = '', lastBack = null, rejoining = false;
+const now = () => performance.now();
+const leftMs = () => Math.max(0, deadline - now());           // odpočet si mobil počíta sám, plynulo
+const isOpen = () => !!st.open && leftMs() > 0;
 function drama() {                                             // záblesk, otras a zavibrovanie, keď sa čas skončí
   const el = document.createElement('div');
   el.className = 'flash';
@@ -94,10 +98,17 @@ function drama() {                                             // záblesk, otra
 }
 try { me = JSON.parse(localStorage.getItem(LS)); } catch (e) {}
 
-async function api(path, body) {
-  const r = await fetch('/api/' + path, body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : undefined);
-  if (!r.ok) throw new Error('chyba');
-  return r.json();
+async function api(path, body, ms, onAbort) {                  // pri zaseknutej Wi-Fi to po čase vzdáme a skúsime znova
+  const ctl = window.AbortController ? new AbortController() : null;
+  if (onAbort && ctl) onAbort(() => ctl.abort());
+  const tm = ctl ? setTimeout(() => ctl.abort(), ms || 6000) : 0;
+  try {
+    const r = await fetch('/api/' + path, {
+      method: body ? 'POST' : 'GET', cache: 'no-store', signal: ctl ? ctl.signal : undefined,
+      headers: body ? {'Content-Type': 'application/json'} : undefined, body: body ? JSON.stringify(body) : undefined});
+    if (!r.ok) throw new Error('chyba');
+    return await r.json();
+  } finally { clearTimeout(tm); }
 }
 function saveMe() { try { localStorage.setItem(LS, JSON.stringify(me)); } catch (e) {} }
 
@@ -138,18 +149,25 @@ function keepAwakeVideo() {
     } else { awakeVid.srcObject = stream; awakeSrc = 'stream'; awakeVid.play().catch(() => {}); }
   } catch (e) {}
 }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && me && me.id) { keepAwake(); if (awakeVid) awakeVid.play().catch(() => {}); } });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (me && me.id) { keepAwake(); if (awakeVid) awakeVid.play().catch(() => {}); }
+  nudge();                                                     // po návrate do prehliadača sa hneď opýtame na stav
+});
 document.addEventListener('pointerdown', () => { if (me && me.id) keepAwake(); });
 
 /* ---------- prihlásenie ---------- */
 function showJoin() {
   $('#join').hidden = false; $('#game').hidden = true;
-  if (me) $('#name').value = me.name;
-  offerBack();
+  if (me && me.name) $('#name').value = me.name;
+  lastBack = null; offerBack();
 }
-function showGame() { $('#join').hidden = true; $('#game').hidden = false; $('#me').textContent = me.name; }
-function offerBack() {
+function showGame() { $('#join').hidden = true; $('#game').hidden = false; $('#me').textContent = me.name; lastKey = ''; }
+function offerBack() {                                         // prekreslí sa, len keď sa zoznam zmení – inak by sa strácali ťuknutia
   const off = (st.players || []).filter(p => !p.online);
+  const sig = off.map(p => p.id + p.name).join('|');
+  if (sig === lastBack) return;
+  lastBack = sig;
   $('#backList').innerHTML = '';
   if (!off.length) return;
   const t = document.createElement('p'); t.className = 'muted'; t.style.width = '100%'; t.textContent = 'Alebo pokračuj ako:';
@@ -162,52 +180,87 @@ function offerBack() {
 }
 async function doJoin(name, id) {
   keepAwake();
-  if (!name) { $('#jstatus').textContent = 'Najprv napíš meno.'; return; }
+  if (!name) { $('#jstatus').textContent = 'Najprv napíš meno.'; return false; }
   $('#goBtn').disabled = true;
+  $('#jstatus').textContent = 'Pripájam…';
+  let ok = false;
   try {
     const r = await api('join', {name, id: id || (me && me.id)});
-    me = {id: r.id, name: r.name}; saveMe(); showGame(); paint(); keepAwake();
+    me = {id: r.id, name: r.name}; saveMe(); showGame(); keepAwake();
+    $('#jstatus').textContent = '';
+    ok = true;
+    nudge();
   } catch (e) {
-    $('#jstatus').textContent = 'Nepodarilo sa pripojiť. Si na tej istej Wi-Fi ako počítač?';
+    $('#jstatus').textContent = 'Nepodarilo sa pripojiť. Si na tej istej Wi-Fi ako počítač a beží na ňom server?';
   }
   $('#goBtn').disabled = false;
+  return ok;
 }
 
 /* ---------- odpovedanie ---------- */
 async function sendAnswer(v) {
-  sentFor = st.epoch;
+  if (!isOpen()) return;
+  const ep = st.epoch;
+  sentFor = ep; sentVal = String(v);
   if (navigator.vibrate) navigator.vibrate(35);                 // krátke potvrdenie v ruke
-  try { await api('answer', {id: me.id, v: String(v)}); } catch (e) { sentFor = -1; }
-  st = await api('state?id=' + encodeURIComponent(me.id));
-  paint();
+  obnov();                                                     // „Odoslané“ ukážeme hneď, nečakáme na server
+  let r = null;
+  for (let pokus = 0; pokus < 3 && !r; pokus++) {              // keď Wi-Fi zakolíše, skúsime to ešte raz
+    try { r = await api('answer', {id: me.id, v: sentVal, e: ep}, 2500); } catch (e) {}
+  }
+  if (st.epoch !== ep) return;
+  if (!r) { sentFor = -1; }                                    // vôbec neodišlo – nech to skúsi znova
+  try { prijmi(await api('state?id=' + encodeURIComponent(me.id))); } catch (e) {}
+  if (r && !r.ok && st.mine === undefined && st.epoch === ep) missedFor = ep;
+  obnov();
 }
-function pickAbc(i) { if (!st.open || st.mine !== undefined || sentFor === st.epoch) return; sendAnswer(i); }
+const answered = () => st.mine !== undefined || sentFor === st.epoch;
+function pickAbc(i) { if (isOpen() && !answered()) sendAnswer(i); }
 function toggleOrder(i) {
   const at = pickOrder.indexOf(i);
   if (at >= 0) pickOrder.splice(at, 1); else pickOrder.push(i);
-  paint();
+  obnov();
 }
 function sendOrder() { if (pickOrder.length === st.count) sendAnswer(pickOrder.join(',')); }
 
-function paint() {
+function casovac() {                                           // len posunie čísla a pásik, nič neprekresľuje
+  const el = document.getElementById('cas'), bar = document.getElementById('casbar');
+  if (!el || !bar) return;
+  const left = leftMs(), secs = Math.ceil(left / 1000), sec = st.seconds || 1;
+  el.textContent = secs + ' s';
+  el.classList.toggle('low', secs <= Math.min(5, Math.ceil(sec / 2)));
+  bar.style.width = Math.max(0, Math.min(100, left / (sec * 10))) + '%';
+}
+function obnov() {
   if (!me || !me.id) { offerBack(); return; }
+  const open = isOpen();
+  if (byloOtvorene && !open) drama();                          // čas práve vypršal
+  byloOtvorene = open;
+  const key = [st.epoch, open, answered(), st.mine, sentVal, missedFor === st.epoch, pickOrder.join(','), st.kind, st.q, (st.items || []).join('|')].join('#');
+  if (key !== lastKey) { lastKey = key; paint(open); }
+  casovac();
+}
+
+function paint(open) {
   const b = $('#body');
-  const answered = st.mine !== undefined || sentFor === st.epoch;
-  if (!st.open) {
-    const bolo = st.q ? `<p class="qwait">${esc(st.q)}</p>` : '';
-    b.innerHTML = `<div class="state"><div class="big">${st.q ? 'Čas vypršal' : 'Čakaj'}</div><p class="muted">${answered ? 'Odpoveď je odoslaná. Pozeraj na TV.' : st.q ? 'Moderátor ukazuje, kto za čo hlasoval.' : 'Moderátor o chvíľu prečíta otázku.'}</p>${bolo}</div>`;
+  const done = answered();
+  if (missedFor === st.epoch) {
+    b.innerHTML = `<div class="state"><div class="big">Nestihol si</div><p class="muted">Odpoveď prišla až po čase, nepočíta sa.</p>${st.q ? `<p class="qwait">${esc(st.q)}</p>` : ''}</div>`;
     return;
   }
-  const pct = Math.max(0, Math.min(100, (st.left / (st.seconds * 1000)) * 100));
-  const secs = Math.ceil(st.left / 1000);
-  const head = `<div class="top" style="margin-bottom:10px"><span class="muted">${st.kind === 'order' ? 'Zoraď na mobile' : 'Vyber odpoveď'}</span><span class="me${secs <= Math.min(5, Math.ceil(st.seconds / 2)) ? ' low' : ''}">${secs} s</span></div>
-    <div class="bar" style="margin-bottom:12px"><i style="width:${pct}%"></i></div>
+  if (!open) {
+    const bolo = st.q ? `<p class="qwait">${esc(st.q)}</p>` : '';
+    b.innerHTML = `<div class="state"><div class="big">${st.q ? 'Čas vypršal' : 'Čakaj'}</div><p class="muted">${done ? 'Odpoveď je odoslaná. Pozeraj na TV.' : st.q ? 'Moderátor ukazuje, kto za čo hlasoval.' : 'Moderátor o chvíľu prečíta otázku.'}</p>${bolo}</div>`;
+    return;
+  }
+  const head = `<div class="top" style="margin-bottom:10px"><span class="muted">${st.kind === 'order' ? 'Zoraď na mobile' : 'Vyber odpoveď'}</span><span class="me" id="cas"></span></div>
+    <div class="bar" style="margin-bottom:12px"><i id="casbar"></i></div>
     ${st.q ? `<p class="qm">${esc(st.q)}</p>` : ''}`;
-  if (answered) {
-    const mine = st.mine !== undefined ? st.mine : '';
+  if (done) {
+    const mine = st.mine !== undefined ? st.mine : sentVal;
     const txt = st.kind === 'order'
       ? String(mine).split(',').map((x, n) => `${n + 1}. ${esc(st.items[+x] || '?')}`).join('<br>')
-      : 'Možnosť <b>' + 'ABC'[+mine] + '</b> – ' + esc(st.items[+mine] || '');
+      : 'Možnosť <b>' + ('ABC'[+mine] || '?') + '</b> – ' + esc(st.items[+mine] || '');
     b.innerHTML = head + `<div class="state"><div class="sent">Odoslané ✓</div><p class="muted" style="margin-top:8px">${txt}</p></div>`;
     return;
   }
@@ -222,7 +275,7 @@ function paint() {
     </div>
     <p class="hint">Ťukaj v poradí, v akom to má ísť.</p>`;
     b.querySelectorAll('[data-o]').forEach(el => el.onclick = () => toggleOrder(+el.dataset.o));
-    $('#clr').onclick = () => { pickOrder = []; paint(); };
+    $('#clr').onclick = () => { pickOrder = []; obnov(); };
     $('#snd').onclick = sendOrder;
     return;
   }
@@ -232,16 +285,44 @@ function paint() {
   b.querySelectorAll('[data-a]').forEach(el => el.onclick = () => pickAbc(+el.dataset.a));
 }
 
-async function poll() {
-  try {
-    st = await api('state' + (me && me.id ? '?id=' + encodeURIComponent(me.id) : ''));
-    if (st.epoch !== lastEpoch) { lastEpoch = st.epoch; pickOrder = []; sentFor = -1; if (st.open && navigator.vibrate) navigator.vibrate(60); }
-    if (byloOtvorene && !st.open) drama();                     // čas práve vypršal
-    byloOtvorene = !!st.open;
-    if (me && me.id) paint(); else offerBack();
-  } catch (e) {}
-  setTimeout(poll, 400);                                       // pri piatich sekundách na odpoveď sa treba pýtať častejšie
+/* ---------- spojenie so serverom ---------- */
+function prijmi(s) {                                           // nový stav zo servera
+  const t = now();
+  if (s.epoch !== lastEpoch) {
+    lastEpoch = s.epoch; pickOrder = []; sentFor = -1; sentVal = ''; missedFor = -1; deadline = 0;
+    if (s.open && navigator.vibrate) navigator.vibrate(60);
+  }
+  st = s;
+  if (!s.open) deadline = 0;
+  else {                                                       // kedy čas skončí; z viacerých správ berieme tú najpresnejšiu
+    const d = t + s.left - 150;
+    deadline = deadline ? Math.min(deadline, d) : d;
+  }
+  if (me && me.id && s.known === false) {                      // server nás nepozná (reštart, nový priečinok…)
+    if (s.kicked) { me = {name: me.name}; saveMe(); showJoin(); return; }   // moderátor odpojil mobily
+    if (!rejoining) { rejoining = true; doJoin(me.name, me.id).finally(() => { rejoining = false; }); }
+  }
+  obnov();
 }
+let pollT = 0, pollBusy = false, pollStop = null, nudged = false;
+function nudge() {                                             // opýtaj sa hneď (po návrate z uspatia môže byť staré spojenie mŕtve)
+  if (pollBusy) { if (pollStop) { nudged = true; pollStop(); } return; }
+  clearTimeout(pollT); poll();
+}
+async function poll() {
+  pollBusy = true;
+  let pauza = 30;
+  try {
+    const q = [];
+    if (me && me.id) q.push('id=' + encodeURIComponent(me.id));
+    if (st.ver !== undefined) q.push('v=' + st.ver);            // server odpovie hneď, ako sa niečo zmení
+    prijmi(await api('state' + (q.length ? '?' + q.join('&') : ''), null, 9000, f => { pollStop = f; }));
+  } catch (e) { pauza = nudged ? 0 : 1000; st.ver = undefined; }
+  pollBusy = false; pollStop = null; nudged = false;
+  clearTimeout(pollT);
+  pollT = setTimeout(poll, pauza);
+}
+setInterval(() => { if (me && me.id) obnov(); }, 100);
 
 $('#joinForm').addEventListener('submit', e => { e.preventDefault(); doJoin($('#name').value.trim()); });
 $('#rename').addEventListener('click', showJoin);

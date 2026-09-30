@@ -16,6 +16,12 @@ $playersFile = Join-Path $root 'hraci.json'
 $players = New-Object System.Collections.ArrayList   # @{ id; name }
 $lastSeen = @{}                                      # id -> čas posledného ozvania mobilu
 $answers = @{}                                       # id -> @{ v; ms }
+$shownAt = @{}                                       # id -> kedy mobil dostal aktuálnu otázku (od toho sa meria čas odpovede)
+$kicked = @{}                                        # id mobilov, ktoré moderátor odpojil – tie sa samé naspäť nepripoja
+$waiting = New-Object System.Collections.ArrayList   # mobily, ktoré čakajú na zmenu (odpovieme im hneď, ako sa niečo stane)
+$script:ver = 0                                      # zvýši sa pri každej zmene otázky
+$script:held = $false
+$script:expired = $false
 $script:epoch = 0
 $script:open = $false
 $script:kind = ''                                    # abc | order
@@ -24,6 +30,7 @@ $script:items = @()                                  # texty položiek pre zora�
 $script:askedAt = [DateTime]::UtcNow
 $script:seconds = 20
 $script:qtext = ''                                      # znenie otázky pre mobily
+$GRACE_MS = 400                                      # odpoveď odoslaná na poslednú chvíľu ešte chvíľu letí po Wi-Fi
 
 function SavePlayers {
   try { [System.IO.File]::WriteAllText($playersFile, (ConvertTo-Json -InputObject @($players | ForEach-Object { @{ id = $_.id; name = $_.name } }) -Compress), $utf8) } catch {}
@@ -35,14 +42,27 @@ if (Test-Path $playersFile) {
   } catch {}
 }
 
+# Adresy počítača v sieti. Prvá je tá, na ktorú sa majú pripájať mobily:
+# skutočná Wi-Fi/sieťová karta s bránou, virtuálne adaptéry (VirtualBox, Hyper-V, VPN…) až na koniec.
 function Get-LanIPs {
   $list = foreach ($nic in [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()) {
-    if ($nic.OperationalStatus -ne 'Up' -or $nic.NetworkInterfaceType -eq 'Loopback') { continue }
-    foreach ($ua in $nic.GetIPProperties().UnicastAddresses) {
-      if ($ua.Address.AddressFamily -eq 'InterNetwork') { $ua.Address.ToString() }
+    if ($nic.OperationalStatus -ne 'Up' -or $nic.NetworkInterfaceType -eq 'Loopback' -or $nic.NetworkInterfaceType -eq 'Tunnel') { continue }
+    $props = $nic.GetIPProperties()
+    $gw = $false
+    foreach ($g in $props.GatewayAddresses) { if ($g.Address.AddressFamily -eq 'InterNetwork' -and $g.Address.ToString() -ne '0.0.0.0') { $gw = $true } }
+    $virt = "$($nic.Name) $($nic.Description)" -match 'virtual|vmware|vbox|hyper-v|vethernet|\bwsl\b|docker|\btap\b|\btun\b|vpn|bluetooth|zerotier|tailscale|hamachi'
+    foreach ($ua in $props.UnicastAddresses) {
+      $a = $ua.Address.ToString()
+      if ($ua.Address.AddressFamily -ne 'InterNetwork' -or $a.StartsWith('169.254.')) { continue }
+      $score = 0
+      if (-not $gw) { $score += 10 }
+      if ($virt) { $score += 20 }
+      if ($nic.NetworkInterfaceType -ne 'Wireless80211' -and $nic.NetworkInterfaceType -ne 'Ethernet') { $score += 5 }
+      if ($a -like '10.*') { $score += 1 } elseif ($a -notlike '192.168.*') { $score += 2 }
+      New-Object PSObject -Property @{ ip = $a; score = $score }
     }
   }
-  @($list | Sort-Object { if ($_ -like '192.168.*') { 0 } elseif ($_ -like '10.*') { 1 } else { 2 } })
+  @($list | Sort-Object score | ForEach-Object { $_.ip })
 }
 
 function Send($client, [int]$code, [string]$type, [byte[]]$body) {
@@ -62,25 +82,59 @@ function SendFile($client, [string]$name) {
   if (Test-Path $f) { Send $client 200 'text/html; charset=utf-8' ([System.IO.File]::ReadAllBytes($f)) }
   else { Send $client 404 'text/plain; charset=utf-8' ($utf8.GetBytes("Chýba súbor $name")) }
 }
-function IsOnline([string]$id) { $lastSeen.ContainsKey($id) -and (([DateTime]::UtcNow - $lastSeen[$id]).TotalSeconds -lt 6) }
+function Bump { $script:ver++ }                     # niečo sa zmenilo – čakajúce mobily sa to dozvedia hneď
+function IsOnline([string]$id) { $lastSeen.ContainsKey($id) -and (([DateTime]::UtcNow - $lastSeen[$id]).TotalSeconds -lt 7) }
 function LeftMs { [int][Math]::Max(0, ($script:seconds * 1000) - ([DateTime]::UtcNow - $script:askedAt).TotalMilliseconds) }
-function StateObj {
+function FindPlayer([string]$id) {
+  if (-not $id) { return $null }
+  foreach ($p in $players) { if ($p.id -eq $id) { return $p } }
+  return $null
+}
+function StateObj([string]$me) {
   $sent = @{}
   foreach ($k in $answers.Keys) { $sent[$k] = $true }
-  @{
+  $list = New-Object System.Collections.ArrayList
+  foreach ($p in $players) { [void]$list.Add(@{ id = $p.id; name = $p.name; online = (IsOnline $p.id) }) }
+  $left = LeftMs
+  $st = @{
     epoch   = $script:epoch
-    open    = ($script:open -and (LeftMs) -gt 0)
+    ver     = $script:ver
+    open    = ($script:open -and $left -gt 0)
     kind    = $script:kind
     count   = $script:count
     items   = @($script:items)
-    left    = LeftMs
+    left    = $left
     seconds = $script:seconds
     q       = $script:qtext
     sent    = $sent
-    players = @($players | ForEach-Object { @{ id = $_.id; name = $_.name; online = (IsOnline $_.id) } })
+    players = @($list)
+  }
+  if ($me) {
+    $st['known'] = [bool](FindPlayer $me)
+    if ($kicked.ContainsKey($me)) { $st['kicked'] = $true }
+    if ($answers.ContainsKey($me)) { $st['mine'] = $answers[$me].v }
+  }
+  $st
+}
+function SendState($client, [string]$me) {
+  if ($me -and (FindPlayer $me)) {
+    $lastSeen[$me] = [DateTime]::UtcNow
+    if ($script:open -and (LeftMs) -gt 0 -and -not $shownAt.ContainsKey($me)) { $shownAt[$me] = [DateTime]::UtcNow }
+  }
+  SendJson $client (StateObj $me)
+}
+# Mobily čakajú na zmenu najviac 4 sekundy, potom dostanú odpoveď aj tak (a tým vieme, že sú pripojené).
+function ReleaseWaiting {
+  if (-not $waiting.Count) { return }
+  $now = [DateTime]::UtcNow
+  foreach ($w in @($waiting)) {
+    if ([string]$script:ver -ne $w.v -or $now -ge $w.until) {
+      $waiting.Remove($w)
+      try { SendState $w.c $w.me } catch {}
+      try { $w.c.Close() } catch {}
+    }
   }
 }
-function FindPlayer([string]$id) { $players | Where-Object { $_.id -eq $id } | Select-Object -First 1 }
 function QueryParam([string]$path, [string]$name) {
   if ($path -match "[?&]$name=([^&]*)") { return [System.Uri]::UnescapeDataString($matches[1]) }
   return ''
@@ -108,36 +162,45 @@ function Handle($client, $req) {
     '/'          { SendFile $client 'tv.html'; return }
     '/m'         { SendFile $client 'mobil.html'; return }
     '/api/info'  { SendJson $client @{ ips = @(Get-LanIPs); port = $Port }; return }
+    # s parametrom v= mobil čaká, kým sa niečo zmení (nová otázka, koniec času…), a dozvie sa to hneď
     '/api/state' {
       $me = QueryParam $req.path 'id'
-      if ($me -and (FindPlayer $me)) { $lastSeen[$me] = [DateTime]::UtcNow }
-      $st = StateObj
-      if ($me -and $answers.ContainsKey($me)) { $st['mine'] = $answers[$me].v }
-      SendJson $client $st; return
+      $v = QueryParam $req.path 'v'
+      if ($v -ne '' -and $v -eq [string]$script:ver) {
+        if ($me -and (FindPlayer $me)) { $lastSeen[$me] = [DateTime]::UtcNow }
+        [void]$waiting.Add(@{ c = $client; me = $me; v = $v; until = [DateTime]::UtcNow.AddSeconds(4) })
+        $script:held = $true
+        return
+      }
+      SendState $client $me; return
     }
     '/api/join' {
       $name = ([string]$data.name).Trim()
       if ($name.Length -gt 16) { $name = $name.Substring(0, 16) }
       if (-not $name) { $name = 'Hráč' }
-      $p = $null
-      if ($data.id) { $p = FindPlayer ([string]$data.id) }
+      $want = [string]$data.id
+      $p = FindPlayer $want
       if ($p) { $p.name = $name }
       else {
-        $p = $players | Where-Object { $_.name.ToLower() -eq $name.ToLower() } | Select-Object -First 1
+        foreach ($x in $players) { if (-not $p -and $x.name.ToLower() -eq $name.ToLower()) { $p = $x } }
         if ($p) { Write-Host "  ~ znovu pripojený: $($p.name)" }
       }
       if (-not $p) {
-        $p = @{ id = [guid]::NewGuid().ToString('N').Substring(0, 10); name = $name }
+        # mobil, ktorý server nepozná (napr. po reštarte bez hraci.json), si nechá svoje doterajšie id
+        $nid = if ($want -match '^[0-9a-f]{10}$') { $want } else { [guid]::NewGuid().ToString('N').Substring(0, 10) }
+        $p = @{ id = $nid; name = $name }
         [void]$players.Add($p)
         Write-Host "  + pripojil sa hráč: $name"
       }
+      $kicked.Remove($p.id)
+      if ($want) { $kicked.Remove($want) }
       $lastSeen[$p.id] = [DateTime]::UtcNow
       SavePlayers
       SendJson $client @{ id = $p.id; name = $p.name }; return
     }
     # nová otázka: vyčistí odpovede a spustí čas
     '/api/ask' {
-      $answers.Clear()
+      $answers.Clear(); $shownAt.Clear()
       $script:kind = if ([string]$data.kind -eq 'order') { 'order' } else { 'abc' }
       $script:count = [Math]::Max(2, [Math]::Min(6, [int]$data.count))
       $script:items = @()
@@ -147,17 +210,24 @@ function Handle($client, $req) {
       if ($script:qtext.Length -gt 300) { $script:qtext = $script:qtext.Substring(0, 300) }
       $script:askedAt = [DateTime]::UtcNow
       $script:open = $true
+      $script:expired = $false
       $script:epoch++
+      Bump
       SendJson $client @{ epoch = $script:epoch }; return
     }
     # odpoveď z mobilu: abc = číslo možnosti, order = poradie ako "2,0,3,1"
     '/api/answer' {
       $id = [string]$data.id
       $ok = $false
-      if ((FindPlayer $id) -and $script:open -and (LeftMs) -gt 0 -and -not $answers.ContainsKey($id)) {
+      $now = [DateTime]::UtcNow
+      $elapsed = ($now - $script:askedAt).TotalMilliseconds
+      $sameQ = ($null -eq $data.e) -or ([int]$data.e -eq $script:epoch)
+      if ((FindPlayer $id) -and $script:open -and $sameQ -and $elapsed -lt ($script:seconds * 1000 + $GRACE_MS) -and -not $answers.ContainsKey($id)) {
         $v = ([string]$data.v).Trim()
         if ($v.Length -gt 40) { $v = $v.Substring(0, 40) }
-        $answers[$id] = @{ v = $v; ms = [int]([DateTime]::UtcNow - $script:askedAt).TotalMilliseconds }
+        $from = if ($shownAt.ContainsKey($id)) { $shownAt[$id] } else { $script:askedAt }
+        $ms = [Math]::Min(($now - $from).TotalMilliseconds, $script:seconds * 1000)
+        $answers[$id] = @{ v = $v; ms = [int][Math]::Max(0, $ms) }
         $ok = $true
       }
       if (FindPlayer $id) { $lastSeen[$id] = [DateTime]::UtcNow }
@@ -168,10 +238,12 @@ function Handle($client, $req) {
       foreach ($k in $answers.Keys) { $out[$k] = @{ v = $answers[$k].v; ms = $answers[$k].ms } }
       SendJson $client @{ epoch = $script:epoch; open = $script:open; left = LeftMs; answers = $out }; return
     }
-    '/api/close' { $script:open = $false; SendJson $client @{ ok = $true }; return }
-    '/api/idle'  { $script:open = $false; $answers.Clear(); $script:kind = ''; $script:qtext = ''; SendJson $client @{ ok = $true }; return }
+    '/api/close' { $script:open = $false; Bump; SendJson $client @{ ok = $true }; return }
+    '/api/idle'  { $script:open = $false; $answers.Clear(); $script:kind = ''; $script:qtext = ''; Bump; SendJson $client @{ ok = $true }; return }
     '/api/reset' {
+      foreach ($p in $players) { $kicked[$p.id] = $true }
       $players.Clear(); $answers.Clear(); $lastSeen.Clear(); $script:open = $false
+      Bump
       SavePlayers; Write-Host '  mobily odpojené'
       SendJson $client @{ ok = $true }; return
     }
@@ -193,11 +265,13 @@ Write-Host '  ČO JA VIEM – server beží' -ForegroundColor Yellow
 Write-Host "  Na TV / počítači otvor:   http://localhost:$Port"
 foreach ($a in Get-LanIPs) { Write-Host "  Mobily (rovnaká Wi-Fi):   http://${a}:$Port/m" -ForegroundColor Cyan }
 if ($players.Count) { Write-Host "  Zapamätaní hráči: $(($players | ForEach-Object { $_.name }) -join ', ')" }
+Write-Host '  Ak sa mobil nevie pripojiť: keď sa Windows opýta, či PowerShellu povoliť sieť, daj Povoliť.'
 Write-Host '  Toto okno nechaj otvorené. Hru ukončíš zatvorením okna.'
 Write-Host ''
 if (-not $NoBrowser) { Start-Process "http://localhost:$Port/" }
 
 $conns = New-Object System.Collections.ArrayList
+$readable = New-Object System.Collections.ArrayList
 while ($true) {
   while ($listener.Pending()) {
     $c = $listener.AcceptTcpClient()
@@ -214,11 +288,24 @@ while ($true) {
         $n = $c.GetStream().Read($tmp, 0, $tmp.Length)
         $k.buf.Write($tmp, 0, $n)
         $req = TryParse $k.buf
-        if ($req) { Handle $c $req; $c.Close(); $conns.Remove($k) }
+        if ($req) {
+          $script:held = $false
+          $conns.Remove($k)
+          Handle $c $req
+          if (-not $script:held) { $c.Close() }             # čakajúci mobil zatvoríme až po odpovedi
+        }
       }
-      elseif (([DateTime]::UtcNow - $k.t).TotalSeconds -gt 10) { $c.Close(); $conns.Remove($k) }
+      elseif ($readable.Contains($c.Client) -or ([DateTime]::UtcNow - $k.t).TotalSeconds -gt 10) { $c.Close(); $conns.Remove($k) }   # mobil spojenie zavrel
     }
     catch { try { $c.Close() } catch {}; $conns.Remove($k) }
   }
-  if (-not $busy) { Start-Sleep -Milliseconds 4 }
+  if ($script:open -and -not $script:expired -and (LeftMs) -le 0) { $script:expired = $true; Bump }   # čas vypršal
+  ReleaseWaiting
+  $readable.Clear()
+  if (-not $busy) {
+    # počkáme, kým niečo príde (najviac 20 ms), namiesto slepého spánku – odpoveď tak odíde hneď
+    [void]$readable.Add($listener.Server)
+    foreach ($k in $conns) { [void]$readable.Add($k.c.Client) }
+    try { [System.Net.Sockets.Socket]::Select($readable, $null, $null, 20000) } catch { $readable.Clear(); Start-Sleep -Milliseconds 5 }
+  }
 }
