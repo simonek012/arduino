@@ -142,7 +142,7 @@ function Handle($client, $req) {
       $script:count = [Math]::Max(2, [Math]::Min(6, [int]$data.count))
       $script:items = @()
       if ($data.items) { foreach ($it in $data.items) { $script:items += [string]$it } }
-      $script:seconds = [Math]::Max(5, [Math]::Min(120, [int]$data.seconds))
+      $script:seconds = [Math]::Max(3, [Math]::Min(120, [int]$data.seconds))
       $script:qtext = ([string]$data.q).Trim()
       if ($script:qtext.Length -gt 300) { $script:qtext = $script:qtext.Substring(0, 300) }
       $script:askedAt = [DateTime]::UtcNow

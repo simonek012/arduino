@@ -200,7 +200,7 @@ function paint() {
   }
   const pct = Math.max(0, Math.min(100, (st.left / (st.seconds * 1000)) * 100));
   const secs = Math.ceil(st.left / 1000);
-  const head = `<div class="top" style="margin-bottom:10px"><span class="muted">${st.kind === 'order' ? 'Zoraď na mobile' : 'Vyber odpoveď'}</span><span class="me${secs <= 5 ? ' low' : ''}">${secs} s</span></div>
+  const head = `<div class="top" style="margin-bottom:10px"><span class="muted">${st.kind === 'order' ? 'Zoraď na mobile' : 'Vyber odpoveď'}</span><span class="me${secs <= Math.min(5, Math.ceil(st.seconds / 2)) ? ' low' : ''}">${secs} s</span></div>
     <div class="bar" style="margin-bottom:12px"><i style="width:${pct}%"></i></div>
     ${st.q ? `<p class="qm">${esc(st.q)}</p>` : ''}`;
   if (answered) {
