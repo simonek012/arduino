@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#050920">
+<title>Riskuj a nepiskuj! – tlačidlo</title>
+<style>
+:root{--bg:#050920;--board:#0C1548;--line:#243276;--gold:#FFCF3F;--text:#F2F4FF;--muted:#97A1D4;--ok:#3DDC84;--bad:#FF4D5E}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;display:flex;flex-direction:column;
+  padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;overscroll-behavior:none}
+[hidden]{display:none!important}
+.logo{font:900 60px/.85 Impact,'Arial Narrow',sans-serif;color:var(--gold);margin:0;transform:rotate(-3deg);transform-origin:left bottom;text-shadow:.05em .05em 0 #1733A0}
+.logo .logo-sub{display:block;font-size:.42em;line-height:1;color:var(--text);margin:.12em 0 0 1.1em;text-shadow:.06em .06em 0 #1733A0}
+.join{margin-block:auto;display:flex;flex-direction:column;gap:14px}
+.join p{color:var(--muted);margin:0;font-size:17px}
+input,textarea{font:700 24px system-ui,sans-serif;padding:14px 16px;border-radius:14px;border:2px solid var(--line);background:var(--board);color:var(--text);width:100%;-webkit-user-select:text;user-select:text}
+input:focus,textarea:focus{outline:none;border-color:var(--gold)}
+.go{font:800 22px system-ui,sans-serif;padding:16px;border-radius:14px;border:0;background:var(--gold);color:#241800}
+.go:disabled{opacity:.6}
+.back{display:flex;flex-direction:column;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:700 18px system-ui,sans-serif;padding:10px 14px;border-radius:99px;border:2px solid var(--gold);background:var(--board);color:var(--text)}
+.game{flex:1;display:flex;flex-direction:column;gap:12px;min-height:0}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.me{font-weight:800;font-size:20px;overflow-wrap:anywhere}
+.link{background:none;border:0;color:var(--muted);text-decoration:underline;font-size:14px;padding:6px}
+.buzz{flex:1;min-height:0;border:0;border-radius:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.25em;
+  font:900 clamp(48px,17vw,96px)/1 Impact,'Arial Narrow',sans-serif;letter-spacing:.02em;color:#241800;background:var(--gold);
+  box-shadow:0 12px 0 #9c7a12;margin-bottom:12px;transition:transform .05s,box-shadow .05s,background .2s}
+.buzz small{font:700 clamp(18px,5vw,26px)/1.2 system-ui,sans-serif;letter-spacing:0}
+.buzz.go-now:active{transform:translateY(9px);box-shadow:0 3px 0 #9c7a12}
+.buzz.wait{background:var(--board);color:var(--muted);box-shadow:0 12px 0 #02040f}
+.buzz.first{background:var(--ok);color:#04210F;box-shadow:0 12px 0 #1d7a45}
+.buzz.late{background:#2a2f5c;color:var(--text);box-shadow:0 12px 0 #0f1433}
+.buzz.out{background:#3a1520;color:#ffb3bd;box-shadow:0 12px 0 #1c0a10}
+.final{flex:1;display:flex;flex-direction:column;gap:14px;justify-content:center}
+.final h2{font:900 44px/1 Impact,'Arial Narrow',sans-serif;color:var(--gold);margin:0}
+.final p{margin:0;color:var(--muted);font-size:17px}
+.final .done{color:var(--ok);font-weight:800;font-size:19px}
+textarea{min-height:110px;resize:none}
+.status{text-align:center;color:var(--muted);font-size:16px;min-height:1.3em;margin:0}
+.status.err{color:var(--bad);font-weight:700}
+.tip{color:var(--muted);font-size:13px;text-align:center;margin:0}
+</style>
+</head>
+<body>
+<form class="join" id="join">
+  <h1 class="logo">Riskuj<span class="logo-sub">a nepiskuj!</span></h1>
+  <div class="back" id="back" hidden><p>Si už v hre a vypadol si? Klikni na svoje meno:</p><div class="chips" id="backList"></div></div>
+  <p>Napíš svoje meno. Na TV sa ukáže, keď sa prihlásiš prvý.</p>
+  <input id="name" maxlength="16" autocomplete="off" enterkeyhint="go" placeholder="Tvoje meno" aria-label="Tvoje meno">
+  <button class="go" id="goBtn" type="submit">Pripojiť sa</button>
+  <p class="status" id="jstatus"></p>
+</form>
+
+<section class="game" id="game" hidden>
+  <div class="top"><span class="me" id="me"></span><button class="link" id="rename" type="button">Zmeniť meno</button></div>
+  <button class="buzz wait" id="buzz" type="button"><span id="bt">Čakaj</span><small id="bs">na otázku</small></button>
+  <section class="final" id="final" hidden>
+    <h2 id="fTitle">Finále</h2>
+    <p id="fText"></p>
+    <form id="fForm" class="back">
+      <input id="fBet" type="number" inputmode="numeric" min="0" step="100" placeholder="Stávka" aria-label="Stávka">
+      <textarea id="fAns" maxlength="120" placeholder="Tvoja odpoveď" aria-label="Odpoveď"></textarea>
+      <button class="go" id="fSend" type="submit">Odoslať</button>
+    </form>
+    <p class="done" id="fDone"></p>
+  </section>
+  <p class="status" id="status"></p>
+  <p class="tip">Nechaj obrazovku zapnutú. Keď vypadne Wi-Fi, mobil sa pripojí sám.</p>
+</section>
+
+<script>
+const $ = s => document.querySelector(s);
+let me = null, st = null, pending = false, lastEpoch = -1, failCount = 0, finalKey = '';
+try { me = JSON.parse(localStorage.getItem('riskuj-phone')); } catch (e) {}
+
+function api(path, body) {
+  const opt = body !== undefined
+    ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}
+    : {cache: 'no-store'};
+  return fetch('/api/' + path, opt).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+}
+function saveMe() { try { localStorage.setItem('riskuj-phone', JSON.stringify(me)); } catch (e) {} }
+
+function showJoin() {
+  $('#join').hidden = false; $('#game').hidden = true;
+  if (me && me.name) $('#name').value = me.name;
+  paintBack();
+}
+function showGame() { $('#join').hidden = true; $('#game').hidden = false; $('#me').textContent = me.name; }
+// hráči, ktorí sú v hre, ale ich mobil je odpojený – kliknutím sa dá pokračovať za nich
+function paintBack() {
+  const off = st ? st.players.filter(p => !p.online) : [];
+  $('#back').hidden = !off.length;
+  $('#backList').innerHTML = '';
+  off.forEach(p => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = p.name;
+    b.onclick = () => doJoin(p.name, p.id);
+    $('#backList').appendChild(b);
+  });
+}
+async function doJoin(name, id) {
+  keepAwake();
+  if (!name) { $('#jstatus').textContent = 'Najprv napíš meno.'; return; }
+  $('#goBtn').disabled = true;
+  try {
+    const r = await api('join', {name, id: id || (me && me.id)});
+    me = {id: r.id, name: r.name}; saveMe(); showGame(); paint(); keepAwake();
+  } catch (e) {
+    $('#jstatus').textContent = 'Nepodarilo sa pripojiť. Si na tej istej Wi-Fi ako počítač?';
+  }
+  $('#goBtn').disabled = false;
+}
+
+function set(cls, big, small) {
+  $('#buzz').className = 'buzz ' + cls;
+  $('#bt').textContent = big; $('#bs').textContent = small || '';
+}
+function paintFinal() {
+  const f = st.final || {stage: 'off'};
+  const mine = !!(me && f.max && Object.prototype.hasOwnProperty.call(f.max, me.id));
+  const show = f.stage === 'bet' || f.stage === 'answer' || f.stage === 'closed';
+  $('#final').hidden = !show; $('#buzz').hidden = show;
+  if (!show) return;
+  const sent = (f.sent && f.sent[me.id]) || {};
+  const key = f.stage + (mine ? '1' : '0');
+  if (key !== finalKey) { finalKey = key; $('#fBet').value = ''; $('#fAns').value = ''; }
+  const form = $('#fForm');
+  if (!mine) {
+    $('#fTitle').textContent = 'Finále';
+    $('#fText').textContent = 'Vo finále hrajú hráči s kladnými bodmi. Drž im palce!';
+    form.hidden = true; $('#fDone').textContent = ''; return;
+  }
+  if (f.stage === 'bet') {
+    $('#fTitle').textContent = 'Tvoja stávka';
+    $('#fText').textContent = `Koľko staviaš? Najviac ${Number(f.max[me.id]).toLocaleString('sk-SK')}. Stávku uvidí len moderátor.`;
+    form.hidden = false; $('#fBet').hidden = false; $('#fAns').hidden = true; $('#fBet').max = f.max[me.id];
+    $('#fDone').textContent = sent.bet ? '✓ Stávka je odoslaná. Kým nezačne otázka, môžeš ju zmeniť.' : '';
+  } else if (f.stage === 'answer') {
+    $('#fTitle').textContent = 'Tvoja odpoveď';
+    $('#fText').textContent = 'Napíš odpoveď na finálovú otázku, ktorá je na TV.';
+    form.hidden = false; $('#fBet').hidden = true; $('#fAns').hidden = false;
+    $('#fDone').textContent = sent.answer ? '✓ Odpoveď je odoslaná. Kým beží čas, môžeš ju opraviť.' : '';
+  } else {
+    $('#fTitle').textContent = 'Finále'; $('#fText').textContent = 'Čas vypršal, vyhodnocuje sa…';
+    form.hidden = true; $('#fDone').textContent = sent.answer ? '✓ Tvoja odpoveď prišla.' : 'Odpoveď neprišla.';
+  }
+}
+function paint() {
+  if (!st || !me) return;
+  if (st.epoch !== lastEpoch) { lastEpoch = st.epoch; pending = false; }
+  const pos = st.buzzes.findIndex(b => b.id === me.id) + 1;
+  const turn = st.turn ? st.players.find(p => p.id === st.turn) : null;
+  if (st.locked.includes(me.id)) set('out', 'Stop', 'túto otázku už nemôžeš');
+  else if (st.turn === me.id) set('first', pos === 1 ? 'Si prvý!' : 'Odpovedáš!', 'odpovedaj');
+  else if (pos) set('late', `Si ${pos}. v poradí`, turn ? 'odpovedá ' + turn.name + ' – ak sa pomýli, ideš ďalší' : 'počkaj na svoj rad');
+  else if (st.armed && pending) set('wait', 'Prihlásený…', '');
+  else if (st.armed) set('go-now', 'Stlač!', turn ? 'odpovedá ' + turn.name + ' – prihlás sa ako ďalší' : '');
+  else set('wait', 'Čakaj', 'na otázku');
+  paintFinal();
+}
+async function poll() {
+  try {
+    st = await api('state' + (me ? '?id=' + encodeURIComponent(me.id) : ''));
+    failCount = 0;
+    $('#status').textContent = ''; $('#status').className = 'status';
+    if (me && !$('#game').hidden && !st.players.some(p => p.id === me.id)) {
+      // server bol reštartovaný alebo mobily odpojené – pripoj sa znova pod rovnakým menom
+      const r = await api('join', {name: me.name});
+      me = {id: r.id, name: r.name}; saveMe();
+    }
+    if (!$('#join').hidden) paintBack();
+    paint();
+  } catch (e) {
+    failCount++;
+    $('#status').textContent = failCount > 3 ? 'Spojenie sa stratilo. Skúšam sa pripojiť znova…' : '';
+    $('#status').className = 'status err';
+  }
+  setTimeout(poll, failCount > 3 ? 1000 : 250);
+}
+async function buzz(e) {
+  e.preventDefault();
+  if (!st || !st.armed || pending || st.turn === me.id || st.buzzes.some(b => b.id === me.id) || st.locked.includes(me.id)) return;
+  pending = true; paint();
+  try { navigator.vibrate && navigator.vibrate(40); } catch (err) {}
+  try {
+    const r = await api('buzz', {id: me.id});
+    if (!r.ok) pending = false;
+    st = await api('state?id=' + encodeURIComponent(me.id)); paint();
+  } catch (err) { pending = false; paint(); }
+}
+async function sendFinal(e) {
+  e.preventDefault();
+  const stage = st && st.final && st.final.stage;
+  const value = stage === 'bet' ? $('#fBet').value : $('#fAns').value.trim();
+  if (value === '') return;
+  $('#fSend').disabled = true;
+  try {
+    const r = await api('finalsubmit', {id: me.id, kind: stage, value});
+    if (!r.ok) $('#fDone').textContent = 'Už je neskoro, hra pokračuje.';
+    st = await api('state?id=' + encodeURIComponent(me.id)); paint();
+  } catch (err) { $('#fDone').textContent = 'Nepodarilo sa odoslať, skús znova.'; }
+  $('#fSend').disabled = false;
+}
+
+/* ---------- displej nech nezhasne ---------- */
+let wake = null, awakeVid = null, awakeSrc = null;
+async function keepAwake() {
+  try {
+    if ('wakeLock' in navigator) {
+      if (wake && !wake.released) return;
+      wake = await navigator.wakeLock.request('screen');
+      wake.addEventListener('release', () => { wake = null; });
+      return;
+    }
+  } catch (e) { wake = null; }
+  keepAwakeVideo();   // cez http zámok obrazovky nie je, pomôže prehrávané video
+}
+// drobné video v rohu: kým hrá, telefón obrazovku nezhasína
+function keepAwakeVideo() {
+  if (!awakeVid) {
+    awakeVid = document.createElement('video');
+    awakeVid.setAttribute('playsinline', ''); awakeVid.setAttribute('webkit-playsinline', '');
+    awakeVid.muted = true; awakeVid.loop = true; awakeVid.autoplay = true;
+    awakeVid.style.cssText = 'position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:.01;pointer-events:none';
+    awakeVid.addEventListener('pause', () => { if (document.visibilityState === 'visible') awakeVid.play().catch(() => {}); });
+    awakeVid.addEventListener('ended', () => { awakeVid.currentTime = 0; awakeVid.play().catch(() => {}); });
+    document.body.appendChild(awakeVid);
+  }
+  if (awakeSrc) { awakeVid.play().catch(() => {}); return; }
+  try {
+    const c = document.createElement('canvas'); c.width = c.height = 2;
+    const g = c.getContext('2d');
+    setInterval(() => { g.fillStyle = g.fillStyle === '#000000' ? '#010101' : '#000000'; g.fillRect(0, 0, 2, 2); }, 200);
+    const stream = c.captureStream(5);
+    if (window.MediaRecorder) {
+      const parts = [], rec = new MediaRecorder(stream);
+      rec.ondataavailable = e => parts.push(e.data);
+      rec.onstop = () => { awakeSrc = URL.createObjectURL(new Blob(parts, {type: rec.mimeType})); awakeVid.src = awakeSrc; awakeVid.play().catch(() => {}); };
+      rec.start(); setTimeout(() => { try { rec.stop(); } catch (e) {} }, 1500);
+    } else { awakeVid.srcObject = stream; awakeSrc = 'stream'; awakeVid.play().catch(() => {}); }
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && me && me.id) { keepAwake(); if (awakeVid) awakeVid.play().catch(() => {}); } });
+document.addEventListener('pointerdown', () => { if (me && me.id) keepAwake(); });
+
+$('#join').addEventListener('submit', e => { e.preventDefault(); doJoin($('#name').value.trim()); });
+$('#rename').addEventListener('click', showJoin);
+$('#buzz').addEventListener('pointerdown', buzz);
+$('#buzz').addEventListener('contextmenu', e => e.preventDefault());
+$('#fForm').addEventListener('submit', sendFinal);
+
+if (me && me.id) { showGame(); keepAwake(); } else { showJoin(); }
+poll();
+</script>
+</body>
+</html>
