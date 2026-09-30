@@ -634,12 +634,94 @@ function hudbaStop() {
   } catch (e) {}
   drone = null;
 }
-function zvukOdhalenie() {                                     // keď moderátor ukáže správnu odpoveď
+function zvukOdhalenie() {                                     // keď moderátor ukáže správnu odpoveď: úder ako drop na konci odpočtu
   if (!hraZvuk()) return;
   const a = ac(); if (!a) return;
+  hudbaStop();                                                 // doznievanie odpočtu utneme, nech sa údery neprekrývajú
   const t = a.currentTime;
-  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => ton(f, t + i * 0.09, 0.45, 0.16, 'triangle'));
-  sum(t, 0.5, 0.10, 3000);
+  const g = a.createGain();
+  g.connect(a.destination);
+  if (zvukBuf) {                                               // ten istý drop z nahrávky časomiery
+    const src = a.createBufferSource();
+    src.buffer = zvukBuf;
+    src.connect(g);
+    g.gain.setValueAtTime(0.75, t);
+    g.gain.setValueAtTime(0.75, t + 2.6);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 4.2);
+    src.start(t, DROP - 0.02);
+    src.stop(t + 4.3);
+    return;
+  }
+  const o = a.createOscillator(), og = a.createGain();         // náhrada: hlboký úder s dozvukom
+  o.type = 'sine';
+  o.frequency.setValueAtTime(90, t);
+  o.frequency.exponentialRampToValueAtTime(32.7, t + 1.2);
+  og.gain.setValueAtTime(0.9, t);
+  og.gain.exponentialRampToValueAtTime(0.0001, t + 3.5);
+  o.connect(og).connect(g);
+  g.gain.value = 0.8;
+  o.start(t); o.stop(t + 3.6);
+  sum(t, 0.6, 0.25, 900);
+}
+
+/* Jemný vážny podklad počas čítania otázky: tichý akord c mol, ktorý pomaly prechádza
+   c mol – As dur – f mol – G dur, k tomu mäkký šum. Ladí s hukotom časomiery (tón C). */
+const PODKLAD_AKORDY = [
+  [65.41, 98.00, 130.81, 155.56, 196.00],                      // c mol
+  [51.91, 77.78, 130.81, 155.56, 207.65],                      // As dur
+  [43.65, 87.31, 130.81, 174.61, 207.65],                      // f mol
+  [49.00, 73.42, 123.47, 146.83, 196.00]                       // G dur
+];
+let podklad = null;
+function podkladStart() {
+  if (!hraZvuk()) { podkladStop(); return; }
+  if (podklad) return;
+  const a = ac(); if (!a) return;
+  const t = a.currentTime;
+  const celk = a.createGain();
+  celk.gain.setValueAtTime(0.0001, t);
+  celk.gain.exponentialRampToValueAtTime(0.22, t + 2.5);       // pomalý nábeh
+  celk.connect(a.destination);
+  const filter = a.createBiquadFilter();                       // mäkký, tlmený zvuk
+  filter.type = 'lowpass'; filter.frequency.value = 650; filter.Q.value = 0.7;
+  filter.connect(celk);
+  const lfo = a.createOscillator(), lfoG = a.createGain();     // filter pomaly dýcha
+  lfo.frequency.value = 0.07; lfoG.gain.value = 250;
+  lfo.connect(lfoG).connect(filter.frequency); lfo.start(t);
+  const hlasy = PODKLAD_AKORDY[0].map((f, i) => {
+    const g = a.createGain(); g.gain.value = [0.22, 0.16, 0.12, 0.10, 0.08][i];
+    g.connect(filter);
+    const osc = [-4, 4].map(cent => {                          // dva mierne rozladené oscilátory = teplý chór
+      const o = a.createOscillator(); o.type = 'triangle';
+      o.frequency.value = f; o.detune.value = cent;
+      o.connect(g); o.start(t); return o;
+    });
+    return osc;
+  });
+  const sumSrc = a.createBufferSource();                       // tichý šum ako vzdialený vietor
+  sumSrc.buffer = sumovyBuffer(a); sumSrc.loop = true;
+  const sp = a.createBiquadFilter(); sp.type = 'bandpass'; sp.frequency.value = 420; sp.Q.value = 0.6;
+  const sg = a.createGain(); sg.gain.value = 0.05;
+  sumSrc.connect(sp).connect(sg).connect(celk); sumSrc.start(t);
+  let krok = 0;
+  const posun = setInterval(() => {                            // každých 7 sekúnd plynulo ďalší akord
+    krok = (krok + 1) % PODKLAD_AKORDY.length;
+    const tt = a.currentTime;
+    hlasy.forEach((osc, i) => osc.forEach(o => o.frequency.setTargetAtTime(PODKLAD_AKORDY[krok][i], tt, 0.9)));
+  }, 7000);
+  podklad = {celk, zdroje: [...hlasy.flat(), lfo, sumSrc], posun};
+}
+function podkladStop() {
+  if (!podklad) return;
+  const p = podklad; podklad = null;
+  clearInterval(p.posun);
+  try {
+    const a = ac(), t = a.currentTime;
+    p.celk.gain.cancelScheduledValues(t);
+    p.celk.gain.setValueAtTime(Math.max(0.0001, p.celk.gain.value), t);
+    p.celk.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);  // jemne doznie, kým nabehne odpočet
+    p.zdroje.forEach(z => z.stop(t + 0.9));
+  } catch (e) {}
 }
 function zvukHlas(poradove) {                                 // krátke cinknutie, keď niekto odovzdá odpoveď
   if (!hraZvuk()) return;
@@ -802,6 +884,7 @@ function revealAnswer() {                                      // až potom mode
 }
 async function askQuestion() {
   const q = cur();
+  podkladStop();                                               // hudba pri čítaní stíchne hneď, nabehne odpočet
   S.step = 'live'; S.result = null;
   srv.sent = {}; srv.epoch = -1;                               // staré odpovede sa nesmú počítať do novej otázky
   ozvucene = new Set(); srv.odpovede = {};
@@ -1039,6 +1122,7 @@ function render(remote) {
   const key = S.phase + S.step + S.i + (S.step === 'tabulka' ? '' : '');
   if (key !== lastKey) { lastKey = key; window.scrollTo({top: 0}); }
   if (S.phase === 'q' && S.step === 'live') tick();
+  if (S.phase === 'q' && S.step === 'read') podkladStart(); else podkladStop();   // hudba počas čítania otázky
 }
 function tick() {
   const run = () => {
@@ -1048,8 +1132,7 @@ function tick() {
     el.classList.toggle('low', left <= Math.min(5, Math.ceil(cur().sec / 2)) * 1000);   // pri krátkom čase blikne až druhá polovica
     el.querySelector('.bar i').style.width = (left / (cur().sec * 10)) + '%';
     el.querySelector('.sec').textContent = Math.ceil(left / 1000);
-    const vsetci = S.players.every(p => sentNow(p.id));
-    if (ctrls() && (left <= 0 || vsetci)) closeQuestion();
+    if (ctrls() && left <= 0) closeQuestion();                 // čas dobehne celý, aj keď už všetci odpovedali
   };
   run(); timerId = setInterval(run, 150);
 }
