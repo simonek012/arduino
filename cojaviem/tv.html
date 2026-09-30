@@ -664,13 +664,12 @@ function zvukOdhalenie() {                                     // keď moderáto
   sum(t, 0.6, 0.25, 900);
 }
 
-/* Jemný vážny podklad počas čítania otázky: tichý akord c mol, ktorý pomaly prechádza
-   c mol – As dur – f mol – G dur, k tomu mäkký šum. Ladí s hukotom časomiery (tón C). */
-const PODKLAD_AKORDY = [
-  [65.41, 98.00, 130.81, 155.56, 196.00],                      // c mol
-  [51.91, 77.78, 130.81, 155.56, 207.65],                      // As dur
-  [43.65, 87.31, 130.81, 174.61, 207.65],                      // f mol
-  [49.00, 73.42, 123.47, 146.83, 196.00]                       // G dur
+/* Podklad počas čítania otázky – podľa zvuku z relácie (namerané v pauzách medzi slovami moderátora):
+   stály dutý akord F–C–G v niekoľkých oktávach, bez basov, bez rytmu a bez striedania akordov.
+   Ladenie je o 1,3 % nižšie, rovnako ako v nahrávke časomiery, takže spolu ladia. */
+const PODKLAD_TONY = [                                         // [frekvencia Hz, sila] – zmerané zo záznamu
+  [172.3, 0.98], [258.2, 0.94], [344.7, 0.99], [386.9, 0.40],
+  [516.5, 1.00], [689.4, 0.67], [773.8, 0.30], [1033.0, 0.24]
 ];
 let podklad = null;
 function podkladStart() {
@@ -680,41 +679,26 @@ function podkladStart() {
   const t = a.currentTime;
   const celk = a.createGain();
   celk.gain.setValueAtTime(0.0001, t);
-  celk.gain.exponentialRampToValueAtTime(0.22, t + 2.5);       // pomalý nábeh
+  celk.gain.exponentialRampToValueAtTime(0.1, t + 2.5);        // pomalý, jemný nábeh
   celk.connect(a.destination);
-  const filter = a.createBiquadFilter();                       // mäkký, tlmený zvuk
-  filter.type = 'lowpass'; filter.frequency.value = 650; filter.Q.value = 0.7;
-  filter.connect(celk);
-  const lfo = a.createOscillator(), lfoG = a.createGain();     // filter pomaly dýcha
-  lfo.frequency.value = 0.07; lfoG.gain.value = 250;
-  lfo.connect(lfoG).connect(filter.frequency); lfo.start(t);
-  const hlasy = PODKLAD_AKORDY[0].map((f, i) => {
-    const g = a.createGain(); g.gain.value = [0.22, 0.16, 0.12, 0.10, 0.08][i];
-    g.connect(filter);
-    const osc = [-4, 4].map(cent => {                          // dva mierne rozladené oscilátory = teplý chór
-      const o = a.createOscillator(); o.type = 'triangle';
-      o.frequency.value = f; o.detune.value = cent;
-      o.connect(g); o.start(t); return o;
+  const dych = a.createOscillator(), dychG = a.createGain();   // celý akord veľmi pomaly dýcha, aby nebol mŕtvy
+  dych.frequency.value = 0.09; dychG.gain.value = 0.015;
+  dych.connect(dychG).connect(celk.gain); dych.start(t);
+  const zdroje = [dych];
+  PODKLAD_TONY.forEach(([f, sila], i) => {
+    const g = a.createGain(); g.gain.value = sila / PODKLAD_TONY.length;
+    g.connect(celk);
+    [-3, 3].forEach(cent => {                                  // dva jemne rozladené čisté tóny = mäkký, živý zvuk
+      const o = a.createOscillator(); o.type = 'sine';
+      o.frequency.value = f; o.detune.value = cent + (i % 2 ? 1 : -1);
+      o.connect(g); o.start(t); zdroje.push(o);
     });
-    return osc;
   });
-  const sumSrc = a.createBufferSource();                       // tichý šum ako vzdialený vietor
-  sumSrc.buffer = sumovyBuffer(a); sumSrc.loop = true;
-  const sp = a.createBiquadFilter(); sp.type = 'bandpass'; sp.frequency.value = 420; sp.Q.value = 0.6;
-  const sg = a.createGain(); sg.gain.value = 0.05;
-  sumSrc.connect(sp).connect(sg).connect(celk); sumSrc.start(t);
-  let krok = 0;
-  const posun = setInterval(() => {                            // každých 7 sekúnd plynulo ďalší akord
-    krok = (krok + 1) % PODKLAD_AKORDY.length;
-    const tt = a.currentTime;
-    hlasy.forEach((osc, i) => osc.forEach(o => o.frequency.setTargetAtTime(PODKLAD_AKORDY[krok][i], tt, 0.9)));
-  }, 7000);
-  podklad = {celk, zdroje: [...hlasy.flat(), lfo, sumSrc], posun};
+  podklad = {celk, zdroje};
 }
 function podkladStop() {
   if (!podklad) return;
   const p = podklad; podklad = null;
-  clearInterval(p.posun);
   try {
     const a = ac(), t = a.currentTime;
     p.celk.gain.cancelScheduledValues(t);
