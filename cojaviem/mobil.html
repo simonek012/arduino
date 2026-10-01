@@ -27,7 +27,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .opts{display:flex;flex-direction:column;gap:10px}
 .opt{display:flex;gap:12px;align-items:center;text-align:left;width:100%;padding:16px;border-radius:14px;border:2px solid var(--line);background:rgba(255,255,255,.12);color:var(--text);font:700 17px/1.25 system-ui}
 .opt b{width:34px;height:34px;flex:0 0 34px;border-radius:10px;display:grid;place-items:center;font:900 18px system-ui}
-.opt:nth-child(1) b{background:var(--a);color:#C7410A} .opt:nth-child(2) b{background:var(--b);color:#5E1A00} .opt:nth-child(3) b{background:var(--c);color:#fff}
+.opt:nth-child(1) b{background:var(--a);color:#C7410A} .opt:nth-child(2) b{background:var(--b);color:#5E1A00} .opt:nth-child(3) b{background:var(--c);color:#fff} .opt:nth-child(4) b{background:#2E7D32;color:#fff}
 .opt.pick{border-color:#fff;background:rgba(255,255,255,.3)}
 .opt[disabled]{opacity:.55}
 .ord{display:flex;flex-direction:column;gap:8px}
@@ -45,6 +45,17 @@ button{font:inherit;color:inherit;cursor:pointer}
 .par .nums{display:flex;gap:8px}
 .par .nums button{flex:1;padding:10px 0;border-radius:10px;border:2px solid var(--line);background:rgba(0,0,0,.14);color:#fff;font:900 18px system-ui}
 .par .nums button.on{background:#FFC53D;border-color:#FFC53D;color:#5E1A00}
+.mgrid{display:flex;flex-direction:column;gap:8px}
+.mrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:stretch}
+.ml,.mr{display:flex;gap:8px;align-items:center;padding:12px 10px;border-radius:12px;font:700 15px/1.25 system-ui;overflow-wrap:anywhere}
+.ml{background:rgba(0,0,0,.14)}
+.ml b{width:26px;height:26px;flex:0 0 26px;border-radius:8px;display:grid;place-items:center;font:900 14px system-ui;background:#fff;color:#C7410A}
+.mr{position:relative;border:2px solid #fff;background:rgba(255,255,255,.22);touch-action:none;cursor:grab;transition:background .12s,border-color .12s}
+.mr b{width:26px;height:26px;flex:0 0 26px;border-radius:8px;display:grid;place-items:center;font:900 14px system-ui;background:#FFC53D;color:#5E1A00}
+.mr .grip{margin-left:auto;opacity:.6;font-size:18px;line-height:1}
+.mr.drag{z-index:5;background:#FFC53D;color:#5E1A00;box-shadow:0 10px 24px rgba(0,0,0,.35);transition:none}
+.mr.over{border-style:dashed;background:rgba(255,197,61,.35)}
+.mr.sel{background:#FFC53D;color:#5E1A00}
 .kod{font:900 30px/1.1 system-ui;letter-spacing:.12em;text-align:center;margin:8px 0 0}
 .kod.maly{font-size:22px;margin:10px 0 0}
 .row{display:flex;gap:10px}
@@ -242,10 +253,47 @@ function toggleOrder(i) {
   obnov();
 }
 function sendOrder() { if (pickOrder.length === st.count) sendAnswer(pickOrder.join(',')); }
-function pickPar(i, j) {                                       // k písmenu i priradí číslo j; každé číslo len raz
-  if (pary[i] === j) pary[i] = -1;
-  else { pary = pary.map(x => x === j ? -1 : x); pary[i] = j; }
+// priraďovanie: pravé kartičky sa posúvajú prstom (alebo ťuk na jednu a ťuk na druhú) – vymenia sa miestami
+function swapPary(a, b) {
+  if (a === b) return;
+  [pary[a], pary[b]] = [pary[b], pary[a]];
+  if (navigator.vibrate) navigator.vibrate(15);
   obnov();
+}
+function posuvanie(box) {
+  const cards = [...box.querySelectorAll('.mr')];
+  let drag = null, sel = null;
+  cards.forEach(el => {
+    el.addEventListener('pointerdown', e => {
+      if (!isOpen()) return;
+      e.preventDefault();
+      try { el.setPointerCapture(e.pointerId); } catch (err) {}
+      drag = {el, i: +el.dataset.r, x0: e.clientX, y0: e.clientY, moved: false, target: null};
+    });
+    el.addEventListener('pointermove', e => {
+      if (!drag || drag.el !== el) return;
+      const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+      if (!drag.moved && Math.hypot(dx, dy) < 8) return;
+      drag.moved = true; el.classList.add('drag');
+      el.style.transform = `translate(${dx * 0.2}px,${dy}px)`;
+      let t = null;
+      cards.forEach(c => { if (c === el) return; const r = c.getBoundingClientRect(); if (e.clientY >= r.top - 4 && e.clientY <= r.bottom + 4) t = c; });
+      cards.forEach(c => c.classList.toggle('over', c === t));
+      drag.target = t;
+    });
+    const koniec = () => {
+      if (!drag || drag.el !== el) return;
+      const d = drag; drag = null;
+      el.classList.remove('drag'); el.style.transform = '';
+      cards.forEach(c => c.classList.remove('over'));
+      if (d.moved) { if (d.target) swapPary(d.i, +d.target.dataset.r); return; }
+      if (sel == null) { sel = d.i; el.classList.add('sel'); return; }   // ťuknutie: prvá kartička sa označí,
+      const a = sel; sel = null; cards.forEach(c => c.classList.remove('sel'));
+      swapPary(a, d.i);                                                   // druhá sa s ňou vymení
+    };
+    el.addEventListener('pointerup', koniec);
+    el.addEventListener('pointercancel', koniec);
+  });
 }
 const paryHotove = () => (st.items || []).every((_, i) => pary[i] >= 0);
 function sendMatch() { if (paryHotove()) sendAnswer(st.items.map((_, i) => pary[i]).join(',')); }
@@ -311,22 +359,21 @@ function paint(open) {
   }
   if (st.kind === 'match') {
     const prava = st.items2 || [];
-    b.innerHTML = head + `<div class="cis">${prava.map((it, j) => `<div><b>${j + 1}</b><span>${esc(it)}</span></div>`).join('')}</div>
-    <div class="ord">${st.items.map((it, i) => `<div class="par ${pary[i] >= 0 ? 'on' : ''}"><div class="nm"><b class="lt">${PISM[i]}</b><span>${esc(it)}</span></div>
-      <div class="nums">${prava.map((_, j) => `<button type="button" class="${pary[i] === j ? 'on' : ''}" data-p="${i},${j}">${j + 1}</button>`).join('')}</div></div>`).join('')}</div>
-    <p class="kod maly">${pary.some(x => x >= 0) ? kod(st.items.map((_, i) => pary[i] >= 0 ? pary[i] : -1).join(',')) : '&nbsp;'}</p>
+    if (pary.length !== st.items.length || pary.some(x => x < 0)) pary = st.items.map((_, i) => i % prava.length);
+    b.innerHTML = head + `<div class="mgrid">${st.items.map((it, i) => `<div class="mrow">
+        <div class="ml"><b>${PISM[i]}</b><span>${esc(it)}</span></div>
+        <div class="mr" data-r="${i}"><b>${pary[i] + 1}</b><span>${esc(prava[pary[i]] || '')}</span><span class="grip" aria-hidden="true">⠿</span></div></div>`).join('')}</div>
+    <p class="kod maly">${kod(pary.join(','))}</p>
     <div class="row" style="margin-top:12px">
-      <button class="again" type="button" id="clr">Vyčistiť</button>
-      <button class="send" type="button" id="snd"${paryHotove() ? '' : ' disabled'}>Odoslať</button>
+      <button class="send" type="button" id="snd">Odoslať</button>
     </div>
-    <p class="hint">Ku každému písmenu ťukni číslo, ktoré k nemu patrí.</p>`;
-    b.querySelectorAll('[data-p]').forEach(el => el.onclick = () => { const [i, j] = el.dataset.p.split(',').map(Number); pickPar(i, j); });
-    $('#clr').onclick = () => { pary = []; obnov(); };
+    <p class="hint">Posuň prstom pravú kartičku k písmenu, kam patrí – kartičky sa vymenia. Ide to aj ťuknutím na dve kartičky.</p>`;
+    posuvanie(b.querySelector('.mgrid'));
     $('#snd').onclick = sendMatch;
     return;
   }
   b.innerHTML = head + `<div class="opts">${st.items.map((it, i) =>
-    `<button type="button" class="opt" data-a="${i}"><b>${'ABC'[i]}</b><span>${esc(it)}</span></button>`).join('')}</div>
+    `<button type="button" class="opt" data-a="${i}"><b>${PISM[i]}</b><span>${esc(it)}</span></button>`).join('')}</div>
     <p class="hint">Správna odpoveď sú 2 body. Pri rovnosti rozhoduje kratší čas.</p>`;
   b.querySelectorAll('[data-a]').forEach(el => el.onclick = () => pickAbc(+el.dataset.a));
 }
