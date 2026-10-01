@@ -51,6 +51,7 @@ h1,h2,h3,p{margin:0}
 .btn.gold{background:var(--gold);color:#241800;border-color:var(--gold)}
 .btn.xl{font-size:22px;padding:18px 34px}
 .btn:hover{filter:brightness(1.1)}
+.riskbox{display:flex;flex-direction:column;gap:4px}.riskbox h3{margin:0}.riskset{display:inline-flex;align-items:center;gap:8px}.riskset .btn{padding:4px 14px;font-size:20px;line-height:1}.riskset .rn{min-width:1.5ch;text-align:center;font-size:22px;color:var(--gold)}
 .how{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .how article{background:var(--board);padding:18px;display:flex;flex-direction:column;gap:6px}
 .how h3{font-family:var(--disp);font-weight:400;font-size:32px;line-height:1;color:var(--gold)}
@@ -3754,7 +3755,16 @@ function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = 
 const shuf = (a, r) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const CODE_CHARS = 'ABCDEFGHJKLMNPRSTUVXYZ';
 const newCode = () => Array.from({length: 4}, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
-const validCode = c => /^[A-Z]{4}([0-7]([0-9]([0-9A-Z]{2})*)?)?$/.test(c);
+const validCode = c => /^[A-Z]{4}([0-7]([0-9]([0-9A-Z]{2})*)?)?(-[0-6]{2})?$/.test(c);   // -12 na konci = počet polí Riskuj! v 1. a 2. kole
+/* ---------- počet polí Riskuj! nastaviteľný pred hrou ---------- */
+const RISK_KEY = 'riskuj-pocet-poli';
+function riskPocty() { try { const v = JSON.parse(localStorage.getItem(RISK_KEY)); if (Array.isArray(v) && v.length === 2) return v.map(x => Math.max(0, Math.min(6, +x || 0))); } catch (e) {} return [1, 2]; }
+function riskHtml() {
+  const [a, b] = riskPocty();
+  const riadok = (k, n) => `<span class="riskset"><b>${k}. kolo</b><button class="btn" type="button" data-act="riskpocet" data-k="${k - 1}" data-d="-1" aria-label="Menej polí Riskuj v ${k}. kole">−</button><b class="rn">${n}</b><button class="btn" type="button" data-act="riskpocet" data-k="${k - 1}" data-d="1" aria-label="Viac polí Riskuj v ${k}. kole">+</button></span>`;
+  return `<div class="riskbox"><h3>Polia Riskuj!</h3><p class="hint" style="margin:0">Koľko skrytých polí Riskuj! bude na tabuli (0 až 6). Kde presne budú, sa vyberie náhodne – moderátor ich vidí označené písmenom R.</p>
+    <div class="row" style="gap:18px;margin-top:8px">${riadok(1, a)}${riadok(2, b)}</div></div>`;
+}
 const TYPES_KEY = 'riskuj-types';
 function typesMask() { try { const v = localStorage.getItem(TYPES_KEY); return v == null ? 7 : (+v & 7); } catch (e) { return 7; } }
 function typesHtml() {
@@ -3769,12 +3779,14 @@ function typesHtml() {
 /* Kód hry: 4 písmená + typy otázok (0–7) + počet vlastných kategórií (0–9) + číslo hry (2 znaky)
    + vybrané kategórie (po 2 znakoch). Z kódu sa dá hra zostaviť znova, preto ťahák na mobile sedí. */
 function parseCode(code) {
+  const rm = /-([0-6])([0-6])$/.exec(code), risk = rm ? [+rm[1], +rm[2]] : [1, 2];
+  code = code.replace(/-[0-6]{2}$/, '');
   const all = Object.keys(BANK).sort();
   const mask = code.length > 4 ? +code[4] : 7; // 1 = hudba, 2 = obrázky, 4 = interaktívne
   const nCustom = code.length > 5 ? +code[5] : 0;
   const n = code.length >= 8 ? parseInt(code.slice(6, 8), 36) || 0 : 0;
   const picks = (code.slice(8).match(/.{2}/g) || []).map(x => all[parseInt(x, 36)]).filter(Boolean);
-  return {all, mask, nCustom, n, picks};
+  return {all, mask, nCustom, n, picks, risk};
 }
 const hashStr = s => { let h = 2166136261; for (const ch of s) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 // Pevne zamiešaný „balíček“ kategórií každého typu – rovnaký na každom zariadení.
@@ -3783,7 +3795,7 @@ function deckOf(kind, exclude) {
 }
 function buildGame(code, sets) {
   const r = mulberry32(seedOf(code));
-  const {mask, nCustom, n, picks} = parseCode(code);
+  const {mask, nCustom, n, picks, risk} = parseCode(code);
   // Proti opakovaniu: hra č. n berie z balíčka ďalšie kategórie v poradí. Kategória sa vráti,
   // až keď sa vystriedajú všetky; „kolo balíčka“ (lap) potom vyberie iné varianty jej otázok.
   const lap = {};
@@ -3843,7 +3855,7 @@ function buildGame(code, sets) {
     const j = t[idx].empty ? [4, 3, 2, 1].find(x => !t[x].empty) : idx;
     if (j != null) t[j].risk = true;
   });
-  place(b1, 1); place(b2, 2);
+  place(b1, risk[0]); place(b2, risk[1]);
   const fin = FINALS.slice().sort((a, b) => hashStr(a[1]) - hashStr(b[1]));
   const f = fin[n % fin.length];
   return {boards: {1: b1, 2: b2}, final: {cat: f[0], q: f[1], a: f[2]}};
@@ -4189,7 +4201,7 @@ function setupState() {
 function startGame() {
   store({players: S.players, sound: S.sound});
   const cfg = gameConfig();
-  const code = newCode() + String(typesMask()) + cfg.suffix;
+  const code = newCode() + String(typesMask()) + cfg.suffix + '-' + riskPocty().join('');
   S = {phase: 'intro', code, startedAt: Date.now(), sound: S.sound, bgm: S.bgm !== false, round: 1,
        players: S.players.map(p => ({name: p.name, bind: p.bind, score: 0})),
        control: Math.floor(Math.random() * S.players.length), ...buildGame(code, cfg.sets),
@@ -4241,6 +4253,7 @@ function vSetup() {
     ${S.players.length < MAX_PLAYERS ? '<button class="btn" data-act="addplayer" type="button" style="align-self:flex-start">+ Pridať hráča</button>' : ''}
     <p class="hint">Hrať môžu 2 až 6 hráči. Hlásia sa rukou alebo nahlas a moderátor klikne na toho, kto bol prvý, alebo stlačí jeho číslo (1 až 6). Hráč sa potom na obrazovke označí.</p>
     ${typesHtml()}
+    ${riskHtml()}
     <div class="row"><button class="btn gold xl" data-act="start">Spustiť hru</button>
       <label class="check"><input type="checkbox" id="sound"${S.sound ? ' checked' : ''}> Zvuky</label>
       <label class="check"><input type="checkbox" id="bgm"${S.bgm !== false ? ' checked' : ''}> Hudba na pozadí</label></div>
@@ -4616,6 +4629,11 @@ function act(a, el) {
     case 'swapq': zmenOtazku(1); break;
     case 'swapqprev': zmenOtazku(-1); break;
     case 'choose': choose(+el.dataset.i); break;
+    case 'riskpocet': {
+      const v = riskPocty(), k = +el.dataset.k; v[k] = Math.max(0, Math.min(6, v[k] + (+el.dataset.d)));
+      try { localStorage.setItem(RISK_KEY, JSON.stringify(v)); } catch (e) {}
+      render(); break;
+    }
     case 'addplayer':
       if (S.phase === 'setup' && S.players.length < MAX_PLAYERS) { S.players.push({name: `Hráč ${S.players.length + 1}`, bind: null}); store({players: S.players, sound: S.sound}); render(); const inp = $('#name' + (S.players.length - 1)); if (inp) { inp.focus(); inp.select(); } }
       break;
