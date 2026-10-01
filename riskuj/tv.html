@@ -182,6 +182,18 @@ kbd{font:700 .85em var(--body);padding:1px 6px;border-radius:5px;background:rgba
 .qstate .dim{color:var(--muted);font-weight:600}
 .abar{width:min(60vw,720px);height:max(6px,1vmin);background:rgba(0,0,0,.3);border-radius:99px;overflow:hidden;margin:1.2vmin auto 0}
 .abar i{display:block;height:100%;background:var(--pc);animation:drain 5s linear forwards}
+.abar.stop i{animation:none}
+.atime{display:block;font-size:clamp(11px,1.1vw,20px);color:var(--muted);margin-top:.6vmin;font-weight:600}
+.stitb{display:inline-flex;align-items:center;gap:.5em;margin-left:.6em;padding:.15em .6em;border-radius:99px;background:rgba(80,170,255,.18);border:2px solid #6CB8FF;color:#BFE0FF;font-weight:800;animation:stitpulse 1.4s ease-in-out infinite;vertical-align:middle}
+@keyframes stitpulse{50%{box-shadow:0 0 2.4vmin #6CB8FF}}
+.ssplash{position:fixed;inset:0;z-index:61;display:grid;place-items:center;pointer-events:none}
+.ssplash span{font-size:clamp(120px,32vmin,520px);line-height:1;filter:drop-shadow(0 0 6vmin #6CB8FF);animation:sspop 1.8s cubic-bezier(.2,.8,.2,1) forwards}
+.ssplash b{position:absolute;bottom:18vh;font:900 clamp(28px,5vw,90px)/1 var(--disp);color:#BFE0FF;text-transform:uppercase;animation:sspop 1.8s ease forwards}
+@keyframes sspop{0%{transform:scale(.2);opacity:0}25%{transform:scale(1.15);opacity:1}70%{transform:scale(1);opacity:1}100%{transform:scale(1.05);opacity:0}}
+.pzet{font-size:.8em;margin-left:.4em;letter-spacing:.1em;text-transform:none}
+.pzet i{font-style:normal;opacity:.25;filter:grayscale(1)}
+.mbtn.zet{border-color:#6CB8FF;background:rgba(80,170,255,.15)}
+.finswap{display:flex;gap:1vmin;align-items:center;justify-content:center;flex-wrap:wrap}
 @keyframes drain{from{width:100%}to{width:0}}
 .bsplash{position:fixed;inset:0;z-index:60;display:grid;place-items:center;pointer-events:none;overflow:hidden}
 .bsplash::before{content:'';position:absolute;left:0;right:0;top:50%;height:26vh;background:var(--pc);box-shadow:0 0 8vh var(--pc);animation:bsband 1.6s ease forwards}
@@ -954,6 +966,50 @@ FINALS.push(
   ["Umenie", "Kto namaľoval Poslednú večeru?", "Leonardo da Vinci"],
   ["Technológie", "Ako sa volal elektronický počítač dokončený v roku 1945 v USA?", "ENIAC"],
   ["Šport", "V ktorom meste sa konali zimné olympijské hry 2022?", "Peking"]
+);
+FINALS.push(
+  ["Zemepis", "Ktoré je najväčšie jazero na svete, hoci sa mu hovorí more?", "Kaspické more"],
+  ["Slovensko", "Ktorý je najvyšší vrch Nízkych Tatier?", "Ďumbier"],
+  ["Dejiny", "V ktorom roku sa odohrala bitka pri Moháči?", "1526"],
+  ["Dejiny", "Ktorý panovník vydal v roku 1781 tolerančný patent?", "Jozef II."],
+  ["Príroda", "Ako sa volá proces, pri ktorom rastliny zo svetla, vody a oxidu uhličitého vyrábajú cukor?", "Fotosyntéza"],
+  ["Príroda", "Ktorý cicavec vie skutočne lietať a orientuje sa pomocou ozveny?", "Netopier"],
+  ["Šport", "Ktorá krajina vyhrala futbalové majstrovstvá sveta najviac ráz?", "Brazília"],
+  ["Šport", "V ktorom roku Slovensko vyhralo majstrovstvá sveta v hokeji?", "2002"],
+  ["Vesmír", "Ktorá planéta by plávala na vode, keby existoval dosť veľký oceán?", "Saturn"],
+  ["Vesmír", "Ako sa volá galaxia, v ktorej leží naša Slnečná sústava?", "Mliečna dráha"],
+  ["Hudba", "Kto zložil operu Čarovná flauta?", "Wolfgang Amadeus Mozart"],
+  ["Hudba", "Ako sa volal spevák skupiny Queen?", "Freddie Mercury"],
+  ["Literatúra", "Kto napísal román Na západe nič nové?", "Erich Maria Remarque"],
+  ["Literatúra", "Ktorý slovenský básnik napísal zbierku Krvavé sonety?", "Pavol Országh Hviezdoslav"],
+  ["Literatúra", "Ako sa volá rytier z románu Miguela de Cervantesa, ktorý bojoval s veternými mlynmi?", "Don Quijote"],
+  ["Umenie", "Kto namaľoval obraz Hviezdna noc?", "Vincent van Gogh"],
+  ["Umenie", "Kto namaľoval strop Sixtínskej kaplnky?", "Michelangelo Buonarroti"],
+  ["Umenie", "Ktorý umelec s rodičmi zo Slovenska preslávil obrazy plechoviek polievky Campbell?", "Andy Warhol"],
+  ["Technológie", "Kto vymyslel World Wide Web?", "Tim Berners-Lee"],
+  ["Technológie", "Ako sa volala prvá umelá družica Zeme z roku 1957?", "Sputnik 1"],
+  ["Technológie", "Ako sa volá konektor, ktorého skratka znamená univerzálna sériová zbernica?", "USB"],
+  ["Vynálezy", "Ktorý slovenský kňaz a vynálezca sa zaslúžil o bezdrôtovú telegrafiu?", "Jozef Murgaš"],
+  ["Vynálezy", "Kto okolo roku 1450 vynašiel kníhtlač s pohyblivými písmenami?", "Johannes Gutenberg"],
+  ["Vynálezy", "Kto si v roku 1876 patentoval telefón?", "Alexander Graham Bell"],
+  ["Vlajky", "Na vlajke ktorej krajiny je červený javorový list?", "Kanada"],
+  ["Vlajky", "Koľko hviezd je na vlajke Európskej únie?", "12"],
+  ["Vlajky", "Na vlajke ktorej krajiny je zelený céder?", "Libanon"],
+  ["Slovenčina", "Koľko pádov má slovenčina?", "Šesť"],
+  ["Slovenčina", "Kto uzákonil spisovnú slovenčinu založenú na stredoslovenskom nárečí?", "Ľudovít Štúr"],
+  ["Slovenčina", "Ako sa volá znamienko, ktoré v slovenčine označuje dlhú samohlásku?", "Dĺžeň"],
+  ["Osobnosti", "Ktorá vedkyňa dostala Nobelovu cenu za fyziku aj za chémiu?", "Marie Curie-Skłodowská"],
+  ["Osobnosti", "Ktorý slovenský rodák z Liptovského Mikuláša bol priekopníkom parných turbín?", "Aurel Stodola"],
+  ["Osobnosti", "Kto bol prvým prezidentom samostatnej Slovenskej republiky?", "Michal Kováč"],
+  ["Svet", "Koľko členských štátov má Organizácia Spojených národov?", "193"],
+  ["Svet", "Ktorý je najmenší štát na svete?", "Vatikán"],
+  ["Svet", "Ako sa volá hlavné mesto Austrálie?", "Canberra"],
+  ["Olympiáda", "V ktorom meste sa budú konať letné olympijské hry v roku 2028?", "Los Angeles"],
+  ["Olympiáda", "Koľko kruhov je na olympijskej vlajke?", "Päť"],
+  ["Olympiáda", "Ktorý plavec získal na jedných olympijských hrách v Pekingu 2008 osem zlatých medailí?", "Michael Phelps"],
+  ["Film", "Kto režíroval filmy Čeľuste, E.T. a Jurský park?", "Steven Spielberg"],
+  ["Film", "Ktorý film Jamesa Camerona z roku 1997 získal 11 Oscarov?", "Titanic"],
+  ["Film", "Ako sa volá škola čarodejníkov, do ktorej chodí Harry Potter?", "Rokfort"]
 );
 const Q_MEL = 'Aká je to skladba?';
 KIND["Hádaj melódiu: klasika"] = 'audio';
@@ -3683,6 +3739,15 @@ function buzzSplash(i) {
   document.body.appendChild(d);
   setTimeout(() => d.remove(), BUZZ_INTRO + 100);
 }
+let lastStit = null;
+function stitSplash(i) {
+  document.querySelectorAll('.ssplash').forEach(x => x.remove());
+  const d = document.createElement('div');
+  d.className = 'ssplash';
+  d.innerHTML = `<span>🛡️</span><b>${esc(S.players[i].name)} má štít</b>`;
+  document.body.appendChild(d);
+  setTimeout(() => d.remove(), 1900);
+}
 let ROLE = 'solo', modSeen = 0, lastFx = null, pendingGame = null, pendingLive = false, isUndo = false, finalBeepFor = null, autoJoin = true;
 const SELF_URL = location.origin + '/';
 const WIN_ID = Math.random().toString(36).slice(2);
@@ -3739,6 +3804,8 @@ const SFX = {
   time: [[440, .2], [440, .2], [330, .6]],
   pick: [[392, .06, 'triangle'], [523, .06, 'triangle'], [784, .14, 'triangle']],
   reveal: [[880, .09, 'sine'], [1175, .22, 'sine']],
+  stit: [[392, .07, 'square'], [523, .07, 'square'], [784, .07, 'triangle'], [1047, .09, 'triangle'], [1568, .45, 'triangle']],
+  prihr: [[784, .09, 'triangle'], [587, .09, 'triangle'], [392, .3, 'triangle']],
   round: [[392, .15, 'triangle'], [523, .15, 'triangle'], [659, .15, 'triangle'], [784, .5, 'triangle']],
   win: [[523, .13, 'triangle'], [659, .13, 'triangle'], [784, .13, 'triangle'], [1047, .32, 'triangle'], [784, .13, 'triangle'], [1047, .7, 'triangle']]
 };
@@ -4203,7 +4270,7 @@ function startGame() {
   const cfg = gameConfig();
   const code = newCode() + String(typesMask()) + cfg.suffix + '-' + riskPocty().join('');
   S = {phase: 'intro', code, startedAt: Date.now(), sound: S.sound, bgm: S.bgm !== false, round: 1,
-       players: S.players.map(p => ({name: p.name, bind: p.bind, score: 0})),
+       players: S.players.map(p => ({name: p.name, bind: p.bind, score: 0, zet: {stit: 1, prihr: 1}})),   // každý má raz štít a raz prihrávku
        control: Math.floor(Math.random() * S.players.length), ...buildGame(code, cfg.sets),
        cur: null, buzzOpen: false, buzzed: null, locked: [], revealed: false, resolved: false, result: null, riskBet: 0,
        finalIn: [], finalBets: S.players.map(() => 0), finalMarks: S.players.map(() => null)};
@@ -4274,7 +4341,8 @@ function vSetup() {
 
 const pods = () => `<div class="pods" style="--n:${S.players.length}">${S.players.map((p, i) => {
   const cls = [S.buzzed === i && S.phase === 'q' ? 'buzz' : '', S.locked.includes(i) && S.phase === 'q' ? 'out' : '', S.control === i && (S.phase === 'board' || S.phase === 'intro') ? 'ctl' : ''].join(' ');
-  const inner = `<span class="pname">${esc(p.name)}</span><span class="pscore${p.score < 0 ? ' neg' : ''}">${num(p.score)}</span>`;
+  const z = p.zet, zet = z && S.phase !== 'end' ? `<span class="pzet" title="žetóny">${z.stit ? '🛡️' : '<i>🛡️</i>'}${z.prihr ? '👉' : '<i>👉</i>'}</span>` : '';
+  const inner = `<span class="pname">${esc(p.name)}${zet}</span><span class="pscore${p.score < 0 ? ' neg' : ''}">${num(p.score)}</span>`;
   return canChoose(i)
     ? `<button class="pod pick ${cls}" style="--pc:${PCOL[i]}" data-act="choose" data-i="${i}">${inner}<span class="pkey">klikni alebo ${i + 1} = odpovedá</span></button>`
     : `<div class="pod ${cls}" style="--pc:${PCOL[i]}">${inner}<span class="pkey"></span></div>`;
@@ -4312,8 +4380,13 @@ function vQuestion() {
     btns = `<button class="mbtn gold" data-act="showq">Ukázať otázku hráčom <kbd>medzera</kbd></button>${can.map(i => `<button class="mbtn who-btn" style="--pc:${PCOL[i]}" data-act="choose" data-i="${i}">${esc(S.players[i].name)} <kbd>${i + 1}</kbd></button>`).join('')}${list.length > 1 ? `
       <button class="mbtn" data-act="swapqprev">◀ <kbd>←</kbd></button><span class="dim" style="align-self:center">otázka ${idx + 1} z ${list.length}</span><button class="mbtn" data-act="swapq">Iná otázka ▶ <kbd>→</kbd></button>` : ''}`;
   } else if (S.buzzed != null) {
-    state = `Odpovedá <span class="who">${esc(S.players[S.buzzed].name)}</span><div class="abar"><i style="animation-delay:${S.buzzAt ? S.buzzAt + BUZZ_INTRO - Date.now() : 0}ms"></i></div>`;
-    btns = `${S.qShown === false ? '<button class="mbtn gold" data-act="showq">Ukázať otázku na TV <kbd>medzera</kbd></button>' : ''}<button class="mbtn ok" data-act="ok">Správne <kbd>→</kbd></button><button class="mbtn bad" data-act="bad">Nesprávne <kbd>←</kbd></button>${S.revealed ? '' : '<button class="mbtn" data-act="reveal">Ukázať odpoveď</button>'}${T.risk ? '' : ''}`;
+    const c = casOdpovede(), now = Date.now();
+    const bar = c.start == null ? '<div class="abar stop"><i></i></div>'
+      : `<div class="abar"><i style="animation-duration:${c.dur}ms;animation-delay:${c.start - now}ms"></i></div>`;
+    const stitHtml = S.stit === S.buzzed ? '<span class="stitb">🛡️ Štít</span>' : '';
+    const prih = S.prihrane && S.prihrane.komu === S.buzzed ? ` <span class="dim">👉 prihral ${esc(S.players[S.prihrane.od].name)}</span>` : '';
+    state = `Odpovedá <span class="who">${esc(S.players[S.buzzed].name)}</span>${stitHtml}${prih}${bar}${c.txt ? `<span class="atime">${c.txt}</span>` : ''}`;
+    btns = `${S.qShown === false ? '<button class="mbtn gold" data-act="showq">Ukázať otázku na TV <kbd>medzera</kbd></button>' : ''}<button class="mbtn ok" data-act="ok">Správne <kbd>→</kbd></button><button class="mbtn bad" data-act="bad">Nesprávne <kbd>←</kbd></button>${S.revealed ? '' : '<button class="mbtn" data-act="reveal">Ukázať odpoveď</button>'}${zetonBtns()}`;
   } else {
     const can = S.players.map((_, i) => i).filter(i => !S.locked.includes(i));
     state = `<span class="dim">Kto sa hlási?</span> ${can.map(i => `<span style="color:${PCOL[i]}">${esc(S.players[i].name)}</span>`).join(' · ')}`;
@@ -4356,9 +4429,15 @@ function vIntro() {
     </div></section>${pods()}<footer class="gfoot"><span></span><span>Kód pre ťahák: <b>${S.code}</b></span><span></span></footer></div>`;
 }
 
+function finPrehlad() {                                        // moderátor vidí finálovú otázku vopred a môže ju vymeniť
+  if (!ctrls()) return '';
+  const list = finaleTemy(), k = Math.max(0, list.findIndex(f => f[1] === S.final.q));
+  return (!seesAns() ? '' : `<div class="qans secret"><span class="l">Finálová otázka · vidíš len ty</span><span class="v" style="font-size:clamp(16px,1.8vw,32px)">${esc(S.final.q)}</span><span class="l" style="margin-top:.6em">Odpoveď: ${esc(S.final.a)}</span></div>`) +
+    (list.length > 1 ? `<div class="finswap"><button class="mbtn" data-act="finswap" data-d="-1">◀ Predošlá</button><span class="dim">otázka ${k + 1} z ${list.length} v téme</span><button class="mbtn" data-act="finswap" data-d="1">Iná otázka ▶</button></div>` : '');
+}
 function vFinalBets() {
   return `<div class="game"><section class="qv"><div class="qcenter">
-      <span class="eyebrow">Finále · téma</span><h2 class="huge">${esc(S.final.cat)}</h2>
+      <span class="eyebrow">Finále · téma</span><h2 class="huge">${esc(S.final.cat)}</h2>${finPrehlad()}
       <p class="lead">Hráči si napíšu stávku na papier a povedia ju moderátorovi. Ten ju zadá sem, na obrazovke sa nezobrazí.</p>
       ${ctrls() ? '' : '<p class="lead" style="color:var(--muted)">Moderátor zadáva stávky…</p>'}<div class="fbets"${ctrls() ? '' : ' hidden'}>${S.finalIn.map(i => `<label class="fbet" style="--pc:${PCOL[i]}">${esc(S.players[i].name)}
         <input type="${seesAns() ? 'number' : 'password'}" inputmode="numeric" id="fb${i}" autocomplete="off" aria-label="Stávka ${esc(S.players[i].name)}"><small>0 až ${num(S.players[i].score)}</small></label>`).join('')}</div>
@@ -4450,6 +4529,10 @@ function render(remote = false) {
     lastSplash = S.buzzAt;
     if (Date.now() - S.buzzAt < BUZZ_INTRO - 300) buzzSplash(S.buzzed);
   }
+  if (inGame() && S.phase === 'q' && S.stit != null && S.stitAt && S.stitAt !== lastStit) {
+    lastStit = S.stitAt;
+    if (Date.now() - S.stitAt < 1500) stitSplash(S.stit);
+  }
   // zvuk hrá len TV (alebo jediná obrazovka), moderátorský notebook mlčí
   startMedia();
   if (inGame() && S.fx && S.fx.id !== lastFx) {
@@ -4537,20 +4620,22 @@ if (bc) {
 function pick(c, t) {
   save(); S.cur = {c, t};
   if (tile().risk) { S.phase = 'riskBet'; fx('risk'); }
-  else { Object.assign(S, {phase: 'q', buzzOpen: true, buzzed: null, locked: [], revealed: false, resolved: false, result: null, qShown: false, mediaStart: 0, mediaPausedAt: null, mediaPausedTotal: 0}); fx('pick'); }   // hráči vidia len kategóriu, kým moderátor otázku neukáže
+  else { Object.assign(S, {phase: 'q', buzzOpen: true, buzzed: null, locked: [], revealed: false, resolved: false, result: null, stit: null, prihrane: null, unveilAt: 0, qShown: false, mediaStart: 0, mediaPausedAt: null, mediaPausedTotal: 0}); fx('pick'); }   // hráči vidia len kategóriu, kým moderátor otázku neukáže
   render();
 }
 function judge(ok) {
   if (S.phase !== 'q' || S.resolved || S.buzzed == null) return;
   save();
   const T = tile(), p = S.buzzed, v = T.risk ? S.riskBet : T.v;
-  S.players[p].score += ok ? v : -v;
+  const chranene = !ok && S.stit === p && !T.risk;              // štít: za zlú odpoveď sa body nestrhnú
+  S.players[p].score += ok ? v : chranene ? 0 : -v;
+  S.stit = null;
   if (ok) { S.control = p; Object.assign(S, {resolved: true, revealed: true, buzzOpen: false, result: {p, ok: true, v}}); fx('ok'); }
   else {
     fx('bad');
     if (T.risk) Object.assign(S, {resolved: true, revealed: true, buzzOpen: false, result: {p, ok: false, v}});
     else {
-      toast(`${S.players[p].name} −${num(v)}`);
+      toast(chranene ? `🛡️ Štít ochránil body – ${S.players[p].name} nestráca nič` : `${S.players[p].name} −${num(v)}`);
       S.locked.push(p); S.buzzed = null;
       if (S.mediaPausedAt) { S.mediaPausedTotal = (S.mediaPausedTotal || 0) + Date.now() - S.mediaPausedAt; S.mediaPausedAt = null; }
       if (S.locked.length >= S.players.length) Object.assign(S, {resolved: true, revealed: true, buzzOpen: false, result: {none: true}});
@@ -4579,7 +4664,7 @@ function nextOrBoard() {
 function ukazOtazku() {
   if (S.phase !== 'q' || S.qShown !== false) return;
   save();
-  Object.assign(S, {qShown: true, mediaStart: Date.now(), mediaPausedAt: S.buzzed != null ? Date.now() : null, mediaPausedTotal: 0});   // obrázok sa začne odkrývať až teraz (ak niekto odpovedá, stojí)
+  Object.assign(S, {qShown: true, mediaStart: Date.now(), mediaPausedAt: S.buzzed != null && !tile().risk ? Date.now() : null, mediaPausedTotal: 0, unveilAt: 0});   // obrázok sa začne odkrývať až teraz (ak niekto odpovedá, stojí)
   if (tile().m) fx('media'); else fx('pick');
   render();
 }
@@ -4610,6 +4695,71 @@ function zmenOtazku(smer) {
   }
 }
 
+/* ---------- žetóny: 🛡️ štít a 👉 prihrávka – každý hráč ich má raz za hru ---------- */
+const zetOf = i => (S.players[i] && S.players[i].zet) || {stit: 0, prihr: 0};
+function mozeZeton(i) { return i != null && S.phase === 'q' && !S.resolved && S.cur && !tile().risk && S.buzzed === i; }
+function pouziStit(i) {
+  if (!mozeZeton(i) || zetOf(i).stit < 1 || S.stit === i) return;
+  save();
+  S.players[i].zet.stit--; S.stit = i; S.stitAt = Date.now();
+  fx('stit'); toast(`🛡️ ${S.players[i].name} použil štít – za zlú odpoveď nestratí body`);
+  render();
+}
+function prihraj(i, j) {
+  if (!mozeZeton(i) || zetOf(i).prihr < 1 || (S.prihrane && S.prihrane.komu === i) || j === i || !S.players[j] || S.locked.includes(j)) return;
+  save();
+  S.players[i].zet.prihr--;
+  if (S.stit === i) S.players[i].zet.stit++;                // zapnutý štít sa pri prihrávke vráti
+  if (!S.locked.includes(i)) S.locked.push(i);               // kto prihral, na túto otázku už neodpovedá
+  Object.assign(S, {buzzed: j, buzzAt: Date.now(), stit: null, prihrane: {od: i, komu: j}});
+  fx('prihr'); toast(`👉 ${S.players[i].name} prihral otázku hráčovi ${S.players[j].name}`);
+  render();
+}
+
+function zetonBtns() {
+  const i = S.buzzed;
+  if (!ctrls() || !mozeZeton(i)) return '';
+  const z = zetOf(i);
+  let h = z.stit > 0 && S.stit !== i ? '<button class="mbtn zet" data-act="stit" title="Za zlú odpoveď nestratí body">🛡️ Štít</button>' : '';
+  if (z.prihr > 0 && !(S.prihrane && S.prihrane.komu === i)) h += S.players.map((p, j) => j !== i && !S.locked.includes(j) ? `<button class="mbtn who-btn" style="--pc:${PCOL[j]}" data-act="prihr" data-j="${j}" title="Prihrať otázku">👉 ${esc(p.name)}</button>` : '').join('');
+  return h;
+}
+
+/* koľko času má hráč na odpoveď: bežne 5 s, pri Riskuj 20 s od ukázania otázky,
+   pri obrázku / emoji / písmenkách 8 s až potom, čo sa celé odkryje */
+function trvanieOdkryvania(m) {
+  if (!m) return 0;
+  if (m.flag) return 16000;
+  if (m.img || (m.custom && m.kind === 'image')) return 26000;
+  if (m.emoji) return Math.max(0, m.emoji.split(' ').length - 1) * 2500;
+  if (m.roles) return Math.max(0, m.roles.length - 1) * 4500;
+  if (m.word) return Math.max(0, [...m.word].filter(ch => /\p{L}|\d/u.test(ch)).length - 1) * 3500;
+  if (m.zoom) return 20000;
+  return 0;
+}
+function casOdpovede() {
+  const T = tile();
+  if (!T.risk) return {start: S.buzzAt ? S.buzzAt + BUZZ_INTRO : null, dur: 5000, txt: ''};
+  const od = trvanieOdkryvania(T.m);
+  if (S.qShown === false) return {start: null, dur: 0, txt: 'čas sa spustí, keď ukážeš otázku'};
+  if (!od) return {start: S.mediaStart || null, dur: 20000, txt: 'Riskuj! · 20 sekúnd na odpoveď'};
+  const start = S.unveilAt || (S.mediaStart ? S.mediaStart + od + (S.mediaPausedTotal || 0) : null);
+  return {start, dur: 8000, txt: start && start > Date.now() ? 'Riskuj! · 8 sekúnd, keď sa všetko odkryje' : 'Riskuj! · 8 sekúnd na odpoveď'};
+}
+
+/* finálová otázka: moderátor si môže vybrať inú z tej istej témy (napr. keď ju hráči poznajú) */
+function finaleTemy() { return FINALS.filter(f => f[0] === S.final.cat); }
+function zmenFinale(smer) {
+  if (S.phase !== 'finalBets' || !ctrls()) return;
+  const list = finaleTemy();
+  if (list.length < 2) { toast('V tejto téme iná finálová otázka nie je'); return; }
+  const bets = {}; S.finalIn.forEach(i => { const el = $('#fb' + i); if (el) bets[i] = el.value; });
+  const k = Math.max(0, list.findIndex(f => f[1] === S.final.q));
+  const f = list[((k + smer) % list.length + list.length) % list.length];
+  save(); S.final.q = f[1]; S.final.a = f[2]; render();
+  S.finalIn.forEach(i => { const el = $('#fb' + i); if (el && bets[i] != null) el.value = bets[i]; });
+}
+
 /* moderátor označí hráča, ktorý sa prihlásil prvý (pri omyle môže kliknúť na iného) */
 function canChoose(i) {
   return ctrls() && S.phase === 'q' && !S.resolved && S.cur && !tile().risk && !S.locked.includes(i) && S.buzzed !== i;
@@ -4627,6 +4777,9 @@ function act(a, el) {
   switch (a) {
     case 'showq': ukazOtazku(); break;
     case 'swapq': zmenOtazku(1); break;
+    case 'stit': pouziStit(S.buzzed); break;
+    case 'prihr': prihraj(S.buzzed, +el.dataset.j); break;
+    case 'finswap': zmenFinale(+el.dataset.d); break;
     case 'swapqprev': zmenOtazku(-1); break;
     case 'choose': choose(+el.dataset.i); break;
     case 'riskpocet': {
@@ -4653,10 +4806,10 @@ function act(a, el) {
     case 'replay': if (S.phase === 'q' && S.qShown !== false) { fx('media', 0); render(); } break;
     case 'replaylong': if (S.phase === 'q' && S.qShown !== false) { fx('media', 1); render(); } break;
     case 'stopmedia': fx('stop'); render(); break;
-    case 'unveil': if (S.phase === 'q') { save(); S.mediaStart = 0; render(); } break;
+    case 'unveil': if (S.phase === 'q') { save(); S.mediaStart = 0; S.unveilAt = Date.now(); render(); } break;
     case 'betok': {
       const max = riskMax(); let v = parseInt($('#bet').value, 10); if (isNaN(v)) v = 0; v = Math.max(0, Math.min(max, v));
-      Object.assign(S, {phase: 'q', riskBet: v, buzzAt: 0, qShown: false, buzzOpen: false, buzzed: S.control, locked: [], revealed: false, resolved: false, result: null, mediaStart: 0, mediaPausedAt: null, mediaPausedTotal: 0});
+      Object.assign(S, {phase: 'q', riskBet: v, buzzAt: 0, stit: null, prihrane: null, unveilAt: 0, qShown: false, buzzOpen: false, buzzed: S.control, locked: [], revealed: false, resolved: false, result: null, mediaStart: 0, mediaPausedAt: null, mediaPausedTotal: 0});
       render(); break;
     }
     case 'endround':
@@ -4787,6 +4940,7 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
   const api = (path, body) => fetch('/api/' + path, body !== undefined
     ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}
     : {cache: 'no-store'}).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  let lastZet = '', lastTokN = 0;
   let phoneUrl = '', phones = [], lastMode = '', armEpoch = -1, polling = false, qrFor = '', serverOk = true, online = false;
   let lastLocked = '', lastTurn = null, freeSince = 0;
   const tileKey = () => `${S.code}-${S.round}-${S.cur.c}-${S.cur.t}`;
@@ -4903,6 +5057,34 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
       lastLocked = locked.join('.'); api('lock', {locked}).catch(() => {});
     }
     if (mode !== 'idle' && turn !== lastTurn) { lastTurn = turn; api('turn', {id: turn}).catch(() => {}); }
+    syncZet();
+  }
+  // žetóny: mobil odpovedajúceho hráča dostane tlačidlá 🛡️ Štít a 👉 Prihrať
+  function zetPayload() {
+    const i = S.buzzed;
+    if (!inGame() || !S.cur || !mozeZeton(i) || !S.players[i].phone) return {kto: ''};
+    const z = zetOf(i), mozePrihr = z.prihr > 0 && !(S.prihrane && S.prihrane.komu === i);
+    return {kto: S.players[i].phone, kluc: tileKey() + ':' + S.buzzAt, stit: z.stit > 0 && S.stit !== i, stitOn: S.stit === i,
+      ciele: mozePrihr ? S.players.map((p, j) => ({j, name: p.name})).filter(x => x.j !== i && !S.locked.includes(x.j)) : []};
+  }
+  function syncZet() {
+    if (!ctrls()) return;
+    const pl = zetPayload(), k = JSON.stringify(pl);
+    if (k === lastZet) return;
+    lastZet = k; api('zetony', pl).catch(() => { lastZet = ''; });
+  }
+  function spracujZetony(st) {
+    const list = st.treq || [];
+    const maxN = list.reduce((m, r) => Math.max(m, r.n), 0);
+    if (maxN < lastTokN) lastTokN = 0;                         // server sa medzitým reštartoval
+    list.filter(r => r.n > lastTokN).forEach(r => {
+      lastTokN = Math.max(lastTokN, r.n);
+      const slot = S.players.findIndex(p => p.phone === r.id);
+      // platí len pre otázku a odpovedajúceho hráča, ktorých mobil práve videl
+      if (slot < 0 || slot !== S.buzzed || r.k !== tileKey() + ':' + S.buzzAt) return;
+      if (r.kind === 'stit') pouziStit(slot);
+      else if (r.kind === 'prihr') prihraj(slot, +r.to);
+    });
   }
   // QR kód počas hry: moderátor ho zapne tlačidlom, ukáže sa aj na TV pre hráčov
   document.head.insertAdjacentHTML('beforeend', `<style>
@@ -4974,6 +5156,7 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
     if (S.buzzed != null) freeSince = 0; else if (!freeSince) freeSince = Date.now();
     polling = true;
     api('state').then(st => {
+      spracujZetony(st);
       if (st.epoch !== armEpoch || !lastMode.startsWith('arm:') || S.phase !== 'q' || S.resolved) return;
       const key = tileKey(), old = queue();
       const q = old.slice();

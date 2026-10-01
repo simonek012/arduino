@@ -45,6 +45,13 @@ textarea{min-height:110px;resize:none}
 .status{text-align:center;color:var(--muted);font-size:16px;min-height:1.3em;margin:0}
 .status.err{color:var(--bad);font-weight:700}
 .tip{color:var(--muted);font-size:13px;text-align:center;margin:0}
+.zet{display:flex;flex-direction:column;gap:10px;background:var(--board);border:2px solid var(--line);border-radius:20px;padding:14px}
+.zet h3{margin:0;font-size:16px;color:var(--muted);font-weight:700}
+.zbtn{font:800 21px system-ui,sans-serif;padding:14px;border-radius:14px;border:2px solid #6CB8FF;background:rgba(80,170,255,.18);color:var(--text)}
+.zbtn.sure{background:#6CB8FF;color:#04122a}
+.zon{font-weight:800;font-size:19px;color:#BFE0FF;text-align:center;padding:10px;border-radius:14px;background:rgba(80,170,255,.18);border:2px solid #6CB8FF;animation:zp 1.4s ease-in-out infinite}
+@keyframes zp{50%{box-shadow:0 0 18px #6CB8FF}}
+.zet .chips .chip.sure{background:var(--gold);color:#241800}
 </style>
 </head>
 <body>
@@ -60,6 +67,7 @@ textarea{min-height:110px;resize:none}
 <section class="game" id="game" hidden>
   <div class="top"><span class="me" id="me"></span><button class="link" id="rename" type="button">Zmeniť meno</button></div>
   <button class="buzz wait" id="buzz" type="button"><span id="bt">Čakaj</span><small id="bs">na otázku</small></button>
+  <section class="zet" id="zet" hidden></section>
   <section class="final" id="final" hidden>
     <h2 id="fTitle">Finále</h2>
     <p id="fText"></p>
@@ -76,6 +84,7 @@ textarea{min-height:110px;resize:none}
 
 <script>
 const $ = s => document.querySelector(s);
+let zetKey = '', zetSure = '';
 let me = null, st = null, pending = false, lastEpoch = -1, failCount = 0, finalKey = '';
 try { me = JSON.parse(localStorage.getItem('riskuj-phone')); } catch (e) {}
 
@@ -162,7 +171,37 @@ function paint() {
   else if (st.armed && pending) set('wait', 'Prihlásený…', '');
   else if (st.armed) set('go-now', 'Stlač!', turn ? 'odpovedá ' + turn.name + ' – prihlás sa ako ďalší' : '');
   else set('wait', 'Čakaj', 'na otázku');
+  paintZet();
   paintFinal();
+}
+// žetóny: kto práve odpovedá, môže použiť 🛡️ štít alebo 👉 prihrať otázku inému hráčovi (každé raz za hru)
+function paintZet() {
+  const z = st.zet || {}, box = $('#zet');
+  const mine = !!(me && z.kto && z.kto === me.id && st.turn === me.id && !st.locked.includes(me.id));
+  if (!mine) { box.hidden = true; zetKey = ''; zetSure = ''; return; }
+  const ciele = z.ciele || [];
+  if (!z.stit && !z.stitOn && !ciele.length) { box.hidden = true; return; }
+  const key = JSON.stringify(z) + '|' + zetSure;
+  box.hidden = false;
+  if (key === zetKey) return;
+  zetKey = key;
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
+  let h = '';
+  if (z.stitOn) h += '<div class="zon">🛡️ Štít je zapnutý – za zlú odpoveď nestratíš body</div>';
+  else if (z.stit) h += `<button class="zbtn${zetSure === 'stit' ? ' sure' : ''}" type="button" data-z="stit">${zetSure === 'stit' ? 'Naozaj? Ťukni znova' : '🛡️ Použiť štít'}</button>`;
+  if (ciele.length) h += `<h3>👉 Prihrať otázku hráčovi${zetSure.startsWith('p') ? ' – ťukni znova na potvrdenie' : ''}:</h3><div class="chips">${ciele.map(c =>
+    `<button class="chip${zetSure === 'p' + c.j ? ' sure' : ''}" type="button" data-z="p${c.j}">${zetSure === 'p' + c.j ? 'Áno, ' : ''}${esc(c.name)}</button>`).join('')}</div>`;
+  box.innerHTML = h;
+}
+async function useZet(e) {
+  const b = e.target.closest('[data-z]'); if (!b || !st || !st.zet) return;
+  const k = b.dataset.z;
+  if (zetSure !== k) { zetSure = k; paintZet(); return; }   // prvé ťuknutie len označí, druhé potvrdí
+  zetSure = '';
+  try { navigator.vibrate && navigator.vibrate([30, 40, 30]); } catch (err) {}
+  const body = k === 'stit' ? {id: me.id, kind: 'stit', k: st.zet.kluc} : {id: me.id, kind: 'prihr', to: +k.slice(1), k: st.zet.kluc};
+  try { await api('token', body); } catch (err) { $('#status').textContent = 'Nepodarilo sa odoslať, skús znova.'; }
+  zetKey = ''; paintZet();
 }
 async function poll() {
   try {
@@ -254,6 +293,7 @@ $('#rename').addEventListener('click', showJoin);
 $('#buzz').addEventListener('pointerdown', buzz);
 $('#buzz').addEventListener('contextmenu', e => e.preventDefault());
 $('#fForm').addEventListener('submit', sendFinal);
+$('#zet').addEventListener('click', useZet);
 
 if (me && me.id) { showGame(); keepAwake(); } else { showJoin(); }
 poll();

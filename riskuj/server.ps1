@@ -27,6 +27,10 @@ $script:finalStage = 'off'                            # off | bet | answer | clo
 $finalMax = @{}                                        # id -> najvyššia možná stávka
 $finalBets = @{}                                       # id -> stávka
 $finalAnswers = @{}                                    # id -> odpoveď
+# žetóny (štít, prihrávka): TV posiela, čo môže práve odpovedajúci hráč použiť, mobil pošle požiadavku
+$script:zet = @{ kto = '' }
+$tokReq = New-Object System.Collections.ArrayList     # @{ n; id; kind; to; k }
+$script:tokN = 0
 
 # Hráči sa ukladajú do súboru, aby prežili aj reštart servera.
 function SavePlayers {
@@ -80,6 +84,8 @@ function StateObj {
     turn    = $script:turn
     players = @($players | ForEach-Object { @{ id = $_.id; name = $_.name; online = (IsOnline $_.id) } })
     final   = @{ stage = $script:finalStage; max = $finalMax; sent = $sent }
+    zet     = $script:zet
+    treq    = @($tokReq)
   }
 }
 function FindPlayer([string]$id) { $players | Where-Object { $_.id -eq $id } | Select-Object -First 1 }
@@ -116,7 +122,7 @@ function Handle($client, $req) {
   # ovládanie ostávajú len na tomto počítači – aj holý odkaz otvorí hráčom tlačidlo.
   if ($req.remote) {
     if ($path -eq '/' -or $path -eq '/m') { SendFile $client 'mobil.html'; return }
-    if ($path -notin '/api/state', '/api/join', '/api/buzz', '/api/finalsubmit') {
+    if ($path -notin '/api/state', '/api/join', '/api/buzz', '/api/finalsubmit', '/api/token') {
       Send $client 404 'text/plain; charset=utf-8' ($utf8.GetBytes('Nenájdené')); return
     }
   }
@@ -177,6 +183,20 @@ function Handle($client, $req) {
       $players.Clear(); $buzzes.Clear(); $lastSeen.Clear(); $script:armed = $false; $script:locked = @()
       SavePlayers; Write-Host '  mobily odpojené'
       SendJson $client @{ ok = $true }; return
+    }
+    # --- žetóny ---
+    '/api/zetony' { $script:zet = if ($data) { $data } else { @{ kto = '' } }; SendJson $client @{ ok = $true }; return }
+    '/api/token' {
+      $id = [string]$data.id
+      $ok = $false
+      if ((FindPlayer $id) -and $script:zet.kto -and $script:zet.kto -eq $id -and ([string]$data.kind -in 'stit', 'prihr')) {
+        $script:tokN++
+        [void]$tokReq.Add(@{ n = $script:tokN; id = $id; kind = [string]$data.kind; to = [int]$data.to; k = [string]$data.k })
+        while ($tokReq.Count -gt 20) { $tokReq.RemoveAt(0) }
+        $lastSeen[$id] = [DateTime]::UtcNow
+        $ok = $true
+      }
+      SendJson $client @{ ok = $ok }; return
     }
     # --- finále ---
     '/api/final' {
