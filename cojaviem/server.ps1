@@ -120,9 +120,9 @@ function StateObj([string]$me) {
   }
   $st
 }
-function SendState($client, [string]$me) {
+function SendState($client, [string]$me, [bool]$ozval = $true) {
   if ($me -and (FindPlayer $me)) {
-    $lastSeen[$me] = [DateTime]::UtcNow
+    if ($ozval) { $lastSeen[$me] = [DateTime]::UtcNow }        # čakajúca odpoveď sa neráta – mobil už nemusí existovať
     if ($script:open -and (LeftMs) -gt 0 -and -not $shownAt.ContainsKey($me)) { $shownAt[$me] = [DateTime]::UtcNow }
   }
   SendJson $client (StateObj $me)
@@ -134,7 +134,7 @@ function ReleaseWaiting {
   foreach ($w in @($waiting)) {
     if ([string]$script:ver -ne $w.v -or $now -ge $w.until) {
       $waiting.Remove($w)
-      try { SendState $w.c $w.me } catch {}
+      try { SendState $w.c $w.me $false } catch {}
       try { $w.c.Close() } catch {}
     }
   }

@@ -814,6 +814,81 @@ function pickQuestions(md) {
             correct: idx.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]).map(p => p[1]), fact: q.f, uvod: q.u, sec: q.t || SEC.order[q.lvl]};
   });
 }
+/* ---------- späť, oprava bodov a mobily počas hry ---------- */
+let historia = [];                                             // stav hry pred každým krokom moderátora
+function zapamataj() { historia.push(JSON.stringify(S)); if (historia.length > 40) historia.shift(); }
+function spat() {                                              // vráti posledný krok moderátora
+  if (!historia.length) { toast('Nie je čo vrátiť'); return; }
+  hudbaStop(); clearInterval(timerId); timerId = null;
+  const v = S.v, predch = JSON.parse(historia.pop());
+  if (predch.step === 'live') { predch.step = 'read'; predch.result = null; }   // spustený čas sa vráti pred spustenie
+  S = predch; S.v = v;                                         // aby druhá obrazovka zmenu prijala
+  api('idle').catch(() => {});
+  toast('Vrátené o krok späť');
+  render();
+}
+function prepniBody(id) {                                      // moderátor uzná alebo zruší odpoveď hráča
+  if (S.step !== 'result') return;
+  const p = S.players.find(x => x.id === id); if (!p) return;
+  zapamataj();
+  const r = S.result[id] || (S.result[id] = {none: true, ok: false});
+  if (r.ok) { p.score -= BOD; p.spravne--; p.ms -= r.ms || 0; r.ok = false; r.uznane = false; }
+  else { p.score += BOD; p.spravne++; p.ms += r.ms || 0; r.ok = true; r.uznane = true; }
+  render();
+}
+function urlMobilov() {
+  const i = srv.info || {};
+  return i.public || ((i.ips && i.ips[0]) ? 'http://' + i.ips[0] + ':' + (i.port || 8081) + '/m' : '');
+}
+const jeOnline = id => (srv.players || []).some(x => x.id === id && x.online);
+function mobilyHtml() {                                        // panel na znovupripojenie počas hry
+  const url = urlMobilov(), riadi = ctrls() && !cistaTV();
+  const vHre = new Set(S.players.map(p => p.id));
+  const mimo = (srv.players || []).filter(x => x.online && !vHre.has(x.id));
+  const odpojeni = S.players.map((p, i) => ({p, i})).filter(({p}) => !jeOnline(p.id));
+  return `<section class="card mobily" id="mobily">
+    <div class="phones"><div class="qr" id="qr"></div><div>
+      <span class="eyebrow">Pripojenie mobilu počas hry</span>
+      <p style="font-size:22px;font-weight:800;margin:8px 0;overflow-wrap:anywhere">${esc(url || 'zisťujem adresu…')}</p>
+      <p class="muted">Kto vypadol, naskenuje QR kód alebo otvorí odkaz a klikne na svoje meno v časti „Alebo pokračuj ako“. Body mu zostanú.</p>
+      ${riadi && url ? '<div class="row" style="margin-top:8px"><button class="btn ghost" data-act="copyurl">📋 Skopírovať odkaz</button></div>' : ''}
+    </div></div>
+    <div id="mobzoznam">${mobZoznamHtml(riadi, mimo, odpojeni)}</div>
+    ${riadi ? '<div class="row" style="margin-top:12px"><button class="btn gold" data-act="mobily">Zavrieť</button></div>' : ''}
+  </section>`;
+}
+function mobZoznamHtml(riadi, mimo, odpojeni) {
+  if (mimo === undefined) {
+    const vHre = new Set(S.players.map(p => p.id));
+    riadi = ctrls() && !cistaTV();
+    mimo = (srv.players || []).filter(x => x.online && !vHre.has(x.id));
+    odpojeni = S.players.map((p, i) => ({p, i})).filter(({p}) => !jeOnline(p.id));
+  }
+  return `<div class="players" style="margin-top:12px">${S.players.map(p =>
+      `<div class="pl ${jeOnline(p.id) ? '' : 'off'}"><span class="nm">${esc(p.name)}</span><span class="ans">${jeOnline(p.id) ? '📱 pripojený' : '📵 odpojený'}</span></div>`).join('')}</div>
+    ${riadi && mimo.length ? `<div style="margin-top:14px"><span class="eyebrow">Nové mobily, ktoré nie sú v hre</span>${mimo.map(x => `
+      <div class="row" style="align-items:center;margin-top:8px"><b>${esc(x.name)}</b>
+        ${odpojeni.map(({p, i}) => `<button class="btn ghost" data-act="prirad" data-id="${esc(x.id)}" data-i="${i}">je to ${esc(p.name)}</button>`).join('')}
+        <button class="btn ghost" data-act="pridaj" data-id="${esc(x.id)}">➕ nový hráč</button></div>`).join('')}</div>` : ''}`;
+}
+function priradMobil(id, i) {                                  // nový mobil prevezme odpojeného hráča aj s bodmi
+  const p = S.players[i], x = (srv.players || []).find(y => y.id === id);
+  if (!p || !x) return;
+  zapamataj();
+  if (S.result && S.result[p.id]) { S.result[id] = S.result[p.id]; delete S.result[p.id]; }
+  p.id = id;
+  toast(x.name + ' hrá teraz za ' + p.name);
+  render();
+}
+function pridajMobil(id) {
+  const x = (srv.players || []).find(y => y.id === id);
+  if (!x || S.players.some(p => p.id === id)) return;
+  zapamataj();
+  S.players.push({id: x.id, name: x.name, score: 0, ms: 0, spravne: 0});
+  toast(x.name + ' je v hre');
+  render();
+}
+
 function startGame(players, md) {
   ac();                                                        // zvuk si vypýtame hneď pri kliknutí
   nacitajZvuk().catch(() => {});                               // a nahrávku časomiery rozbalíme dopredu
@@ -821,6 +896,7 @@ function startGame(players, md) {
   S = {phase: 'q', mode: md, step: 'read', i: 0, gid: Math.random().toString(36).slice(2),
        players: players.map(p => ({id: p.id, name: p.name, score: 0, ms: 0, spravne: 0})),
        qs, result: null, epoch: -1};
+  historia = [];
   api('idle').catch(() => {});
   render();
 }
@@ -852,6 +928,7 @@ function vyhodnot(odpovede) {                                    // z odpovedí 
 }
 async function closeQuestion() {
   if (S.step !== 'live') return;
+  zapamataj();
   const skoro = (S.deadline - Date.now()) > 250;               // ukončil to moderátor skôr?
   clearInterval(timerId); timerId = null;
   if (skoro) { hudbaStop(); zvukDrop(); }                        // inak nahrávka pokračuje sama dropom
@@ -862,6 +939,7 @@ async function closeQuestion() {
 }
 function revealAnswer() {                                      // až potom moderátor odhalí správnu odpoveď
   if (S.step !== 'votes') return;
+  zapamataj();
   S.players.forEach(p => {
     const r = S.result[p.id];
     if (r && r.ok) { p.score += BOD; p.spravne++; p.ms += r.ms; }
@@ -872,6 +950,7 @@ function revealAnswer() {                                      // až potom mode
 }
 async function askQuestion() {
   const q = cur();
+  zapamataj();
   podkladStop();                                               // hudba pri čítaní stíchne hneď, nabehne odpočet
   S.step = 'live'; S.result = null;
   srv.sent = {}; srv.epoch = -1;                               // staré odpovede sa nesmú počítať do novej otázky
@@ -883,6 +962,7 @@ async function askQuestion() {
   render();
 }
 function nextQuestion() {
+  zapamataj();
   if (S.step !== 'tabulka' && (S.i + 1) % M().naBlok === 0) {   // koniec kola: najprv priebežné poradie
     S.step = 'tabulka'; S.odkryte = 0;
     api('idle').catch(() => {});
@@ -896,6 +976,7 @@ function nextQuestion() {
 function odkriHraca() {                                        // moderátor odkrýva výsledky po jednom
   if (S.step !== 'tabulka') return;
   if (S.odkryte >= S.players.length) { nextQuestion(); return; }
+  zapamataj();
   S.odkryte++;
   zvukTabulka(S.odkryte, S.players.length);
   if (S.odkryte === S.players.length) efekt('gold');
@@ -911,6 +992,8 @@ function head() {
       ${cistaTV() ? '' : `<span class="pill">Otázka <b>${BOD} body</b> · spolu <b>${S.qs.length * BOD}</b></span>
       <span class="pill">Čas <b>${cur().sec} s</b></span>
       ${ROLE === 'mod' ? '<span class="pill">Moderátor</span>' : ''}`}
+      ${ctrls() && !cistaTV() ? `<button class="pill" id="mobilyBtn" data-act="mobily" title="QR kód a odkaz na znovupripojenie">📱 Mobily${S.players.some(p => !jeOnline(p.id)) ? ' ⚠️' : ''}</button>
+      <button class="pill" data-act="spat" title="Vrátiť posledný krok (Backspace)"${historia.length ? '' : ' disabled'}>↶ Späť</button>` : ''}
       <button class="pill" data-act="zvuk" title="Zapnúť alebo vypnúť zvuk">${zvuk ? '🔊' : '🔇'}${cistaTV() ? '' : (zvuk ? ' Zvuk' : ' Ticho')}</button>
     </div>
   </header>`;
@@ -925,7 +1008,7 @@ function playersHtml() {
     else if (r && hlasy) line = `<span class="ans">${r.none ? 'neodpovedal' : 'hlasoval'}</span>`;
     else if (r) line = r.none ? '<span class="ans">neodpovedal</span>' : `<span class="gain">${r.ok ? '✓' : '✗'}</span>`;
     else line = `<span class="ans">${p.spravne} správne</span>`;
-    return `<div class="pl ${cls}"><span class="nm">${esc(p.name)}</span>${line}</div>`;   // priebežné body sú tajné až do konca kola
+    return `<div class="pl ${cls}${jeOnline(p.id) ? '' : ' off'}"><span class="nm">${esc(p.name)}${jeOnline(p.id) ? '' : ' 📵'}</span>${line}</div>`;   // priebežné body sú tajné až do konca kola
   }).join('')}</div>`;
 }
 function optsHtml(q, reveal) {
@@ -1038,10 +1121,12 @@ function vQuestion() {
       const r = S.result[p.id] || {};
       const co = hlasy ? hlasHtml(q, p)
         : (r.none ? 'neodpovedal' : kod(q, r.v));
-      return `<div class="pl ${!hlasy && r.ok ? 'done' : ''}"><span class="nm">${esc(p.name)}</span><span class="${r.none ? 'ans' : 'hlas'}">${esc(co)}</span>${
+      const oprava = !hlasy && ctrls() && !cistaTV();
+      return `<div class="pl ${!hlasy && r.ok ? 'done' : ''}"${oprava ? ` data-act="prepni" data-id="${esc(p.id)}" title="Klikni a uznaj / zruš odpoveď" style="cursor:pointer"` : ''}><span class="nm">${esc(p.name)}</span><span class="${r.none ? 'ans' : 'hlas'}">${esc(co)}${r.uznane ? ' · uznané' : ''}</span>${
         hlasy ? '' : `<span class="gain">${r.ok ? '✓' : '✗'}</span>`}${
         r.ms != null ? `<span class="ans">${cas(r.ms)}</span>` : ''}</div>`;
-    }).join('')}</div>${hlasy && !cistaTV() ? '<p class="muted" style="margin-top:10px">Prečítaj správnu odpoveď nahlas a potom ju ukáž.</p>' : ''}</div>`;
+    }).join('')}</div>${hlasy && !cistaTV() ? '<p class="muted" style="margin-top:10px">Prečítaj správnu odpoveď nahlas a potom ju ukáž.</p>' : ''}${
+      !hlasy && ctrls() && !cistaTV() ? '<p class="muted" style="margin-top:10px">Pomýlil sa mobil? Kliknutím na hráča mu odpoveď uznáš alebo zrušíš.</p>' : ''}</div>`;
   }
   const btns = !ctrls() ? '' : `<div class="row">${
     S.step === 'read' ? `<button class="btn gold" data-act="ask">Ukázať otázku a spustiť čas <kbd>medzera</kbd></button>
@@ -1079,7 +1164,7 @@ function vTabulka() {                                        // priebežné pora
       ${hotovo
         ? `<button class="btn gold" data-act="odkri">${posledna ? 'Ukázať konečné výsledky' : 'Ďalšie ' + m.slovo}  <kbd>Enter</kbd></button>`
         : '<button class="btn gold" data-act="odkri">Odkryť ďalšieho <kbd>medzera</kbd></button>'}
-      <button class="btn ghost" data-act="quit">Ukončiť hru</button></div>` : ''}`;
+      <button class="btn ghost" data-act="spat"${historia.length ? '' : ' disabled'}>↶ Späť</button><button class="btn ghost" data-act="mobily">📱 Mobily</button><button class="btn ghost" data-act="quit">Ukončiť hru</button></div>` : ''}`;
 }
 function vEnd() {
   const sorted = poradie(), top = sorted[0], max = S.qs.length * BOD;
@@ -1092,7 +1177,7 @@ function vEnd() {
       <span class="nm">${i + 1}. ${esc(p.name)}</span><span class="sc">${skore(p.score)}</span>
       <span class="ans">${p.score} b · ${p.spravne} správne · ${cas(p.ms)}</span></div>`).join('')}</div>
     <p class="muted">Skóre je počet bodov delený desiatimi, ako v relácii. Pri rovnakom počte bodov je vyššie ten, kto odpovedal rýchlejšie.</p>
-    ${ctrls() ? '<div class="row"><button class="btn gold" data-act="again">Nová hra s tými istými hráčmi</button><button class="btn ghost" data-act="quit">Späť na úvod</button></div>' : ''}`;
+    ${ctrls() ? `<div class="row"><button class="btn gold" data-act="again">Nová hra s tými istými hráčmi</button><button class="btn ghost" data-act="spat"${historia.length ? '' : ' disabled'}>↶ Späť</button><button class="btn ghost" data-act="mobily">📱 Mobily</button><button class="btn ghost" data-act="quit">Späť na úvod</button></div>` : ''}`;
 }
 let qrFor = '';
 function paintQr() {                                           // QR kód na adresu pre mobily
@@ -1107,8 +1192,9 @@ function paintQr() {                                           // QR kód na adr
 }
 function render(remote) {
   clearInterval(timerId); timerId = null;
-  app.innerHTML = S.phase === 'setup' ? vSetup() : S.phase === 'end' ? vEnd() : S.step === 'tabulka' ? vTabulka() : vQuestion();
-  if (S.phase === 'setup') paintQr();
+  app.innerHTML = (S.phase !== 'setup' && S.mobily ? mobilyHtml() : '') +
+    (S.phase === 'setup' ? vSetup() : S.phase === 'end' ? vEnd() : S.step === 'tabulka' ? vTabulka() : vQuestion());
+  if (S.phase === 'setup' || S.mobily) { if (S.phase !== 'setup') phoneUrl = urlMobilov(); qrFor = ''; paintQr(); }
   if (!remote) broadcast();
   const key = S.phase + S.step + S.i + (S.step === 'tabulka' ? '' : '');
   if (key !== lastKey) { lastKey = key; window.scrollTo({top: 0}); }
@@ -1151,7 +1237,13 @@ function act(a, el) {
       if (!online.length) return toast('Najprv pripoj aspoň jeden mobil');
       startGame(online, mode); break;
     }
+    case 'spat': spat(); break;
+    case 'mobily': S.mobily = !S.mobily; render(); if (S.mobily) window.scrollTo({top: 0}); break;
+    case 'prepni': prepniBody(el.dataset.id); break;
+    case 'prirad': priradMobil(el.dataset.id, +el.dataset.i); break;
+    case 'pridaj': pridajMobil(el.dataset.id); break;
     case 'copyurl':
+      if (!phoneUrl) phoneUrl = urlMobilov();
       if (navigator.clipboard) navigator.clipboard.writeText(phoneUrl).then(() => toast('Odkaz je skopírovaný – vlož ho kamarátom do správy')).catch(() => prompt('Skopíruj odkaz:', phoneUrl));
       else prompt('Skopíruj odkaz:', phoneUrl);
       break;
@@ -1172,7 +1264,9 @@ function act(a, el) {
 }
 app.addEventListener('click', e => { const el = e.target.closest('[data-act]'); if (el) act(el.dataset.act, el); });
 document.addEventListener('keydown', e => {
-  if (!ctrls() || S.phase !== 'q') return;
+  if (!ctrls() || S.phase === 'setup') return;
+  if (e.key === 'Backspace' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z')) { e.preventDefault(); spat(); return; }
+  if (S.phase !== 'q') return;
   if (S.step === 'read' && ['-', 'ArrowLeft', 'ArrowDown'].includes(e.key)) { e.preventDefault(); zmenCas(-1); return; }
   if (S.step === 'read' && ['+', 'ArrowRight', 'ArrowUp'].includes(e.key)) { e.preventDefault(); zmenCas(1); return; }
   if (e.code === 'Space') {
@@ -1224,8 +1318,8 @@ async function poll() {
       const sig = (st.players || []).map(p => p.name + p.online).join('|');   // prekresli, len keď sa zoznam naozaj zmenil
       if (sig !== lastSig) { lastSig = sig; render(true); }
     }
-    else if (S.phase === 'q') {
-      if (S.step === 'live') {
+    else if (S.phase === 'q' || S.phase === 'end') {
+      if (S.phase === 'q' && S.step === 'live') {
         S.players.forEach(p => {                               // niekto práve odovzdal odpoveď
           if (sentNow(p.id) && !ozvucene.has(p.id)) { ozvucene.add(p.id); zvukHlas(ozvucene.size); }
         });
@@ -1233,6 +1327,10 @@ async function poll() {
       }
       const el = app.querySelector('#board');
       if (el) el.outerHTML = playersHtml();
+      const mb = app.querySelector('#mobilyBtn');
+      if (mb) mb.textContent = '📱 Mobily' + (S.players.some(p => !jeOnline(p.id)) ? ' ⚠️' : '');
+      const mz = app.querySelector('#mobzoznam');
+      if (mz) { const h = mobZoznamHtml(); if (mz.innerHTML !== h) mz.innerHTML = h; }
     }
   } catch (e) {}
   setTimeout(poll, S.phase === 'q' && S.step === 'live' ? 300 : 900);   // počas hlasovania častejšie, nech hneď vidno, kto odpovedal
