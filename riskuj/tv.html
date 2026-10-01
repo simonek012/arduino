@@ -4341,7 +4341,7 @@ function vSetup() {
 
 const pods = () => `<div class="pods" style="--n:${S.players.length}">${S.players.map((p, i) => {
   const cls = [S.buzzed === i && S.phase === 'q' ? 'buzz' : '', S.locked.includes(i) && S.phase === 'q' ? 'out' : '', S.control === i && (S.phase === 'board' || S.phase === 'intro') ? 'ctl' : ''].join(' ');
-  const z = p.zet, zet = z && S.phase !== 'end' ? `<span class="pzet" title="žetóny">${z.stit ? '🛡️' : '<i>🛡️</i>'}${z.prihr ? '👉' : '<i>👉</i>'}</span>` : '';
+  const z = p.zet, zet = z && ['intro', 'board', 'q', 'riskBet'].includes(S.phase) ? `<span class="pzet" title="žetóny">${z.stit ? '🛡️' : '<i>🛡️</i>'}${z.prihr ? '👉' : '<i>👉</i>'}</span>` : '';
   const inner = `<span class="pname">${esc(p.name)}${zet}</span><span class="pscore${p.score < 0 ? ' neg' : ''}">${num(p.score)}</span>`;
   return canChoose(i)
     ? `<button class="pod pick ${cls}" style="--pc:${PCOL[i]}" data-act="choose" data-i="${i}">${inner}<span class="pkey">klikni alebo ${i + 1} = odpovedá</span></button>`
@@ -4424,6 +4424,7 @@ function vIntro() {
   return `<div class="game"><section class="qv"><div class="qcenter">
       <span class="eyebrow">${S.round}. kolo</span><h2 class="huge">${r1 ? 'Prvé kolo' : 'Druhé kolo'}</h2>
       <p class="lead">Hodnoty ${r1 ? '1 000 až 5 000' : '2 000 až 10 000'}. Na tabuli ${r1 ? 'je skryté jedno pole' : 'sú skryté dve polia'} Riskuj! Kto odpovie správne, vyberá ďalšiu otázku.</p>
+      <p class="lead">Každý má v tomto kole 1× 🛡️ štít a 1× 👉 prihrávku.</p>
       <p class="lead">Začína vyberať <span style="color:${PCOL[S.control]}">${esc(S.players[S.control].name)}</span>${r1 ? '' : ' (má najmenej bodov)'}</p>
       ${ctrls() ? '<div class="mod"><button class="mbtn gold" data-act="goboard">Ukázať tabuľu <kbd>Enter</kbd></button></div>' : ''}
     </div></section>${pods()}<footer class="gfoot"><span></span><span>Kód pre ťahák: <b>${S.code}</b></span><span></span></footer></div>`;
@@ -4653,7 +4654,10 @@ function close() {
 function nextOrBoard() {
   const left = S.boards[S.round].some(col => col.tiles.some(t => !t.done));
   if (left) S.phase = 'board';
-  else if (S.round === 1) { S.round = 2; S.control = lowest(); S.phase = 'intro'; fx('round'); }
+  else if (S.round === 1) {
+    S.round = 2; S.control = lowest(); S.phase = 'intro'; fx('round');
+    S.players.forEach(p => { p.zet = {stit: 1, prihr: 1}; });   // v každom kole má každý znova 1× štít a 1× prihrávku (nesčítavajú sa)
+  }
   else {
     S.finalIn = S.players.map((_, i) => i).filter(i => S.players[i].score > 0);
     S.phase = S.finalIn.length ? 'finalBets' : 'end';
