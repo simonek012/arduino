@@ -21,6 +21,7 @@ $lastSeen = @{}                                       # id -> čas posledného o
 $script:armed  = $false
 $script:locked = @()
 $script:epoch  = 0
+$script:buzzN  = 0                                    # poradové číslo stlačenia (stúpa stále, aj cez viac otázok)
 # finále: stávky a odpovede z mobilov
 $script:turn = ''                                   # id mobilu, ktorý práve odpovedá
 $script:finalStage = 'off'                            # off | bet | answer | closed
@@ -73,22 +74,41 @@ function SendFile($client, [string]$name) {
   else { Send $client 404 'text/plain; charset=utf-8' ($utf8.GetBytes("Chýba súbor $name")) }
 }
 function IsOnline([string]$id) { $lastSeen.ContainsKey($id) -and (([DateTime]::UtcNow - $lastSeen[$id]).TotalSeconds -lt 6) }
+# Stav sa číta veľmi často (TV 10× za sekundu, každý mobil 4×), preto sa JSON skladá len pri zmene.
+# Bez ForEach-Object a Where-Object: v PowerShelli 5.1 sú pomalé a server by pri viacerých mobiloch nestíhal.
+$script:ver = 0
+$script:stateKey = ''
+$script:stateBytes = $null
 function StateObj {
   $sent = @{}
   foreach ($p in $players) { $sent[$p.id] = @{ bet = $finalBets.ContainsKey($p.id); answer = $finalAnswers.ContainsKey($p.id) } }
+  $bz = New-Object System.Collections.ArrayList
+  foreach ($b in $buzzes) { [void]$bz.Add(@{ id = $b.id; name = $b.name; n = $b.n }) }
+  $pl = New-Object System.Collections.ArrayList
+  foreach ($p in $players) { [void]$pl.Add(@{ id = $p.id; name = $p.name; online = (IsOnline $p.id) }) }
   @{
     armed   = $script:armed
     epoch   = $script:epoch
-    buzzes  = @($buzzes | ForEach-Object { @{ id = $_.id; name = $_.name } })
+    buzzes  = @($bz)
     locked  = @($script:locked)
     turn    = $script:turn
-    players = @($players | ForEach-Object { @{ id = $_.id; name = $_.name; online = (IsOnline $_.id) } })
+    players = @($pl)
     final   = @{ stage = $script:finalStage; max = $finalMax; sent = $sent }
     zet     = $script:zet
     treq    = @($tokReq)
   }
 }
-function FindPlayer([string]$id) { $players | Where-Object { $_.id -eq $id } | Select-Object -First 1 }
+function StateBytes {
+  $key = [string]$script:ver
+  foreach ($p in $players) { $key += if (IsOnline $p.id) { '1' } else { '0' } }
+  if ($key -ne $script:stateKey -or -not $script:stateBytes) {
+    $script:stateBytes = $utf8.GetBytes((ConvertTo-Json -InputObject (StateObj) -Compress -Depth 6))
+    $script:stateKey = $key
+  }
+  , $script:stateBytes   # čiarka: pole bajtov vrátiť celé, nie po jednom bajte
+}
+function FindPlayer([string]$id) { foreach ($p in $players) { if ($p.id -eq $id) { return $p } }; return $null }
+function HasBuzz([string]$id) { foreach ($b in $buzzes) { if ($b.id -eq $id) { return $true } }; return $false }
 function QueryParam([string]$path, [string]$name) {
   if ($path -match "[?&]$name=([^&]*)") { return [System.Uri]::UnescapeDataString($matches[1]) }
   return ''
@@ -118,6 +138,7 @@ function Handle($client, $req) {
   $path = ($req.path -split '\?')[0]
   $data = $null
   if ($req.body) { try { $data = $req.body | ConvertFrom-Json } catch {} }
+  if ($req.method -eq 'POST') { $script:ver++ }   # každá zmena stavu ide cez POST
   # Z internetu je dostupné len to, čo potrebujú mobily. Moderátorská obrazovka a jej
   # ovládanie ostávajú len na tomto počítači – aj holý odkaz otvorí hráčom tlačidlo.
   if ($req.remote) {
@@ -133,7 +154,7 @@ function Handle($client, $req) {
     '/api/state'  {
       $me = QueryParam $req.path 'id'
       if ($me -and (FindPlayer $me)) { $lastSeen[$me] = [DateTime]::UtcNow }
-      SendJson $client (StateObj); return
+      Send $client 200 'application/json; charset=utf-8' (StateBytes); return
     }
     '/api/join' {
       $name = ([string]$data.name).Trim()
@@ -160,8 +181,9 @@ function Handle($client, $req) {
       $id = [string]$data.id
       $p = FindPlayer $id
       $ok = $false
-      if ($p -and $script:armed -and ($script:locked -notcontains $id) -and -not ($buzzes | Where-Object { $_.id -eq $id })) {
-        [void]$buzzes.Add(@{ id = $id; name = $p.name })
+      if ($p -and $script:armed -and ($script:locked -notcontains $id) -and -not (HasBuzz $id)) {
+        $script:buzzN++
+        [void]$buzzes.Add(@{ id = $id; name = $p.name; n = $script:buzzN })
         $ok = $true
       }
       if ($p) { $lastSeen[$id] = [DateTime]::UtcNow }
@@ -174,6 +196,11 @@ function Handle($client, $req) {
       $script:epoch++
       $script:turn = ''
       SendJson $client @{ epoch = $script:epoch }; return
+    }
+    '/api/unbuzz' {   # moderátor dal „krok späť“ – stlačenie týchto mobilov sa ruší a môžu sa prihlásiť znova
+      $ids = @($data.ids | ForEach-Object { [string]$_ })
+      foreach ($b in @($buzzes)) { if ($ids -contains $b.id) { $buzzes.Remove($b) } }
+      SendJson $client @{ ok = $true }; return
     }
     '/api/lock'   { $script:locked = @($data.locked | Where-Object { $_ }); SendJson $client @{ ok = $true }; return }
     '/api/turn'   { $script:turn = [string]$data.id; SendJson $client @{ ok = $true }; return }

@@ -165,6 +165,7 @@ function paint() {
   if (st.epoch !== lastEpoch) { lastEpoch = st.epoch; pending = false; }
   const pos = st.buzzes.findIndex(b => b.id === me.id) + 1;
   const turn = st.turn ? st.players.find(p => p.id === st.turn) : null;
+  $('#rename').hidden = !!pos || st.turn === me.id;   // kto je prihlásený na otázku, nemôže odísť ani zmeniť meno
   if (st.locked.includes(me.id)) set('out', 'Stop', 'túto otázku už nemôžeš');
   else if (st.turn === me.id) set('first', pos === 1 ? 'Si prvý!' : 'Odpovedáš!', 'odpovedaj');
   else if (pos) set('late', `Si ${pos}. v poradí`, turn ? 'odpovedá ' + turn.name + ' – ak sa pomýli, ideš ďalší' : 'počkaj na svoj rad');
@@ -228,9 +229,9 @@ async function buzz(e) {
   pending = true; paint();
   try { navigator.vibrate && navigator.vibrate(40); } catch (err) {}
   try {
-    const r = await api('buzz', {id: me.id});
-    if (!r.ok) pending = false;
-    st = await api('state?id=' + encodeURIComponent(me.id)); paint();
+    await api('buzz', {id: me.id});
+    st = await api('state?id=' + encodeURIComponent(me.id));
+    pending = false; paint();   // ďalej rozhoduje stav zo servera (aj keď moderátor stlačenie zruší krokom späť)
   } catch (err) { pending = false; paint(); }
 }
 async function sendFinal(e) {

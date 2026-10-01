@@ -4941,9 +4941,26 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
 <script>
 /* ================= MOBILY: prihlasovanie cez telefóny (server.ps1) ================= */
 (function () {
-  const api = (path, body) => fetch('/api/' + path, body !== undefined
-    ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}
-    : {cache: 'no-store'}).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  // každá požiadavka má časový limit, aby jedna zaseknutá nezablokovala sledovanie mobilov
+  const api = (path, body) => {
+    const ctl = window.AbortController ? new AbortController() : null;
+    const tm = ctl && setTimeout(() => ctl.abort(), 4000);
+    return fetch('/api/' + path, Object.assign(body !== undefined
+      ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}
+      : {cache: 'no-store'}, ctl ? {signal: ctl.signal} : {}))
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .finally(() => { if (tm) clearTimeout(tm); });
+  };
+  // Časovač vo Web Workeri: prehliadač ho nespomalí, ani keď je okno moderátora na pozadí alebo prekryté
+  // (bežný setInterval sa vtedy spomalí na 1× za sekundu, po čase až 1× za minútu).
+  function tikac(ms, fn) {
+    try {
+      const w = new Worker(URL.createObjectURL(new Blob([`setInterval(() => postMessage(0), ${ms});`], {type: 'text/javascript'})));
+      w.onmessage = fn; return;
+    } catch (e) {}
+    setInterval(fn, ms);
+  }
+  const zrusene = {};   // id mobilu -> poradové číslo stlačenia, ktoré moderátor zrušil krokom späť
   let lastZet = '', lastTokN = 0;
   let phoneUrl = '', phones = [], lastMode = '', armEpoch = -1, polling = false, qrFor = '', serverOk = true, online = false;
   let lastLocked = '', lastTurn = null, freeSince = 0;
@@ -5154,8 +5171,21 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
     if (st && q.length > 1 && !st.querySelector('.qorder'))
       st.insertAdjacentHTML('beforeend', `<div class="qorder">Poradie: ${q.map((i, k) => { const t = `${k + 1}. <b style="--pc:${PCOL[i]}">${esc(S.players[i].name)}</b>`; return S.locked.includes(i) ? `<s>${t}</s>` : t; }).join(' · ')}</div>`);
   }
+  // krok späť zruší aj prihlásenie z mobilu: hráč vypadne z poradia a môže stlačiť znova
+  const _undo = undo;
+  undo = function () {
+    const pred = S && S.phase === 'q' && S.cur ? {buzzed: S.buzzed, key: tileKey()} : null;
+    _undo();
+    if (!pred || pred.buzzed == null || !S || S.phase !== 'q' || !S.cur || tileKey() !== pred.key || S.buzzed != null) return;
+    const i = pred.buzzed, id = S.players[i] && S.players[i].phone;
+    if (S.queue) S.queue = S.queue.filter(x => x !== i);
+    if (id) { zrusene[id] = lastBuzzN[id] || 0; api('unbuzz', {ids: [id]}).catch(() => {}); }
+    freeSince = 0; render();
+    toast(`Prihlásenie hráča ${S.players[i].name} je zrušené`);
+  };
+  const lastBuzzN = {};
   // kto stlačil → zaradí sa do poradia; keď nikto neodpovedá, ide na rad ďalší v poradí
-  setInterval(() => {
+  tikac(100, () => {
     if (polling || !lastMode.startsWith('arm:') || armEpoch < 0 || !inGame() || !ctrls()) return;
     if (S.buzzed != null) freeSince = 0; else if (!freeSince) freeSince = Date.now();
     polling = true;
@@ -5164,7 +5194,11 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
       if (st.epoch !== armEpoch || !lastMode.startsWith('arm:') || S.phase !== 'q' || S.resolved) return;
       const key = tileKey(), old = queue();
       const q = old.slice();
-      st.buzzes.forEach(b => { const slot = S.players.findIndex(p => p.phone === b.id); if (slot >= 0 && !q.includes(slot)) q.push(slot); });
+      st.buzzes.forEach(b => {
+        lastBuzzN[b.id] = b.n || 0;
+        if (zrusene[b.id] != null && (b.n || 0) <= zrusene[b.id]) return;   // zrušené krokom späť
+        const slot = S.players.findIndex(p => p.phone === b.id); if (slot >= 0 && !q.includes(slot)) q.push(slot);
+      });
       if (S.buzzed != null && !q.includes(S.buzzed)) q.unshift(S.buzzed); // moderátor klikol na hráča bez mobilu
       const next = S.buzzed == null ? q.find(i => !S.locked.includes(i)) : undefined;
       // po zlej odpovedi chvíľu počká, aby bolo vidieť, že odpoveď bola nesprávna
@@ -5172,7 +5206,7 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
       if (next != null && (wait === 0 || (freeSince && Date.now() - freeSince >= wait))) { S.queue = q; S.queueFor = key; choose(next); return; }
       if (q.join() !== old.join() || S.queueFor !== key) { S.queue = q; S.queueFor = key; render(); }
     }).catch(() => {}).finally(() => { polling = false; });
-  }, 100);
+  });
 
   render(true);
 })();
