@@ -87,6 +87,11 @@ body.kreslim .tbtn{padding:10px 12px;font-size:15px}
 .pismeno{font:900 92px/1 system-ui;color:var(--tc);text-shadow:0 0 30px rgba(165,180,252,.4);margin:2px 0 8px}
 .mm{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}.mm label{display:flex;flex-direction:column;font-weight:800;font-size:14px;color:var(--muted);gap:4px;text-align:left}.mm input{font-size:20px}
 .mtab{width:100%;border-collapse:collapse;margin:8px 0;font-size:18px;text-align:left}.mtab td{padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.08)}.mtab td:last-child{text-align:right;font-weight:900}
+.mk{border-left:4px solid var(--pc);background:rgba(0,0,0,.18);border-radius:12px;padding:8px 10px;margin:8px 0}.mk>b{color:var(--pc)}
+.mr{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid rgba(255,255,255,.07);font-weight:700}.mr>span:first-child{flex:1;overflow-wrap:anywhere}.mr small{color:var(--muted);font-size:12px}
+.seg{display:flex;gap:4px;flex:0 0 auto}.seg button{width:44px;height:40px;margin:0;padding:0;border-radius:10px;border:2px solid var(--line);background:var(--card);color:#fff;font:900 18px system-ui}
+.seg button.on.b100{background:var(--ok);border-color:var(--ok);color:#06210f}.seg button.on.b50{background:#FFB020;border-color:#FFB020;color:#2a1a00}.seg button.on.b0{background:var(--bad);border-color:var(--bad)}
+.mr i{font-style:normal;font-weight:900}
 .b100{color:var(--ok)}.b50{color:#FFB020}.b0{color:var(--muted)}
 .bomba{font-size:90px;line-height:1;text-align:center;animation:tras .35s ease-in-out infinite alternate;margin:6px 0 18px}
 @keyframes tras{from{transform:rotate(-8deg)}to{transform:rotate(8deg) scale(1.06)}}
@@ -187,7 +192,7 @@ function render() {
   const ja2 = S.hraci.find(p => p.id === me.id);
   if (!avAuto && h.faza === 'lobby' && ja2 && !ja2.av) { avAuto = true; let skip = false; try { skip = localStorage.getItem('kck-av-skip-' + me.id) === '1'; } catch (e) {} if (!skip) avEdit = true; }
   const key = screenKey();
-  if (key !== lastKey) { lastKey = key; edit = {}; sc.innerHTML = postav(h, j); pripoj(h, j); }
+  if (key !== lastKey) { lastKey = key; if (edit.krok !== h.krok) edit = {krok: h.krok}; sc.innerHTML = postav(h, j); pripoj(h, j); }
   obnov(h, j);
   // prvý hráč môže hru pozastaviť a znova spustiť
   const kap = h.kapitan === me.id && !['lobby', 'koniec'].includes(h.faza);
@@ -287,6 +292,16 @@ function postav(h, j) {
           `<label>${e} ${n}<input data-mm="${k}" maxlength="30" autocomplete="off" autocapitalize="sentences" enterkeyhint="next" value="${esc(v[k] || '')}" placeholder="${esc(h.pismeno)}…"></label>`).join('')}</div>
         <div id="mmBox"></div></div>`;
     }
+    case 'mmzv-kontrola': {
+      const odp = h.odp || {}, KAT = [['meno', '👤'], ['mesto', '🏙️'], ['zviera', '🐾'], ['vec', '📦']];
+      const ids = Object.keys(odp).filter(id => id !== me.id).concat(odp[me.id] ? [me.id] : []);
+      return `<div class="card">${hlavicka(h)}<h2 style="margin-bottom:4px">Sedí to? Písmeno ${esc(h.pismeno)}</h2>
+        <p class="muted" style="font-size:14px;margin-top:0">✓ uznať (100) · ½ polovica – rovnaké slovo inak napísané (50) · ✗ neuznať – slovo neexistuje (0). Svoje si meniť nemôžeš.</p>
+        ${ids.map(id => `<div class="mk" style="--pc:${farba(id)}"><b>${esc(meno(id))}${id === me.id ? ' (ty)' : ''}</b>
+          ${KAT.filter(([k]) => (odp[id][k] || '').trim()).map(([k, e]) => `<div class="mr"><span>${e} ${esc(odp[id][k])}<small data-upr="${id}:${k}"></small></span>
+            ${id === me.id ? `<i data-moje="${k}"></i>` : `<span class="seg">${[[0, '✗'], [50, '½'], [100, '✓']].map(([b, t]) => `<button type="button" data-mmb="${id}|${k}|${b}">${t}</button>`).join('')}</span>`}</div>`).join('') || '<p class="muted" style="margin:4px 0">Nič nenapísal(a)</p>'}</div>`).join('') || '<p class="muted">Nikto nič nenapísal.</p>'}
+        <div id="mmOkBox"></div><div id="kapBox"></div></div>`;
+    }
     case 'mmzv-vys': {
       const o = (h.odp || {})[me.id] || {}, b = (h.bodyKat || {})[me.id] || {};
       return `<div class="card center">${hlavicka(h)}<div class="pismeno" style="font-size:56px">${esc(h.pismeno)}</div>
@@ -370,6 +385,11 @@ function pripoj(h, j) {
   sc.querySelectorAll('[data-uhadol]').forEach(b => b.onclick = () => { sc.querySelectorAll('[data-uhadol]').forEach(x => { x.disabled = true; }); b.classList.add('on'); posli('panto', {a: 'uhadol', za: b.dataset.uhadol}).then(() => poll(true)).catch(e => { sc.querySelectorAll('[data-uhadol]').forEach(x => { x.disabled = false; }); chyba(); }); });
   const pv = $('#pantoVzdat'); if (pv) pv.onclick = () => { pv.disabled = true; posli('panto', {a: 'vzdat'}).then(() => poll(true)).catch(chyba); };
   const ps = $('#pantoSpat'); if (ps) ps.onclick = () => { ps.disabled = true; posli('panto', {a: 'spat'}).then(() => poll(true)).catch(chyba); };
+  sc.querySelectorAll('[data-mmb]').forEach(b => b.onclick = () => {
+    const [za, kat, bod] = b.dataset.mmb.split('|');
+    (edit.mm = edit.mm || {})[za + ':' + kat] = +bod; obnov(hra(), ja());
+    posli('mmzvUprav', {za, kat, b: +bod}).then(() => poll(true)).catch(chyba);
+  });
   sc.querySelectorAll('[data-vydrz]').forEach(b => b.onclick = () => { edit.vydrz = b.dataset.vydrz; obnov(hra(), ja()); posli('vydrz', {v: +b.dataset.vydrz}).catch(chyba); });
   if (h.faza === 'mmzv-pis') {
     const krok = h.krok, polia = [...sc.querySelectorAll('[data-mm]')];
@@ -397,7 +417,7 @@ function obnov(h, j) {
   const kap = $('#kapBox');
   if (kap) {
     const som = h.kapitan === me.id;
-    const label = h.faza === 'lobby' ? '▶ Spustiť hru' : h.faza === 'koniec' ? '↻ Hrať znova' : h.faza === 'klam-obhajoba' ? '🗳️ Ideme hlasovať' : '▶ Pokračovať';
+    const label = h.faza === 'lobby' ? '▶ Spustiť hru' : h.faza === 'koniec' ? '↻ Hrať znova' : h.faza === 'klam-obhajoba' ? '🗳️ Ideme hlasovať' : h.faza === 'mmzv-kontrola' ? '▶ Body sedia – ďalej (za všetkých)' : '▶ Pokračovať';
     const html = som ? `<button class="go" type="button" data-start>${label}</button>${h.faza === 'lobby' ? '<p class="muted" style="font-size:13px">👑 Si prvý hráč – hru môžeš spustiť ty alebo ten, kto ovláda TV.</p>' : ''}` : '';
     if (kap.dataset.h !== html) { kap.dataset.h = html; kap.innerHTML = html; const b = kap.querySelector('[data-start]'); if (b) b.onclick = () => { b.disabled = true; posli('start').catch(chyba); }; }
   }
@@ -432,6 +452,22 @@ function obnov(h, j) {
     // prvý hráč môže vrátiť bombu, keď ju niekto posunul omylom alebo mu ostatní odpoveď neuznali
     const sp = $('#zemSpat'), html = h.kapitan === me.id && h.spatMozne ? '<button class="ghost" type="button" data-spat style="border-color:var(--bad)">↩️ Vrátiť bombu – neuznali sme</button>' : '';
     if (sp && sp.dataset.h !== html) { sp.dataset.h = html; sp.innerHTML = html; const b = sp.querySelector('[data-spat]'); if (b) b.onclick = () => posli('zemiak', {a: 'spat'}).then(() => poll(true)).catch(chyba); }
+  }
+  if (h.faza === 'mmzv-kontrola') {
+    const bk = h.bodyKat || {}, up = h.upravil || {};
+    // čerstvo ťuknutá voľba platí, kým ju server nepotvrdí alebo ju niekto iný nezmení
+    if (edit.mm) Object.keys(edit.mm).forEach(x => { const [za, k] = x.split(':'); if ((bk[za] || {})[k] === edit.mm[x]) delete edit.mm[x]; });
+    document.querySelectorAll('[data-mmb]').forEach(b => {
+      const [za, kat, bod] = b.dataset.mmb.split('|'), x = za + ':' + kat;
+      const akt = edit.mm && edit.mm[x] != null ? edit.mm[x] : (bk[za] || {})[kat];
+      b.className = +bod === akt ? 'on b' + bod : '';
+    });
+    document.querySelectorAll('[data-moje]').forEach(i => { const b = (bk[me.id] || {})[i.dataset.moje] || 0, t = b === 100 ? '✓ 100' : b === 50 ? '½ 50' : '✗ 0'; if (i.textContent !== t) { i.textContent = t; i.className = 'b' + b; } });
+    document.querySelectorAll('[data-upr]').forEach(e => { const t = up[e.dataset.upr] ? ' ✎ ' + meno(up[e.dataset.upr]) : ''; if (e.textContent !== t) e.textContent = t; });
+    const box = $('#mmOkBox'), ok = (h.ok || []).includes(me.id), poc = (h.ok || []).length, vsetci = S.hraci.filter(p => p.online).length;
+    const html = ok ? `<p class="ok center" style="font-weight:800">👍 Súhlasíš (${poc}/${vsetci}) – keď niekto niečo zmení, potvrď znova.</p>`
+      : `<button class="go" type="button" id="mmOk2">👍 Súhlasím, body sedia</button><p class="status">${poc ? `Súhlasí ${poc}/${vsetci}` : ''}</p>`;
+    if (box && box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; const b = $('#mmOk2'); if (b) b.onclick = () => { b.disabled = true; posli('mmzvOk').then(() => poll(true)).catch(chyba); }; }
   }
   if (h.faza === 'panto' && j.herec) {
     const s = $('#pantoSlovo'); if (s && s.textContent !== (j.slovo || '')) s.textContent = j.slovo || '';
@@ -754,10 +790,13 @@ const avatar = {
 let pollT = null, polling = false;
 async function poll(hned) {
   if (hned) { clearTimeout(pollT); }
-  if (polling && !hned) return;
+  if (polling) return;   // otvorená požiadavka vráti zmenu hneď, ako ju TV pošle
   polling = true;
+  const t0 = Date.now();
   try {
-    const s = await api('state' + (me && me.id ? '?id=' + encodeURIComponent(me.id) : ''));
+    // v = verzia, ktorú už máme – server odpovie, až keď sa niečo zmení (najviac o 3 s)
+    const q = [me && me.id ? 'id=' + encodeURIComponent(me.id) : '', S && S.ver != null && me && me.id && !$('#game').hidden ? 'v=' + S.ver : ''].filter(Boolean).join('&');
+    const s = await api('state' + (q ? '?' + q : ''));
     failCount = 0; $('#status').textContent = ''; $('#status').className = 'status';
     S = s;
     if (me && me.id && !$('#game').hidden && s.known === false) {     // server nás nepozná (reštart) – pripojíme sa znova
@@ -770,7 +809,7 @@ async function poll(hned) {
     if (failCount > 3) { $('#status').textContent = 'Spojenie sa stratilo. Skúšam znova…'; $('#status').className = 'status err'; }
   }
   polling = false;
-  clearTimeout(pollT); pollT = setTimeout(poll, failCount > 3 ? 1500 : 350);
+  clearTimeout(pollT); pollT = setTimeout(poll, failCount > 3 ? 1500 : failCount ? 350 : Math.max(40, 250 - (Date.now() - t0)));
 }
 setInterval(() => { if (S) obnov(hra(), ja()); }, 250);   // plynulá časomiera
 

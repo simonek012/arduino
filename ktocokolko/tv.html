@@ -139,6 +139,7 @@ kbd{font:700 .8em system-ui;background:rgba(255,255,255,.14);border-radius:5px;p
 .mtab th{color:var(--muted);font-weight:800;text-align:left;padding:0 .6em}
 .mtab td{background:var(--card);border-radius:10px;padding:.4em .7em;font-weight:700;text-align:left}
 .mtab td.b100{background:rgba(61,220,132,.25)} .mtab td.b50{background:rgba(255,176,32,.25)} .mtab td.b0{color:var(--muted);text-decoration:line-through}
+.mtab td.upr{outline:2px dashed rgba(255,255,255,.55)} .mtab td small{font-size:.6em;color:var(--muted);text-decoration:none;display:inline-block}
 .mtab td.sum{color:var(--ok);font-weight:900;background:none}
 .pl.bad{border-color:var(--bad);background:rgba(255,90,95,.15)}
 .reflex{width:min(70vmin,620px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;background:#3a3550;box-shadow:0 0 0 1.4vmin rgba(255,255,255,.08);font:900 clamp(30px,6vmin,90px)/1.1 var(--disp);text-align:center;padding:4vmin;transition:background .05s}
@@ -828,10 +829,16 @@ function mmzvVyhodnot() {
     Object.keys(M.odp).forEach(id => {
       const n = platne(M.odp[id][k]);
       const b = !n ? 0 : vsetky.filter(x => x === n).length > 1 ? 50 : 100;   // rovnaká odpoveď ako niekto iný = polovica
-      (M.body[id] = M.body[id] || {})[k] = b; pripis(id, b);
+      (M.body[id] = M.body[id] || {})[k] = b;
     });
   });
-  prejdi('mmzv-vys', 14);
+  M.auto = JSON.parse(JSON.stringify(M.body)); M.upravil = {}; M.ok = {};
+  prejdi('mmzv-kontrola', 75);
+}
+function mmzvBody() {   // po kontrole sa body pripíšu
+  const M = G.mmzv; G.zisk = {};
+  Object.keys(M.body).forEach(id => MMZV_KAT.forEach(([k]) => pripis(id, M.body[id][k] || 0)));
+  prejdi('mmzv-vys', 10);
 }
 
 /* ----- ⚡ Bleskový reflex: čas sa meria priamo v mobile, takže pomalší internet nikoho neznevýhodní ----- */
@@ -1064,6 +1071,7 @@ function koniecFazy() {
     case 'vydrz-odhal': vydrzDalsia(); break;
     case 'vydrz-koniec': skore(); break;
     case 'mmzv-pis': mmzvVyhodnot(); break;
+    case 'mmzv-kontrola': mmzvBody(); break;
     case 'mmzv-vys': mmzvDalsie(); break;
     case 'reflex-vysledok': reflexDalsi(); break;
     case 'pamat-pozri': prejdi('pamat-otazka', 12); break;
@@ -1098,6 +1106,7 @@ function vsetciHotovi() {
     case 'reflex': return akt.every(id => G.reflex.casy[id] != null || G.reflex.skoro[id]);
     case 'vydrz-otazka': { const z = G.vydrz.zivi.filter(online); return z.length > 0 && z.every(id => G.vydrz.odp[id] != null); }
     case 'mmzv-pis': return akt.every(id => G.mmzv.hotovi[id]);
+    case 'mmzv-kontrola': return akt.every(id => G.mmzv.ok[id]);
     case 'pamat-otazka': return akt.every(id => G.pamat.odpovede[id]);
     case 'klam-pis': return akt.every(id => G.klam.odpovede[id] != null);
     case 'klam-hlas': return akt.every(id => G.klam.hlasy[id] || G.klam.odpovede[id] == null);
@@ -1121,7 +1130,7 @@ function spracuj(v) {
   }
   if (!G.hraci.includes(id)) { G.hraci.push(id); G.body[id] = 0; G.mena[id] = meno(id); zmena(); }
   if (d.k === 'pauza' && id === kapitan()) { pauza(); return; }   // prvý hráč môže hru pozastaviť z mobilu
-  if (d.k === 'start' && id === kapitan()) { if (['skore', 'uvod', 'klam-obhajoba'].includes(G.faza)) koniecFazy(); else if (G.faza === 'koniec') { G = null; zacniHru(); } return; }
+  if (d.k === 'start' && id === kapitan()) { if (['skore', 'uvod', 'klam-obhajoba', 'mmzv-kontrola'].includes(G.faza)) koniecFazy(); else if (G.faza === 'koniec') { G = null; zacniHru(); } return; }
   if (d.f !== G.krok) return;   // odpoveď na už skončenú otázku
   if (G.faza === 'kto-pis' && d.k === 'kto') {
     const t = String(d.t || '').trim().slice(0, 120); if (!t) return;
@@ -1153,6 +1162,14 @@ function spracuj(v) {
     M.odp[id] = o;
     if (d.hotovo && !M.hotovi[id]) { M.hotovi[id] = true; zahraj('hlas'); }
     zmena();
+  } else if (G.faza === 'mmzv-kontrola' && d.k === 'mmzvUprav') {
+    // hráči si navzájom uznajú / neuznajú / dajú polovicu – vlastné odpovede si meniť nemôžu
+    const M = G.mmzv, b = +d.b;
+    if (d.za === id || !M.odp[d.za] || !(M.odp[d.za][d.kat] || '').trim() || ![0, 50, 100].includes(b)) return;
+    if (M.body[d.za][d.kat] === b) return;
+    M.body[d.za][d.kat] = b; M.upravil[d.za + ':' + d.kat] = id; M.ok = {}; zahraj('hlas'); zmena();
+  } else if (G.faza === 'mmzv-kontrola' && d.k === 'mmzvOk') {
+    G.mmzv.ok[id] = true; zmena();
   } else if (G.faza === 'reflex' && d.k === 'reflex') {
     const R = G.reflex; if (R.casy[id] != null || R.skoro[id]) return;
     const ms = Math.round(+d.ms);
@@ -1254,7 +1271,7 @@ function verejne() {
   if (/^mmzv-/.test(G.faza)) {
     const M = G.mmzv;
     Object.assign(v, {pismeno: M.pismeno, hotovi: Object.keys(M.hotovi), poradove: M.i + 1, spolu: MMZV_PISMEN});
-    if (G.faza === 'mmzv-vys') Object.assign(v, {odp: M.odp, bodyKat: M.body});
+    if (G.faza === 'mmzv-vys' || G.faza === 'mmzv-kontrola') Object.assign(v, {odp: M.odp, bodyKat: M.body, auto: M.auto, upravil: M.upravil, ok: Object.keys(M.ok)});
   }
   if (G.faza === 'reflex' || G.faza === 'reflex-vysledok') {
     const R = G.reflex;
@@ -1323,17 +1340,14 @@ function pre(id) {
 let pubBusy = false;
 function publikuj() {
   if (pubBusy) return;
-  const v = JSON.stringify(verejne());
-  const zmeny = [];
-  if (v !== lastVerejne) zmeny.push(() => api('verejne', v, true).then(() => { lastVerejne = v; }));
+  // všetko v jednej požiadavke: mobil tak dostane novú fázu aj svoje súkromné údaje naraz a server sa nezahltí
+  const v = JSON.stringify(verejne()), zmeny = [];
   const ids = G ? G.hraci : hraci.map(p => p.id);
-  ids.forEach(id => {
-    const s = JSON.stringify(pre(id));
-    if (s !== lastPre[id]) zmeny.push(() => api('pre?id=' + encodeURIComponent(id), s, true).then(() => { lastPre[id] = s; }));
-  });
-  if (!zmeny.length) return;
+  ids.forEach(id => { const s = JSON.stringify(pre(id)); if (s !== lastPre[id]) zmeny.push([id, s]); });
+  if (v === lastVerejne && !zmeny.length) return;
   pubBusy = true;
-  zmeny.reduce((pr, f) => pr.then(f), Promise.resolve()).catch(() => {}).finally(() => { pubBusy = false; });
+  const telo = [v === lastVerejne ? '' : v, ...zmeny.map(([id, s]) => id + '\t' + s)].join('\n');
+  api('balik', telo, true).then(() => { lastVerejne = v; zmeny.forEach(([id, s]) => { lastPre[id] = s; }); }).catch(() => {}).finally(() => { pubBusy = false; });
 }
 
 /* ----- ukladanie (aby sa dalo pokračovať po obnovení stránky) ----- */
@@ -1376,6 +1390,7 @@ function stavHraca() {
   if (G.faza === 'reflex') return id => G.reflex.casy[id] != null ? 'done' : G.reflex.skoro[id] ? 'bad' : '';
   if (/^vydrz-/.test(G.faza)) return id => G.vydrz.vypadli.includes(id) ? 'out' : G.faza === 'vydrz-otazka' && G.vydrz.odp[id] != null ? 'done' : '';
   if (G.faza === 'mmzv-pis') return id => G.mmzv.hotovi[id] ? 'done' : '';
+  if (G.faza === 'mmzv-kontrola') return id => G.mmzv.ok[id] ? 'done' : '';
   if (/^panto/.test(G.faza)) return id => id === G.panto.akt.herec ? 'me' : G.faza === 'panto-odhal' && id === G.panto.akt.uhadol ? 'done' : '';
   if (G.faza === 'pamat-otazka') return id => G.pamat.odpovede[id] ? 'done' : '';
   if (G.faza === 'zemiak') return id => G.zemiak.drzi === id ? 'me' : '';
@@ -1489,12 +1504,14 @@ function vMmzv() {
   if (G.faza === 'mmzv-pis') return `<div class="main" style="--tc:#A5B4FC"><span class="eyebrow">Písmeno ${M.i + 1} z ${MMZV_PISMEN} · píšte do mobilu</span>
     <div class="pism" style="width:1.3em;height:1.3em;font-size:clamp(90px,20vmin,240px);background:#A5B4FC;border-radius:30px;margin:0">${esc(M.pismeno)}</div>
     <h2 class="q">Meno · Mesto · Zviera · Vec</h2><p class="lead">Vlastná odpoveď 100 bodov, rovnaká ako má niekto iný 50, nič 0.</p></div>`;
-  const ids = G.hraci.filter(id => M.odp[id]);
-  return `<div class="main" style="--tc:#A5B4FC;gap:1.4vmin"><span class="eyebrow">Písmeno ${esc(M.pismeno)} · výsledky</span>
+  const ids = G.hraci.filter(id => M.odp[id]), kontrola = G.faza === 'mmzv-kontrola';
+  const sucet = id => MMZV_KAT.reduce((a, [k]) => a + ((M.body[id] || {})[k] || 0), 0);
+  return `<div class="main" style="--tc:#A5B4FC;gap:1.4vmin"><span class="eyebrow">Písmeno ${esc(M.pismeno)} · ${kontrola ? 'kontrola odpovedí' : 'výsledky'}</span>
+    ${kontrola ? '<h2 class="q" style="font-size:clamp(20px,2.6vw,44px)">Sedí všetko? V mobile môžete cudzie slová uznať ✓, dať polovicu ½ alebo neuznať ✗</h2>' : ''}
     <table class="mtab"><tr><th></th>${MMZV_KAT.map(([, n]) => `<th>${n}</th>`).join('')}<th>Body</th></tr>
-    ${ids.map(id => `<tr><td style="color:${farba(id)}"><b>${esc(meno(id))}</b></td>${MMZV_KAT.map(([k]) => { const b = (M.body[id] || {})[k] || 0;
-      return `<td class="b${b}">${esc(M.odp[id][k] || '–')}<small>${b ? (b === 50 ? ' ½' : '') : ''}</small></td>`; }).join('')}<td class="sum">+${G.zisk[id] || 0}</td></tr>`).join('')}</table>
-    ${ids.length ? '' : '<p class="lead">Nikto nič nenapísal.</p>'}<p class="lead" style="font-size:clamp(12px,1.1vw,18px)">Zelená = vlastná odpoveď (100), žltá = rovnakú má viac hráčov (50), prečiarknutá = neplatí (0).</p></div>`;
+    ${ids.map(id => `<tr><td style="color:${farba(id)}"><b>${esc(meno(id))}</b></td>${MMZV_KAT.map(([k]) => { const b = (M.body[id] || {})[k] || 0, kto = M.upravil && M.upravil[id + ':' + k];
+      return `<td class="b${b}${kto ? ' upr' : ''}">${esc(M.odp[id][k] || '–')}<small>${b === 50 ? ' ½' : ''}${kto ? ` ✎ ${esc(meno(kto))}` : ''}</small></td>`; }).join('')}<td class="sum">+${kontrola ? sucet(id) : G.zisk[id] || 0}</td></tr>`).join('')}</table>
+    ${ids.length ? '' : '<p class="lead">Nikto nič nenapísal.</p>'}<p class="lead" style="font-size:clamp(12px,1.1vw,18px)">Zelená = vlastná odpoveď (100), žltá = rovnakú má viac hráčov alebo polovica (50), prečiarknutá = neplatí (0)${kontrola ? ' · ✎ = upravené hráčom' : ''}.</p></div>`;
 }
 function vReflex(vys) {
   const R = G.reflex;
@@ -1596,7 +1613,7 @@ function vSkore(konecne) {
 
 function render() {
   const app = $('#app');
-  const key = G ? G.faza + '|' + G.krok + (G.faza === 'zemiak' ? '|' + G.zemiak.drzi + G.zemiak.historia.length + G.zemiak.otazka : '') : 'lobby|' + JSON.stringify(hraci) + publicUrl + lanUrl + serverOk + JSON.stringify(nast()) + !!ulozena + zvuk;
+  const key = G ? G.faza + '|' + G.krok + (G.faza === 'zemiak' ? '|' + G.zemiak.drzi + G.zemiak.historia.length + G.zemiak.otazka : '') + (G.faza === 'mmzv-kontrola' ? '|' + JSON.stringify(G.mmzv.body) : '') : 'lobby|' + JSON.stringify(hraci) + publicUrl + lanUrl + serverOk + JSON.stringify(nast()) + !!ulozena + zvuk;
   if (key !== lastKey) {
     lastKey = key;
     if (!G) { app.innerHTML = vLobby(); kresliQR(); return; }
@@ -1610,7 +1627,7 @@ function render() {
       case 'kzn-hlas': body = vKzn(false); break;
       case 'reflex': body = vReflex(false); break;
       case 'vydrz-otazka': case 'vydrz-odhal': case 'vydrz-koniec': body = vVydrz(); break;
-      case 'mmzv-pis': case 'mmzv-vys': body = vMmzv(); break;
+      case 'mmzv-pis': case 'mmzv-kontrola': case 'mmzv-vys': body = vMmzv(); break;
       case 'panto-vyber': case 'panto': case 'panto-odhal': body = vPanto(); break;
       case 'reflex-vysledok': body = vReflex(true); break;
       case 'pamat-pozri': case 'pamat-otazka': case 'pamat-odhal': body = vPamat(); break;
@@ -1814,6 +1831,7 @@ function botiHraju() {
       MMZV_KAT.forEach(([k]) => { const z = MMZV_BOT[k].filter(w => bezDiakritiky(w)[0] === pis); v[k] = z.length && Math.random() < .8 ? nahodne(z) : ''; });
       posli({k: 'mmzv', v, hotovo: true});
     }
+    else if (G.faza === 'mmzv-kontrola') { P.at = now + 2500; if (!G.mmzv.ok[id]) posli({k: 'mmzvOk'}); }
     else if (G.faza === 'pamat-otazka') { P.hotovo = true; posli({k: 'pamat', v: Math.random() < .6 ? G.pamat.q.odp : nahodne(G.pamat.q.moznosti)}); }
     else if (G.faza === 'zemiak') {
       const Z = G.zemiak; if (Z.drzi !== id) continue;

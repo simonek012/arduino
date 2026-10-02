@@ -89,6 +89,11 @@ function HraciJson {
   }
   $script:hraciJson
 }
+function SendState($client, [string]$me) {
+  $ja = 'null'; $known = $false
+  if ($me -and (FindPlayer $me)) { $known = $true; $lastSeen[$me] = [DateTime]::UtcNow; if ($pre.ContainsKey($me)) { $ja = $pre[$me] } }
+  SendText $client ('{"ver":' + $script:ver + ',"known":' + $(if ($known) { 'true' } else { 'false' }) + ',"hraci":' + (HraciJson) + ',"hra":' + $script:verejne + ',"ja":' + $ja + '}')
+}
 function JeJson([string]$t) {   # do servera pustíme len platný JSON objekt, aby sa TV nezasekla
   if (-not $t -or $t.Length -gt 60000) { return $false }
   $t = $t.Trim()
@@ -129,10 +134,13 @@ function Handle($client, $req) {
     '/api/info'  { SendJson $client @{ ips = @(Get-LanIPs); port = $Port; public = $PublicUrl }; return }
     '/api/state' {   # mobil: verejný stav hry + jeho súkromné údaje
       $me = QueryParam $req.path 'id'
-      $ja = 'null'
-      if ($me -and (FindPlayer $me)) { $lastSeen[$me] = [DateTime]::UtcNow; if ($pre.ContainsKey($me)) { $ja = $pre[$me] } }
-      SendText $client ('{"ver":' + $script:ver + ',"known":' + $(if ($me -and (FindPlayer $me)) { 'true' } else { 'false' }) + ',"hraci":' + (HraciJson) + ',"hra":' + $script:verejne + ',"ja":' + $ja + '}')
-      return
+      $v = QueryParam $req.path 'v'
+      # mobil už má aktuálny stav – spojenie podržíme, kým sa niečo nezmení (najviac 3 s), a hneď potom odpovieme
+      if ($v -and $v -eq [string]$script:ver) {
+        if ($me -and (FindPlayer $me)) { $lastSeen[$me] = [DateTime]::UtcNow }
+        [void]$parked.Add(@{ c = $client; me = $me; v = $v; t = [DateTime]::UtcNow }); $script:parkuj = $true; return
+      }
+      SendState $client $me; return
     }
     '/api/join' {
       $data = $null; try { $data = $req.body | ConvertFrom-Json } catch {}
@@ -199,6 +207,16 @@ function Handle($client, $req) {
       [void]$sb.Append(']}')
       SendText $client $sb.ToString(); return
     }
+    '/api/balik'   {   # TV: verejný stav + súkromné údaje hráčov naraz (riadok 1 = verejný stav, ďalej „id<TAB>json“)
+      $riadky = $req.body -split "`n"
+      if ($riadky.Count -and $riadky[0].Trim()) { $script:verejne = $riadky[0].Trim() }
+      for ($i = 1; $i -lt $riadky.Count; $i++) {
+        $r = $riadky[$i]; $t = $r.IndexOf("`t"); if ($t -lt 1) { continue }
+        $id = $r.Substring(0, $t); $js = $r.Substring($t + 1).Trim()
+        if ($js -and $js -ne 'null') { $pre[$id] = $js } else { $pre.Remove($id) }
+      }
+      $script:ver++; SendText $client '{"ok":true}'; return
+    }
     '/api/verejne' { if ($req.body) { $script:verejne = $req.body.Trim() }; $script:ver++; SendText $client '{"ok":true}'; return }
     '/api/pre'     {
       $id = QueryParam $req.path 'id'
@@ -238,6 +256,8 @@ if (-not $NoBrowser) { Start-Process "http://localhost:$Port/" }
 
 # Jednovláknová slučka: obslúži všetky pripravené spojenia, nečaká na „tiché“ spojenia prehliadača.
 $conns = New-Object System.Collections.ArrayList
+$parked = New-Object System.Collections.ArrayList   # mobily čakajúce na zmenu stavu
+$script:parkuj = $false
 while ($true) {
   while ($listener.Pending()) {
     $c = $listener.AcceptTcpClient()
@@ -254,11 +274,18 @@ while ($true) {
         $n = $c.GetStream().Read($tmp, 0, $tmp.Length)
         $k.buf.Write($tmp, 0, $n)
         $req = TryParse $k.buf
-        if ($req) { Handle $c $req; $c.Close(); $conns.Remove($k) }
+        if ($req) { $script:parkuj = $false; Handle $c $req; if (-not $script:parkuj) { $c.Close() }; $conns.Remove($k) }
       }
       elseif (([DateTime]::UtcNow - $k.t).TotalSeconds -gt 10) { $c.Close(); $conns.Remove($k) }
     }
     catch { try { $c.Close() } catch {}; $conns.Remove($k) }
+  }
+  foreach ($pk in @($parked)) {
+    if ($script:ver -ne [int]$pk.v -or ([DateTime]::UtcNow - $pk.t).TotalSeconds -gt 3) {
+      try { SendState $pk.c $pk.me } catch {}
+      try { $pk.c.Close() } catch {}
+      $parked.Remove($pk)
+    }
   }
   if (-not $busy) { Start-Sleep -Milliseconds 4 }
 }
