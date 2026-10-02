@@ -72,10 +72,14 @@ kbd{font:700 .8em system-ui;background:rgba(255,255,255,.14);border-radius:5px;p
 .vote{padding:.5em .9em;border-radius:12px;background:var(--card);font-weight:800;font-size:clamp(14px,1.5vw,24px)}
 .vote.ok{background:rgba(61,220,132,.2);border:2px solid var(--ok)} .vote.bad{background:rgba(255,90,95,.14);border:2px solid rgba(255,90,95,.5)}
 /* kreslenie */
-.drawwrap{display:grid;grid-template-columns:minmax(0,1fr) clamp(220px,24vw,420px);gap:2.4vmin;width:100%;height:100%;min-height:0}
-.board{position:relative;background:#fff;border-radius:22px;overflow:hidden;align-self:center;justify-self:center;width:100%;max-height:100%;aspect-ratio:4/3;box-shadow:0 18px 60px rgba(0,0,0,.4)}
+.drawwrap{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:2.4vmin;width:100%}
+.board{position:relative;background:#fff;border-radius:22px;overflow:hidden;justify-self:center;height:100%;max-width:100%;aspect-ratio:3/4;box-shadow:0 18px 60px rgba(0,0,0,.4)}
 .board canvas{width:100%;height:100%;display:block}
 .side{display:flex;flex-direction:column;gap:1.6vmin;min-height:0;text-align:left}
+.side .bocni{margin-top:auto}
+.side .bocni .players{justify-content:flex-start;gap:.8vmin}
+.side .bocni .pl{font-size:clamp(12px,1.2vw,20px)}
+.side .ctrl{flex-wrap:wrap;justify-content:flex-end}
 .mask{font:900 clamp(20px,2.5vw,46px)/1.3 ui-monospace,Consolas,monospace;letter-spacing:.02em;overflow-wrap:anywhere}
 .feed{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;gap:.6vmin}
 .feed div{padding:.4em .7em;border-radius:10px;background:var(--card);font-size:clamp(13px,1.3vw,22px);font-weight:600;animation:slide .25s ease}
@@ -104,7 +108,7 @@ kbd{font:700 .8em system-ui;background:rgba(255,255,255,.14);border-radius:5px;p
 .confetti{position:fixed;inset:0;pointer-events:none;z-index:12;overflow:hidden}
 .confetti i{position:absolute;top:-20px;width:12px;height:18px;border-radius:3px;animation:fall linear forwards}
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
-@media (max-width:900px){.lobby,.drawwrap{grid-template-columns:1fr}}
+@media (max-width:900px){.lobby{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -470,15 +474,21 @@ function ktoPoPisani() {
 }
 function ktoDalsia() {
   const K = G.kto; K.i++;
-  if (K.i >= K.poradie.length) return skore();
+  if (K.i >= K.poradie.length) { K.r = -1; return ktoOdhalDalsie(); }   // všetko odhalíme až na konci, aby sa nedalo vylučovať
   K.hlasy = {}; G.zisk = {};
   prejdi('kto-hadaj', CAS.ktoHadaj);
 }
+function ktoPoHlasovani() { const K = G.kto; (K.vsetky = K.vsetky || [])[K.i] = K.hlasy; ktoDalsia(); }
+// ktorá odpoveď je práve na rade a hlasy k nej (pri hlasovaní aj pri odhaľovaní)
+const ktoIdx = () => G.faza === 'kto-odhal' ? G.kto.r : G.kto.i;
+const ktoHlasy = () => G.faza === 'kto-odhal' ? (G.kto.vsetky || [])[G.kto.r] || {} : G.kto.hlasy;
 const ktoVolici = () => aktivni().filter(id => id !== G.kto.poradie[G.kto.i]);
-function ktoOdhal() {
-  const K = G.kto, autor = K.poradie[K.i];
+function ktoOdhalDalsie() {
+  const K = G.kto; K.r++;
+  if (K.r >= K.poradie.length) return skore();
+  const autor = K.poradie[K.r];
   G.zisk = {};
-  Object.entries(K.hlasy).forEach(([id, za]) => { if (za === autor) pripis(id, 100); else pripis(autor, 50); });
+  Object.entries((K.vsetky || [])[K.r] || {}).forEach(([id, za]) => { if (za === autor) pripis(id, 100); else pripis(autor, 50); });
   prejdi('kto-odhal', CAS.ktoOdhal);
 }
 
@@ -529,8 +539,8 @@ function koniecFazy() {
   switch (G.faza) {
     case 'uvod': zacniTyp(); break;
     case 'kto-pis': ktoPoPisani(); break;
-    case 'kto-hadaj': ktoOdhal(); break;
-    case 'kto-odhal': ktoDalsia(); break;
+    case 'kto-hadaj': ktoPoHlasovani(); break;
+    case 'kto-odhal': ktoOdhalDalsie(); break;
     case 'kresli': kresliOdhal(); break;
     case 'kresli-odhal': kresliDalsia(); break;
     case 'odhad-tip': odhadOdhal(); break;
@@ -625,8 +635,9 @@ function verejne() {
   if (G.faza === 'kto-pis') Object.assign(v, {otazka: G.kto.otazka, odoslali: Object.keys(G.kto.odpovede)});
   if (G.faza === 'kto-hadaj' || G.faza === 'kto-odhal') {
     const K = G.kto;
-    Object.assign(v, {otazka: K.otazka, odpoved: K.odpovede[K.poradie[K.i]], moznosti: K.poradie, hlasovali: Object.keys(K.hlasy), poradove: K.i + 1, spolu: K.poradie.length});
-    if (G.faza === 'kto-odhal') Object.assign(v, {autor: K.poradie[K.i], hlasy: K.hlasy});
+    const i = ktoIdx();
+    Object.assign(v, {otazka: K.otazka, odpoved: K.odpovede[K.poradie[i]], moznosti: K.poradie, hlasovali: Object.keys(ktoHlasy()), poradove: i + 1, spolu: K.poradie.length});
+    if (G.faza === 'kto-odhal') Object.assign(v, {autor: K.poradie[i], hlasy: ktoHlasy()});
   }
   if (G.faza === 'kresli' || G.faza === 'kresli-odhal') {
     const A = G.kresli.akt;
@@ -644,7 +655,7 @@ function pre(id) {
   if (!G) return null;
   const p = {krok: G.krok, zisk: G.zisk ? G.zisk[id] || 0 : 0, ziskKolo: G.ziskKolo[id] || 0};
   if (G.faza === 'kto-pis') p.moja = G.kto.odpovede[id] || '';
-  if (G.faza === 'kto-hadaj' || G.faza === 'kto-odhal') { p.moj = G.kto.poradie[G.kto.i] === id; p.hlas = G.kto.hlasy[id] || ''; }
+  if (G.faza === 'kto-hadaj' || G.faza === 'kto-odhal') { p.moj = G.kto.poradie[ktoIdx()] === id; p.hlas = ktoHlasy()[id] || ''; }
   if (G.faza === 'kresli' || G.faza === 'kresli-odhal') {
     const A = G.kresli.akt;
     if (A.kreslic === id) { p.kreslim = true; if (G.faza === 'kresli') { p.slovo = hlavne(A.slovo); p.ine = !A.ine; } }
@@ -691,13 +702,14 @@ function hraciHtml(stav) {
     return `<div class="pl ${s}${online(id) ? '' : ' off'}" style="--pc:${farba(id)}"><span class="dot">${s === 'done' ? '✓' : ''}</span>${esc(meno(id))} <span class="pts">${G.body[id] || 0}</span></div>`;
   }).join('')}</div>`;
 }
-function pata() {
-  return `<footer class="foot">${hraciHtml(stavHraca())}<div class="ctrl">
+function ovladanie() {
+  return `<div class="ctrl">
     <button data-act="pauza">${G.pauza ? '▶ Pokračovať' : '⏸ Pauza'}<kbd>medzera</kbd></button>
     <button data-act="dalej">⏭ Ďalej<kbd>N</kbd></button>
     <button data-act="zvuk">${zvuk ? '🔊' : '🔇'}</button>
-    <button data-act="koniec">✖ Koniec</button></div></footer>`;
+    <button data-act="koniec">✖ Koniec</button></div>`;
 }
+function pata() { return `<footer class="foot">${hraciHtml(stavHraca())}${ovladanie()}</footer>`; }
 function stavHraca() {
   if (!G) return null;
   if (G.faza === 'kto-pis') return id => G.kto.odpovede[id] != null ? 'done' : '';
@@ -750,28 +762,30 @@ function vKtoPis() {
     <p class="lead">Píšte tak, aby vás nikto neprezradil… alebo naopak, aby všetci tipli niekoho iného 😉</p></div>`;
 }
 function vKtoHadaj(odhal) {
-  const K = G.kto, autor = K.poradie[K.i];
+  const K = G.kto, i = ktoIdx(), autor = K.poradie[i];
   let spodok = '';
   if (odhal) {
-    const h = Object.entries(K.hlasy);
+    const h = Object.entries(ktoHlasy());
     spodok = `<div class="author" style="--pc:${farba(autor)}">✍️ ${esc(meno(autor))}</div>
       <div class="votes">${h.length ? h.map(([id, za]) => `<span class="vote ${za === autor ? 'ok' : 'bad'}">${esc(meno(id))} → ${esc(meno(za))} ${za === autor ? '+100' : ''}</span>`).join('') : '<span class="lead">Nikto nehlasoval.</span>'}</div>
       ${G.zisk[autor] ? `<p class="lead">${esc(meno(autor))} oklamal(a) ${G.zisk[autor] / 50}× a získava +${G.zisk[autor]}</p>` : ''}`;
-  } else spodok = `<p class="lead">Kto to napísal? Hlasujte v mobile.</p>`;
-  return `<div class="main" style="--tc:var(--kto)"><span class="eyebrow">${esc(K.otazka)} · odpoveď ${K.i + 1} z ${K.poradie.length}</span>
+  } else spodok = `<p class="lead">Kto to napísal? Hlasujte v mobile. Kto čo napísal, prezradíme až na konci.</p>`;
+  return `<div class="main" style="--tc:var(--kto)"><span class="eyebrow">${odhal ? `🔍 Odhaľujeme ${i + 1} z ${K.poradie.length}` : `${esc(K.otazka)} · odpoveď ${i + 1} z ${K.poradie.length}`}</span>
     <div class="quote">${esc(K.odpovede[autor])}</div><div style="height:2vmin"></div>${spodok}</div>`;
 }
 function vKresli(odhal) {
   const A = G.kresli.akt;
+  // plátno je na výšku (3 : 4) ako displej mobilu, v ktorom sa kreslí
   return `<div class="drawwrap" style="--tc:var(--co)">
-    <div class="board"><canvas id="platno" width="1200" height="900"></canvas></div>
-    <aside class="side">
+    <aside class="side" style="justify-content:center">
       <span class="eyebrow">Kreslí ${G.kresli.i + 1}/${G.kresli.kolo.length}</span>
       <div class="pl me" style="--pc:${farba(A.kreslic)};align-self:flex-start"><span class="dot">🎨</span>${esc(meno(A.kreslic))}</div>
       <div class="mask" id="maska">${esc(maska(A, odhal))}</div>
       ${odhal ? `<p class="lead">${A.uhadli.length ? `Uhádli: ${A.uhadli.map(id => `<b style="color:${farba(id)}">${esc(meno(id))}</b>`).join(', ')}` : 'Nikto neuhádol 😅'}</p>` : '<p class="lead" style="font-size:clamp(13px,1.2vw,19px)">Tipy píšte do mobilu.</p>'}
-      <div class="feed" id="feed"></div>
-    </aside></div>`;
+      <div class="bocni">${hraciHtml(stavHraca())}</div>
+    </aside>
+    <div class="board"><canvas id="platno" width="900" height="1200"></canvas></div>
+    <aside class="side"><div class="feed" id="feed"></div>${ovladanie()}</aside></div>`;
 }
 function feedHtml(A) {
   return A.feed.slice(-14).map(f => f.ok ? `<div class="ok" style="--pc:${farba(f.id)}">✓ <b>${esc(meno(f.id))}</b> uhádol(a)!</div>`
@@ -821,7 +835,8 @@ function render() {
       case 'skore': body = vSkore(false); break;
       case 'koniec': body = vSkore(true); break;
     }
-    app.innerHTML = hlavicka() + body + (G.faza === 'koniec' ? '' : pata());
+    // pri kreslení nie je spodný pás – hráči a ovládanie sú po bokoch, aby bolo plátno čo najväčšie
+    app.innerHTML = hlavicka() + body + (G.faza === 'koniec' || /^kresli/.test(G.faza) ? '' : pata());
     if (G.faza === 'kresli' || G.faza === 'kresli-odhal') prekresli();
   }
   if (!G) return;
@@ -936,9 +951,9 @@ function botiZiju() {   // roboti sa ozývajú serveru, aby boli „online“
 }
 function nahodnyTah(n) {
   const sid = 1000 + n, c = ['#111111', '#E53935', '#1E88E5', '#43A047', '#FB8C00'][n % 5];
-  let x = 150 + Math.random() * 700, y = 120 + Math.random() * 500;
+  let x = 150 + Math.random() * 700, y = 150 + Math.random() * 1000;
   const ops = [['s', sid, c, 8, Math.round(x), Math.round(y)]], p = ['p', sid];
-  for (let i = 0; i < 14; i++) { x = Math.max(20, Math.min(980, x + (Math.random() - .5) * 140)); y = Math.max(20, Math.min(730, y + (Math.random() - .5) * 140)); p.push(Math.round(x), Math.round(y)); }
+  for (let i = 0; i < 14; i++) { x = Math.max(20, Math.min(980, x + (Math.random() - .5) * 140)); y = Math.max(20, Math.min(1310, y + (Math.random() - .5) * 140)); p.push(Math.round(x), Math.round(y)); }
   ops.push(p); return ops;
 }
 const nahodne = a => a[Math.floor(Math.random() * a.length)];

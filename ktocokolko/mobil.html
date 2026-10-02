@@ -43,7 +43,20 @@ h2{margin:0 0 12px;font-size:22px;line-height:1.25}
 .res{font:900 28px/1.15 system-ui;margin:8px 0}
 /* kreslenie */
 .word{font:900 24px/1.1 'Arial Black',Impact,system-ui;color:var(--co);text-align:center;margin:0 0 8px;letter-spacing:.04em}
-.canvas{background:#fff;border-radius:14px;width:100%;aspect-ratio:4/3;touch-action:none;display:block}
+.canvas{background:#fff;border-radius:14px;aspect-ratio:3/4;touch-action:none;display:block;margin:0 auto;
+  width:min(100%,calc((100vh - 200px) * .75));width:min(100%,calc((100dvh - 200px) * .75))}
+/* kto kreslí, má plátno cez celý displej */
+body.kreslim{padding-top:max(8px,env(safe-area-inset-top));padding-left:8px;padding-right:8px}
+body.kreslim .logo,body.kreslim .foot,body.kreslim #kresliPozn{display:none}
+body.kreslim .card{padding:0;border:0;background:none;margin:0}
+body.kreslim .top{margin-bottom:4px}
+body.kreslim .bar{margin-bottom:6px}
+body.kreslim .eye{display:none}
+body.kreslim .word{font-size:20px;margin:0 0 6px}
+body.kreslim .tools{gap:6px;margin-top:8px;justify-content:center}
+body.kreslim .col{width:34px;height:34px}
+body.kreslim .size{width:40px;height:40px}
+body.kreslim .tbtn{padding:10px 12px;font-size:15px}
 .tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
 .col{width:36px;height:36px;border-radius:50%;border:3px solid rgba(255,255,255,.3);background:var(--c)}
 .col.on{border-color:#fff;transform:scale(1.12)}
@@ -137,6 +150,7 @@ function render() {
   if (!S || !me || $('#game').hidden) return;
   const h = hra(), j = ja(), sc = $('#screen');
   document.body.style.setProperty('--tc', TC[h.typ] || '#fff');
+  document.body.classList.toggle('kreslim', h.faza === 'kresli' && !!j.kreslim);
   $('#mePts').textContent = h.body ? (h.body[me.id] || 0) + ' b.' : '';
   $('#rename').hidden = h.faza !== 'lobby';
   const key = screenKey();
@@ -168,7 +182,7 @@ function postav(h, j) {
       if (j.kreslim) return `<div class="card" style="padding:12px">${hlavicka(h)}<p class="word" id="slovo"></p>
         <canvas class="canvas" id="cv"></canvas>
         <div class="tools" id="tools"></div>
-        <p class="status">Kresli – nepíš písmená ani čísla 😉</p></div>`;
+        <p class="status" id="kresliPozn">Kresli – nepíš písmená ani čísla 😉</p></div>`;
       return `<div class="card">${hlavicka(h)}<h2>Hádaj, čo kreslí <span style="color:${farba(h.kreslic)}">${esc(meno(h.kreslic))}</span></h2>
         <div class="mask" id="mask"></div><div id="tipBox"></div></div>`;
     case 'kresli-odhal':
@@ -295,11 +309,11 @@ const kresba = {
   resize() {
     if (!this.cv) return;
     const r = this.cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
-    this.cv.width = Math.round(r.width * dpr); this.cv.height = Math.round(r.width * 0.75 * dpr);
+    this.cv.width = Math.round(r.width * dpr); this.cv.height = Math.round(r.width * 4 / 3 * dpr);
     this.prekresli();
   },
   noveSlovo(s) { if (this.slovo !== null && this.slovo !== s) { this.tahy = []; this.ops = []; this.prekresli(); } this.slovo = s; },
-  bod(e) { const r = this.cv.getBoundingClientRect(); return [Math.round((e.clientX - r.left) / r.width * 1000), Math.round((e.clientY - r.top) / r.height * 750)]; },
+  bod(e) { const r = this.cv.getBoundingClientRect(); return [Math.round((e.clientX - r.left) / r.width * 1000), Math.round((e.clientY - r.top) / r.height * 1333)]; },   // plátno 1000 × 1333 (na výšku)
   dole(e) {
     e.preventDefault();
     try { this.cv.setPointerCapture(e.pointerId); } catch (err) {}
