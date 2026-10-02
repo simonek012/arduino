@@ -410,16 +410,28 @@ const TYP = {
   klamar: {nazov: 'Klamár',          ikona: '🕵️', farba: '#4FC3F7',      popis: 'Všetci dostanú rovnakú otázku – okrem jedného, ktorý o tom ani nevie. Napíšte odpoveď, obhajujte ju (otázku neprezrádzajte!) a potom spoločne odhaľte klamára.'},
   reflex: {nazov: 'Bleskový reflex', ikona: '⚡', farba: '#FFD93D',      popis: 'Pozeraj do mobilu. Keď zozelenie, čo najrýchlejšie ťukni! Najrýchlejší 100 bodov, kto ťukne priskoro, stráca 50.'},
   pamat:  {nazov: 'Pamäťovka',       ikona: '🧠', farba: '#F06EF0',      popis: 'Na pár sekúnd sa ukáže obrázok plný vecí. Zapamätaj si čo najviac – potom príde otázka. Za správnu odpoveď 100 bodov.'},
-  zemiak: {nazov: 'Horúci zemiak',   ikona: '💣', farba: '#FF7A45',      popis: 'Kto drží bombu, napíše slovo na danú tému a písmeno a posunie ju ďalej. Za každé posunutie +20, u koho bomba vybuchne, stráca 100.'}
+  zemiak: {nazov: 'Horúci zemiak',   ikona: '💣', farba: '#FF7A45',      popis: 'Kto má bombu, povie nahlas odpoveď na svoju otázku. Keď mu ju ostatní uznajú, posunie bombu ďalej (+20). Nevieš? Daj si inú otázku – ale bomba tiká! U koho vybuchne, stráca 100.'}
 };
 const CAS = {uvod: 7, ktoPis: 60, ktoHadaj: 20, ktoOdhal: 7, kresliVyber: 12, kresli: 80, kresliOdhal: 6, odhadTip: 25, odhadOdhal: 9,
   kznHlas: 20, kznOdhal: 8, klamPis: 60, klamObhajoba: 90, klamHlas: 25, klamOdhal: 12, skore: 12};
 const DRUHY = ['kto', 'reflex', 'kresli', 'pamat', 'odhad', 'zemiak', 'kzn', 'klamar'];   // minihry sú medzi väčšími kolami
 const REFLEX_POKUSOV = 5, PAMAT_OBRAZKOV = 3, ZEMIAK_BOMB = 3;
 const PAMAT_VECI = ['🍎', '🐱', '🚗', '⚽', '🌻', '🐶', '🍌', '🎈', '⭐', '🐟', '🍕', '🎸', '🌙', '🦋', '🍦', '🚲', '🐸', '🎁', '☂️', '🔑', '🐝', '🍓', '🏠', '🐢', '🎩', '🥕', '🐞', '🍩', '🦆', '🌵'];
-const ZEMIAK_TEMY = ['Zviera', 'Jedlo alebo nápoj', 'Mesto, dedina alebo krajina', 'Krstné meno', 'Vec, ktorú nájdeš v kuchyni', 'Povolanie',
-  'Rastlina, ovocie alebo zelenina', 'Niečo, čo sa dá kúpiť v obchode', 'Šport alebo hra', 'Slávna osobnosť', 'Vec v škole alebo v práci', 'Čokoľvek okrúhle'];
+// Horúci zemiak: každý, ku komu bomba príde, dostane inú úlohu; {P} sa nahradí náhodným písmenom
+const ZEMIAK_ULOHY = [
+  'Zviera na písmeno {P}', 'Mesto alebo dedina na písmeno {P}', 'Krstné meno na písmeno {P}', 'Jedlo na písmeno {P}', 'Hocijaké slovo na písmeno {P}',
+  'Niečo, čo je žlté', 'Niečo, čo je studené', 'Niečo, čo nájdeš v kúpeľni', 'Značka auta', 'Hlavné mesto v Európe', 'Krajina mimo Európy',
+  'Futbalový alebo hokejový klub', 'Postava z rozprávky', 'Slávny herec alebo herečka', 'Zaspievaj kúsok nejakej piesne', 'Slovenský spevák alebo kapela',
+  'Šport s loptou', 'Hudobný nástroj', 'Ovocie', 'Zelenina', 'Povolanie', 'Vec, ktorú si zoberieš na dovolenku', 'Niečo, čo sa je lyžicou',
+  'Niečo, čo lieta', 'Niečo okrúhle', 'Slovo, ktoré sa rýmuje na „dom“', 'Slovo, ktoré sa rýmuje na „ruka“', 'Slovo, ktoré sa rýmuje na „noc“',
+  'Farba', 'Vec v kuchyni', 'Zviera, ktoré žije vo vode', 'Vták', 'Slávny Slovák alebo Slovenka', 'Sviatok v roku', 'Názov rozprávky alebo filmu',
+  'Superhrdina', 'Kartová alebo spoločenská hra', 'Niečo, čo robíš ráno', 'Rieka', 'Pohorie alebo vrch', 'Sladkosť', 'Nápoj', 'Vec v škole',
+  'Značka oblečenia alebo topánok', 'Aplikácia v mobile', 'Kreslená postavička', 'Hmyz', 'Niečo, čo má kolesá', 'Niečo, čo je horúce', 'Niečo, čo pekne vonia',
+  'Zviera so štyrmi nohami', 'Strom', 'Kvet', 'Časť tela', 'Vec v obývačke', 'Zimný šport', 'Vianočná pieseň – zaspievaj kúsok', 'Planéta alebo hviezda',
+  'Niečo, čo je mäkké', 'Niečo, čo je v chladničke', 'Ročné obdobie alebo mesiac a prečo ho máš rád', 'Niečo, čo nesmie chýbať na párty', 'Pizza – povedz prísadu'
+];
 const ZEMIAK_PISMENA = [...'ABDHJKLMNOPRSTVZ'];
+const novaUloha = (bez) => { let u; do { u = nahodne(ZEMIAK_ULOHY).replace('{P}', nahodne(ZEMIAK_PISMENA)); } while (u === bez); return u; };
 const UROVNE = [{n: 'ľahké', ik: '😊', x: 1}, {n: 'stredné', ik: '🤔', x: 1.5}, {n: 'ťažké', ik: '🔥', x: 2}];
 const NAST_KEY = 'kck-nastavenia', HRA_KEY = 'kck-hra', POUZ_KEY = 'kck-pouzite', ZVUK_KEY = 'kck-zvuk';
 
@@ -644,16 +656,27 @@ const pamatOtazka = q => q.typ === 'pocet' ? `Koľko bolo ${q.vec}?` : `Bol na o
 function zemiakNovy() {
   const Z = G.zemiak; Z.i++;
   if (Z.i >= ZEMIAK_BOMB) return skore();
-  Object.assign(Z, {tema: nahodne(ZEMIAK_TEMY), pismeno: nahodne(ZEMIAK_PISMENA), drzi: nahodne(aktivni()), predtym: null, odpovede: [], chyba: '', chybaPre: ''});
+  Object.assign(Z, {drzi: nahodne(aktivni()), otazka: novaUloha(), historia: []});   // historia: kto komu posunul (kvôli vráteniu späť)
   G.zisk = {};
   prejdi('zemiak', 20 + Math.random() * 25);
 }
-function zemiakChyba(t) {
-  const Z = G.zemiak, n = bezDiakritiky(t);
-  if (n.replace(/ /g, '').length < 2) return 'Napíš aspoň dve písmená';
-  if (n[0] !== bezDiakritiky(Z.pismeno)) return `Musí začínať na písmeno ${Z.pismeno}`;
-  if (Z.odpovede.some(o => bezDiakritiky(o.t) === n)) return 'To už tu bolo – skús iné';
-  return '';
+function zemiakPosun(id) {
+  const Z = G.zemiak;
+  let kandidati = aktivni().filter(x => x !== id);
+  const pred = Z.historia.length ? Z.historia[Z.historia.length - 1].od : null;
+  if (kandidati.length > 1 && pred) kandidati = kandidati.filter(x => x !== pred);   // nehádzať hneď späť
+  if (!kandidati.length) return;
+  Z.historia.push({od: id, otazka: Z.otazka});
+  pripis(id, 20);
+  Z.drzi = nahodne(kandidati); Z.otazka = novaUloha();
+  zahraj('hlas'); zmena();
+}
+function zemiakSpat() {   // prvý hráč vráti bombu, keď ju niekto posunul omylom alebo mu to neuznali
+  const Z = G.zemiak; if (G.faza !== 'zemiak' || !Z.historia.length) return;
+  const h = Z.historia.pop();
+  pripis(h.od, -20);
+  Z.drzi = h.od; Z.otazka = h.otazka;
+  zahraj('zle'); toast(`↩️ Bomba sa vrátila k hráčovi ${meno(h.od)}`); zmena();
 }
 function zemiakBum() {
   const Z = G.zemiak;
@@ -860,14 +883,11 @@ function spracuj(v) {
     if (!G.pamat.odpovede[id]) zahraj('hlas');
     G.pamat.odpovede[id] = String(d.v); zmena();
   } else if (G.faza === 'zemiak' && d.k === 'zemiak') {
-    const Z = G.zemiak; if (id !== Z.drzi) return;
-    const t = String(d.t || '').trim().slice(0, 30), chyba = zemiakChyba(t);
-    if (chyba) { Z.chyba = chyba; Z.chybaPre = id; zahraj('zle'); zmena(); return; }
-    Z.odpovede.push({id, t}); pripis(id, 20);
-    let kandidati = aktivni().filter(x => x !== id);
-    if (kandidati.length > 1 && Z.predtym) kandidati = kandidati.filter(x => x !== Z.predtym);   // nehádzať hneď späť
-    Z.predtym = id; Z.drzi = kandidati.length ? nahodne(kandidati) : id; Z.chyba = ''; Z.chybaPre = '';
-    zahraj('hlas'); zmena();
+    const Z = G.zemiak;
+    if (d.a === 'spat' && id === kapitan()) return zemiakSpat();
+    if (id !== Z.drzi) return;
+    if (d.a === 'dalej') zemiakPosun(id);
+    else if (d.a === 'ina') { Z.otazka = novaUloha(Z.otazka); zmena(); }
   } else if (G.faza === 'kzn-hlas' && d.k === 'hlas') {
     if (!G.hraci.includes(d.za)) return;
     if (!G.kzn.hlasy[id]) zahraj('hlas');
@@ -953,7 +973,7 @@ function verejne() {
   }
   if (/^zemiak/.test(G.faza)) {
     const Z = G.zemiak;
-    Object.assign(v, {deadline: 0, tema: Z.tema, pismeno: Z.pismeno, drzi: Z.drzi, odpovede: Z.odpovede.slice(-10), poradove: Z.i + 1, spolu: ZEMIAK_BOMB});   // čas bomby je tajný
+    Object.assign(v, {deadline: 0, otazka: Z.otazka, drzi: Z.drzi, posunuti: Z.historia.length, spatMozne: Z.historia.length > 0, poradove: Z.i + 1, spolu: ZEMIAK_BOMB});   // čas bomby je tajný
   }
   if (G.faza === 'kresli-vyber') Object.assign(v, {kreslic: G.kresli.akt.kreslic, poradove: G.kresli.i + 1, spolu: G.kresli.kolo.length});
   if (G.faza === 'kzn-hlas' || G.faza === 'kzn-odhal') {
@@ -990,7 +1010,7 @@ function pre(id) {
   if (G.faza === 'kzn-hlas' || G.faza === 'kzn-odhal') p.hlas = G.kzn.hlasy[id] || '';
   if (G.faza === 'reflex' || G.faza === 'reflex-vysledok') { const R = G.reflex; p.cas = R.casy[id] == null ? null : R.casy[id]; p.skoro = !!R.skoro[id]; }
   if (/^pamat-/.test(G.faza)) p.odp = G.pamat.odpovede[id] || '';
-  if (G.faza === 'zemiak') { p.drzim = G.zemiak.drzi === id; p.chyba = G.zemiak.chybaPre === id ? G.zemiak.chyba : ''; p.pocet = G.zemiak.odpovede.length; }
+  if (G.faza === 'zemiak') p.drzim = G.zemiak.drzi === id;
   if (/^klam-/.test(G.faza)) {
     const L = G.klam;
     // klamár NEVIE, že je klamár – dozvie sa to až pri odhalení
@@ -1149,14 +1169,15 @@ function vPamat() {
 }
 function vZemiak(bum) {
   const Z = G.zemiak;
-  const chain = `<div class="chain">${Z.odpovede.slice(-12).map(o => `<span style="--pc:${farba(o.id)}">${esc(o.t)}</span>`).join('')}</div>`;
+  const chain = `<div class="chain">${Z.historia.slice(-10).map(h => `<span style="--pc:${farba(h.od)}">${esc(meno(h.od))} ✓</span>`).join('')}</div>`;
   if (bum) return `<div class="main" style="--tc:#FF7A45;gap:2vmin"><div class="bomba" style="animation:pop .5s ease">💥</div>
     <div style="display:flex;align-items:center;gap:2vmin;--pc:${farba(Z.drzi)}">${avBig(Z.drzi, 'clamp(60px,10vmin,130px)')}<h2 class="big">BUM! ${esc(meno(Z.drzi))} −100</h2></div>
-    <p class="lead">${Z.odpovede.length} ${Z.odpovede.length === 1 ? 'odpoveď' : Z.odpovede.length < 5 ? 'odpovede' : 'odpovedí'} pred výbuchom</p>${chain}</div>`;
+    <p class="lead">Nestihol(a): „${esc(Z.otazka)}“ · bomba prešla ${Z.historia.length}×</p>${chain}</div>`;
   return `<div class="main" style="--tc:#FF7A45;gap:1.6vmin"><span class="eyebrow">Bomba ${Z.i + 1} z ${ZEMIAK_BOMB} · čas je tajný!</span>
-    <h2 class="q">${esc(Z.tema)} na písmeno <span class="pism">${esc(Z.pismeno)}</span></h2>
-    <div style="display:flex;align-items:center;gap:3vmin"><div class="bomba">💣</div><div id="drzi" style="--pc:${farba(Z.drzi)};display:flex;flex-direction:column;align-items:center;gap:1vmin">${avBig(Z.drzi, 'clamp(70px,12vmin,150px)')}<div class="author">${esc(meno(Z.drzi))}</div></div></div>
-    <div id="chain">${chain}</div></div>`;
+    <div style="display:flex;align-items:center;gap:3vmin"><div class="bomba">💣</div><div style="--pc:${farba(Z.drzi)};display:flex;flex-direction:column;align-items:center;gap:1vmin">${avBig(Z.drzi, 'clamp(70px,12vmin,150px)')}<div class="author">${esc(meno(Z.drzi))}</div></div></div>
+    <h2 class="q">${esc(Z.otazka)}</h2>
+    <p class="lead">Povedz odpoveď nahlas. Keď ti ju ostatní uznajú, posuň bombu v mobile.</p>
+    ${chain}${Z.historia.length ? '<button class="btn ghost" data-act="zemiakSpat" style="font-size:clamp(13px,1.2vw,18px)">↩️ Vrátiť bombu (neuznali sme)<kbd>B</kbd></button>' : ''}</div>`;
 }
 function vKresliVyber() {
   const A = G.kresli.akt;
@@ -1226,7 +1247,7 @@ function vSkore(konecne) {
 
 function render() {
   const app = $('#app');
-  const key = G ? G.faza + '|' + G.krok + (G.faza === 'zemiak' ? '|' + G.zemiak.drzi + G.zemiak.odpovede.length : '') : 'lobby|' + JSON.stringify(hraci) + publicUrl + lanUrl + serverOk + JSON.stringify(nast()) + !!ulozena + zvuk;
+  const key = G ? G.faza + '|' + G.krok + (G.faza === 'zemiak' ? '|' + G.zemiak.drzi + G.zemiak.historia.length + G.zemiak.otazka : '') : 'lobby|' + JSON.stringify(hraci) + publicUrl + lanUrl + serverOk + JSON.stringify(nast()) + !!ulozena + zvuk;
   if (key !== lastKey) {
     lastKey = key;
     if (!G) { app.innerHTML = vLobby(); kresliQR(); return; }
@@ -1319,6 +1340,7 @@ document.addEventListener('click', e => {
   else if (a === 'zvuk') { zvuk = !zvuk; try { localStorage.setItem(ZVUK_KEY, zvuk ? '1' : '0'); } catch (e) {} lastKey = ''; render(); }
   else if (a === 'pokracuj') pokracuj();
   else if (a === 'bot') pridajBota();
+  else if (a === 'zemiakSpat') zemiakSpat();
   else if (a === 'botiPreč') odstranBotov();
   else if (a === 'pauza') pauza();
   else if (a === 'dalej') { if (G && G.faza !== 'koniec') { if (G.pauza != null) pauza(); koniecFazy(); } }
@@ -1330,6 +1352,7 @@ document.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea')) return;
   if (e.code === 'Enter') { if (!G) zacniHru(); else if (G.faza === 'koniec') { G = null; zacniHru(); } else if (G.faza === 'skore' || G.faza === 'uvod') koniecFazy(); }
   if (e.code === 'Space' && G) { e.preventDefault(); pauza(); }
+  if (e.code === 'KeyB' && G && G.faza === 'zemiak') zemiakSpat();
   if (e.code === 'KeyN' && G && G.faza !== 'koniec') { if (G.pauza != null) pauza(); koniecFazy(); }
 });
 function pauza() {
@@ -1397,11 +1420,10 @@ function botiHraju() {
     else if (G.faza === 'pamat-otazka') { P.hotovo = true; posli({k: 'pamat', v: Math.random() < .6 ? G.pamat.q.odp : nahodne(G.pamat.q.moznosti)}); }
     else if (G.faza === 'zemiak') {
       const Z = G.zemiak; if (Z.drzi !== id) continue;
-      if (P.dlzka !== Z.odpovede.length) { P.dlzka = Z.odpovede.length; P.at = now + 2000 + Math.random() * 4000; continue; }
-      P.at = now + 2500;
-      const zac = bezDiakritiky(Z.pismeno), pouz = new Set(Z.odpovede.map(o => bezDiakritiky(o.t)));
-      const sl = SLOVA.map(hlavne).filter(w => bezDiakritiky(w)[0] === zac && !pouz.has(bezDiakritiky(w)));
-      posli({k: 'zemiak', t: sl.length ? nahodne(sl) : Z.pismeno + 'ačka'});
+      const kluc = Z.historia.length + Z.otazka;
+      if (P.kluc !== kluc) { P.kluc = kluc; P.at = now + 2000 + Math.random() * 4000; continue; }
+      P.at = now + 3000;
+      posli({k: 'zemiak', a: Math.random() < .2 ? 'ina' : 'dalej'});
     }
     else if (G.faza === 'klam-pis') { P.hotovo = true; posli({k: 'klam', t: nahodne(BOT_ODPOVEDE)}); }
     else if (G.faza === 'klam-hlas') { P.hotovo = true; const m = Object.keys(G.klam.odpovede).filter(x => x !== id); if (m.length) posli({k: 'hlas', za: nahodne(m)}); }

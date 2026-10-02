@@ -83,7 +83,7 @@ body.kreslim .tbtn{padding:10px 12px;font-size:15px}
 .mriezka span{aspect-ratio:1;border-radius:12px;background:rgba(255,255,255,.08);display:grid;place-items:center;font-size:34px}
 .pam{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .pam .opt{justify-content:center;font-size:26px}
-.bomba{font-size:90px;line-height:1;text-align:center;animation:tras .35s ease-in-out infinite alternate}
+.bomba{font-size:90px;line-height:1;text-align:center;animation:tras .35s ease-in-out infinite alternate;margin:6px 0 18px}
 @keyframes tras{from{transform:rotate(-8deg)}to{transform:rotate(8deg) scale(1.06)}}
 .chain{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .chain span{padding:5px 10px;border-radius:99px;background:var(--card);font-size:14px;font-weight:700}
@@ -210,14 +210,13 @@ function postav(h, j) {
       return `<div class="card center">${hlavicka(h)}<p class="muted">${esc(h.otazka)}</p><div class="big" style="color:#F06EF0">${esc(h.odp)}</div>
         <div class="res ${j.zisk ? 'ok' : 'bad'}">${j.zisk ? '✓ Správne · +100' : j.odp ? '✗ Tvoja odpoveď: ' + esc(j.odp) : 'Neodpovedal si'}</div>
         <div class="mriezka">${(h.mriezka || []).map(e => `<span style="opacity:${e === h.vec ? 1 : .25}">${e}</span>`).join('')}</div></div>`;
-    case 'zemiak': {
-      const chain = `<div class="chain">${(h.odpovede || []).map(o => `<span>${esc(o.t)}</span>`).join('')}</div>`;
-      if (j.drzim) return `<div class="card center">${hlavicka(h)}<div class="bomba">💣</div><h2>Rýchlo! ${esc(h.tema)} na písmeno <span style="color:#FF7A45;font-size:34px">${esc(h.pismeno)}</span></h2>
-        <form class="row" id="zemF"><input id="zemI" maxlength="30" autocomplete="off" autocapitalize="none" enterkeyhint="send" placeholder="${esc(h.pismeno)}…"><button class="go" type="submit">Posunúť 💣</button></form>
-        <p class="status err" id="zemChyba"></p>${chain}</div>`;
-      return `<div class="card center">${hlavicka(h)}<p class="eye">${esc(h.tema)} na písmeno ${esc(h.pismeno)}</p><div class="bomba" style="font-size:60px">💣</div>
-        <h2>Bombu má <span style="color:${farba(h.drzi)}">${esc(meno(h.drzi))}</span></h2><p class="muted">Priprav si slovo – môže prísť k tebe!</p>${chain}</div>`;
-    }
+    case 'zemiak':
+      if (j.drzim) return `<div class="card center">${hlavicka(h)}<div class="bomba">💣</div><p class="eye">Máš bombu! Povedz nahlas:</p><h2 id="zemQ" style="font-size:26px">${esc(h.otazka)}</h2>
+        <button class="go" type="button" id="zemDalej" style="font-size:22px;padding:20px">✓ Uznali mi to – posunúť 💣</button>
+        <button class="ghost" type="button" id="zemIna">🔄 Neviem – iná otázka</button><div id="zemSpat"></div></div>`;
+      return `<div class="card center">${hlavicka(h)}<div class="bomba" style="font-size:60px">💣</div>
+        <h2>Bombu má <span style="color:${farba(h.drzi)}">${esc(meno(h.drzi))}</span></h2><p class="muted" id="zemQ">„${esc(h.otazka)}“</p>
+        <p class="muted" style="font-size:14px">Počúvaj odpoveď – uznáte mu ju? Bomba môže prísť aj k tebe!</p><div id="zemSpat"></div></div>`;
     case 'zemiak-bum':
       return `<div class="card center">${hlavicka(h)}<div class="icon">💥</div><div class="big">BUM!</div><p>Bomba vybuchla: <b style="color:${farba(h.drzi)}">${esc(meno(h.drzi))}</b></p>
         <div class="res ${j.zisk > 0 ? 'ok' : j.zisk < 0 ? 'bad' : ''}">${j.zisk ? (j.zisk > 0 ? '+' : '') + j.zisk : ''}</div></div>`;
@@ -292,8 +291,8 @@ function pripoj(h, j) {
   if (avEdit) { avatar.start(); return; }
   if (h.faza === 'reflex') reflex.start(h);
   sc.querySelectorAll('[data-pamat]').forEach(b => b.onclick = () => { edit.pamat = b.dataset.pamat; obnov(hra(), ja()); posli('pamat', {v: b.dataset.pamat}).catch(chyba); });
-  const zf = $('#zemF'); if (zf) { const zi = $('#zemI'); setTimeout(() => zi.focus(), 50);
-    zf.onsubmit = e => { e.preventDefault(); const t = zi.value.trim(); if (!t) return; zi.value = ''; posli('zemiak', {t}).then(() => poll(true)).catch(chyba); }; }
+  const zd = $('#zemDalej'); if (zd) zd.onclick = () => { zd.disabled = true; posli('zemiak', {a: 'dalej'}).then(() => poll(true)).catch(e => { zd.disabled = false; chyba(); }); };
+  const zi = $('#zemIna'); if (zi) zi.onclick = () => posli('zemiak', {a: 'ina'}).then(() => poll(true)).catch(chyba);
   const az = $('#avZnova'); if (az) az.onclick = () => { avEdit = true; render(); };
   sc.querySelectorAll('[data-slovo]').forEach(b => b.onclick = () => { sc.querySelectorAll('[data-slovo]').forEach(x => { x.disabled = true; }); b.classList.add('on'); posli('slovo', {u: +b.dataset.slovo}).then(() => poll(true)).catch(chyba); });
   sc.querySelectorAll('[data-hlas]').forEach(b => b.onclick = () => { edit.hlas = b.dataset.hlas; obnov(hra(), ja()); posli('hlas', {za: b.dataset.hlas}).catch(() => chyba()); });
@@ -338,7 +337,12 @@ function obnov(h, j) {
     document.querySelectorAll('[data-pamat]').forEach(b => b.classList.toggle('on', b.dataset.pamat === v));
     const inf = $('#hlasInfo'); if (inf) inf.textContent = v ? 'Odpoveď je odoslaná – do konca času ju môžeš zmeniť.' : '';
   }
-  if (h.faza === 'zemiak') { const c = $('#zemChyba'); if (c && c.textContent !== (j.chyba || '')) c.textContent = j.chyba || ''; }
+  if (h.faza === 'zemiak') {
+    const q = $('#zemQ'), t = j.drzim ? h.otazka : `„${h.otazka}“`; if (q && q.textContent !== t) q.textContent = t;
+    // prvý hráč môže vrátiť bombu, keď ju niekto posunul omylom alebo mu ostatní odpoveď neuznali
+    const sp = $('#zemSpat'), html = h.kapitan === me.id && h.spatMozne ? '<button class="ghost" type="button" data-spat style="border-color:var(--bad)">↩️ Vrátiť bombu – neuznali sme</button>' : '';
+    if (sp && sp.dataset.h !== html) { sp.dataset.h = html; sp.innerHTML = html; const b = sp.querySelector('[data-spat]'); if (b) b.onclick = () => posli('zemiak', {a: 'spat'}).then(() => poll(true)).catch(chyba); }
+  }
   if (['kto-hadaj', 'kzn-hlas', 'klam-hlas'].includes(h.faza)) {
     const vybrany = edit.hlas || j.hlas;
     document.querySelectorAll('[data-hlas]').forEach(b => b.classList.toggle('on', b.dataset.hlas === vybrany));
