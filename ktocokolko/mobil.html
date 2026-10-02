@@ -73,6 +73,10 @@ body.kreslim .tbtn{padding:10px 12px;font-size:15px}
 .status{text-align:center;color:var(--muted);font-size:14px;min-height:1.2em;margin:6px 0 0}
 .status.err{color:var(--bad);font-weight:700}
 .foot{text-align:center;color:var(--muted);font-size:12px;padding-top:6px}
+.opt small{font-weight:600;color:var(--muted);font-size:14px}
+.av{width:28px;height:28px;border-radius:50%;background:#fff center/cover;flex:0 0 auto}
+.klam{background:rgba(79,195,247,.18);border:2px solid #4FC3F7;border-radius:14px;padding:12px;font-weight:800;margin-bottom:12px}
+.avcv{display:block;margin:0 auto;width:min(100%,320px);aspect-ratio:1;background:#fff;border-radius:50%;touch-action:none}
 </style>
 </head>
 <body>
@@ -98,7 +102,7 @@ body.kreslim .tbtn{padding:10px 12px;font-size:15px}
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const PCOL = ['#FF4D8D', '#22C3A6', '#FFB020', '#8B6CFF', '#4FC3F7', '#FF7A45', '#B5E61D', '#F06EF0', '#FFD93D', '#5EEAD4', '#F87171', '#A5B4FC'];
-const TC = {kto: 'var(--kto)', kresli: 'var(--co)', odhad: 'var(--kolko)'};
+const TC = {kto: 'var(--kto)', kresli: 'var(--co)', odhad: 'var(--kolko)', kzn: '#9B7BFF', klamar: '#4FC3F7'};
 let me = null, S = null, lastKey = '', failCount = 0, edit = {};
 // na skúšku na jednom počítači: /m?hrac=2, /m?hrac=3… sú samostatní hráči
 const SLOT = new URLSearchParams(location.search).get('hrac'), ME_KEY = 'kck-mobil' + (SLOT ? '-' + SLOT : '');
@@ -144,7 +148,8 @@ $('#rename').addEventListener('click', showJoin);
 function screenKey() {
   const h = hra(), j = ja();
   // súkromné údaje môžu prísť o chvíľu neskôr ako nová fáza – obrazovku postavíme znova, keď dorazia
-  return [h.faza, h.krok, j.krok === h.krok, j.kreslim ? 'k' : '', j.moj ? 'm' : '', h.faza === 'lobby' ? (h.kapitan === me.id) : ''].join('|');
+  if (avEdit) return 'avatar';
+  return [h.faza, h.krok, j.krok === h.krok, j.kreslim ? 'k' : '', j.moj ? 'm' : '', j.klamar ? 'K' : '', h.faza === 'lobby' ? (h.kapitan === me.id) : ''].join('|');
 }
 function render() {
   if (!S || !me || $('#game').hidden) return;
@@ -153,6 +158,10 @@ function render() {
   document.body.classList.toggle('kreslim', h.faza === 'kresli' && !!j.kreslim);
   $('#mePts').textContent = h.body ? (h.body[me.id] || 0) + ' b.' : '';
   $('#rename').hidden = h.faza !== 'lobby';
+  if (avEdit && h.faza !== 'lobby') avEdit = false;   // hra sa začala – kreslenie avatara počká
+  // po prvom pripojení si hráč nakreslí avatara (dá sa preskočiť)
+  const ja2 = S.hraci.find(p => p.id === me.id);
+  if (!avAuto && h.faza === 'lobby' && ja2 && !ja2.av) { avAuto = true; let skip = false; try { skip = localStorage.getItem('kck-av-skip-' + me.id) === '1'; } catch (e) {} if (!skip) avEdit = true; }
   const key = screenKey();
   if (key !== lastKey) { lastKey = key; edit = {}; sc.innerHTML = postav(h, j); pripoj(h, j); }
   obnov(h, j);
@@ -162,9 +171,47 @@ function render() {
 }
 function hlavicka(h) { return `<p class="eye">Kolo ${h.kolo} z ${h.kol}${h.spolu ? ` · ${h.poradove}/${h.spolu}` : ''}</p>`; }
 function postav(h, j) {
+  if (avEdit) return `<div class="card center"><h2>🖌️ Nakresli sám seba</h2><p class="muted" style="margin-top:-6px">Obrázok sa ukáže na TV pri tvojom mene.</p>
+      <canvas class="avcv" id="avcv" width="600" height="600"></canvas><div class="tools" id="avTools" style="justify-content:center"></div>
+      <button class="go" type="button" id="avOk">Hotovo ✓</button><button class="ghost" type="button" id="avSkip">Preskočiť</button></div>`;
+  const kart = id => { const p = S.hraci.find(x => x.id === id); return p && p.av ? `<span class="av" style="background-image:url('/api/avatar?id=${encodeURIComponent(id)}&v=${p.av}')"></span>` : '<span class="dot"></span>'; };
   switch (h.faza) {
     case 'lobby': return `<div class="card center"><div class="icon">✅</div><h2>Si v hre!</h2><p class="muted" id="lobbyTxt"></p><div class="chips" id="lobbyHraci" style="justify-content:center;margin-top:12px"></div>
-        <div id="kapBox"></div></div>`;
+        <div id="kapBox"></div><button class="ghost" type="button" id="avZnova">🖌️ Nakresliť svoj obrázok</button></div>`;
+    case 'kresli-vyber':
+      if (j.kreslim && j.ponuka) return `<div class="card">${hlavicka(h)}<h2>🎨 Vyber si, čo nakreslíš</h2><div class="opts">${j.ponuka.map((w, u) => `<button type="button" class="opt" data-slovo="${u}">
+          <span style="font-size:28px">${['😊', '🤔', '🔥'][u]}</span><span style="flex:1">${esc(w)}<br><small>${['ľahké · body ×1', 'stredné · body ×1,5', 'ťažké · body ×2'][u]}</small></span></button>`).join('')}</div>
+          <p class="status">Za ťažšie slovo dostaneš viac bodov ty aj tí, čo ho uhádnu.</p></div>`;
+      return `<div class="card center">${hlavicka(h)}<div class="icon">🎨</div><h2><span style="color:${farba(h.kreslic)}">${esc(meno(h.kreslic))}</span> si vyberá slovo…</h2><p class="muted">Priprav sa hádať!</p></div>`;
+    case 'kzn-hlas':
+      return `<div class="card">${hlavicka(h)}<h2>${esc(h.otazka)}</h2><div class="opts">${Object.keys(h.body || {}).map(id => `<button type="button" class="opt" data-hlas="${id}" style="--pc:${farba(id)}">${kart(id)}${esc(meno(id))}${id === me.id ? ' <small>(ja)</small>' : ''}</button>`).join('')}</div>
+        <p class="status" id="hlasInfo"></p></div>`;
+    case 'kzn-odhal': {
+      const moje = (h.pocty || {})[me.id] || 0;
+      return `<div class="card center">${hlavicka(h)}<p class="muted">${esc(h.otazka)}</p><div class="big">👑 ${(h.vitazi || []).map(id => `<span style="color:${farba(id)}">${esc(meno(id))}</span>`).join(', ') || '–'}</div>
+        <div class="res ${j.zisk ? 'ok' : ''}">${j.zisk ? '✓ Trafil si väčšinu · +100' : j.hlas ? 'Väčšina hlasovala inak' : 'Nehlasoval si'}</div>
+        <p class="muted">Za teba hlasovali: ${moje}×</p></div>`;
+    }
+    case 'klam-pis':
+      return `<div class="card">${hlavicka(h)}${j.klamar ? '<div class="klam">🕵️ Si KLAMÁR! Ostatní majú inú otázku. Napíš odpoveď tak, aby ťa neodhalili.</div>' : ''}
+        <p class="eye">Tvoja otázka (nečítaj ju nahlas!)</p><h2>${esc(j.otazka || '…')}</h2><div id="ktoBox"></div></div>`;
+    case 'klam-obhajoba':
+      return `<div class="card">${hlavicka(h)}<p class="eye">🗣️ Obhajoba</p>${j.klamar ? '<div class="klam">🕵️ Si klamár – blafuj! Z odpovedí ostatných skús vytušiť ich otázku.</div>' : ''}
+        <p class="muted" style="margin:0">Tvoja otázka:</p><h2>${esc(j.otazka || '')}</h2><div class="quote">${esc(j.moja || '(neodpovedal si)')}</div>
+        <p>Vysvetli ostatným, prečo si to napísal – <b>ale otázku neprezraď!</b></p><div id="kapBox"></div></div>`;
+    case 'klam-hlas': {
+      const odp = h.odpovede || {};
+      return `<div class="card">${hlavicka(h)}<h2>🕵️ Kto je klamár?</h2>${j.klamar ? '<p class="muted">Si klamár – hlasuj tiež, nech sa neprezradíš.</p>' : ''}
+        <div class="opts">${Object.keys(odp).filter(id => id !== me.id).map(id => `<button type="button" class="opt" data-hlas="${id}" style="--pc:${farba(id)}">${kart(id)}<span style="flex:1">${esc(meno(id))}<br><small>„${esc(odp[id])}“</small></span></button>`).join('')}</div>
+        <p class="status" id="hlasInfo"></p></div>`;
+    }
+    case 'klam-odhal': {
+      const res = j.klamar ? (h.chyteny ? '<div class="res bad">Odhalili ťa 😅</div>' : '<div class="res ok">Unikol si! 😈</div>')
+        : j.hlas === h.klamar ? '<div class="res ok">✓ Odhalil si klamára</div>' : j.hlas ? '<div class="res bad">✗ Vedľa</div>' : '<div class="res muted">Nehlasoval si</div>';
+      return `<div class="card center">${hlavicka(h)}<p class="muted">Klamár bol</p><div class="big" style="color:${farba(h.klamar)}">🕵️ ${esc(meno(h.klamar))}</div>
+        ${res}${j.zisk ? `<p class="ok" style="font-weight:900;font-size:22px">+${j.zisk}</p>` : ''}
+        <p class="muted" style="font-size:14px">Otázka: „${esc(h.otazka)}“<br>Klamár mal: „${esc(h.ina)}“</p></div>`;
+    }
     case 'uvod': return `<div class="card center">${hlavicka(h)}<div class="icon">${h.ikona}</div><div class="big" style="color:var(--tc)">${esc(h.nazov)}</div><p class="muted">${esc(h.popis)}</p><div id="kapBox"></div></div>`;
     case 'kto-pis': return `<div class="card">${hlavicka(h)}<h2>${esc(h.otazka)}</h2><div id="ktoBox"></div></div>`;
     case 'kto-hadaj':
@@ -187,7 +234,7 @@ function postav(h, j) {
         <div class="mask" id="mask"></div><div id="tipBox"></div></div>`;
     case 'kresli-odhal':
       return `<div class="card center">${hlavicka(h)}<p class="muted">Bolo to:</p><div class="big" style="color:var(--co)">${esc(h.slovo)}</div>
-        ${j.kreslim ? `<div class="res ${j.zisk ? 'ok' : ''}">${j.zisk ? `Uhádli ${j.zisk / 40}× · +${j.zisk}` : 'Nikto neuhádol 😅'}</div>` : j.uhadol ? `<div class="res ok">✓ Uhádol si · +${j.zisk}</div>` : '<div class="res bad">Neuhádol si</div>'}</div>`;
+        ${j.kreslim ? `<div class="res ${j.zisk ? 'ok' : ''}">${j.zisk ? `Uhádli ${(h.uhadli || []).length}× · +${j.zisk}` : 'Nikto neuhádol 😅'}</div>` : j.uhadol ? `<div class="res ok">✓ Uhádol si · +${j.zisk}</div>` : '<div class="res bad">Neuhádol si</div>'}</div>`;
     case 'odhad-tip': return `<div class="card">${hlavicka(h)}<h2>${esc(h.otazka)}</h2><div id="odhadBox"></div></div>`;
     case 'odhad-odhal':
       return `<div class="card center">${hlavicka(h)}<p class="muted">${esc(h.otazka)}</p><div class="big" style="color:var(--kolko)">${fmt(h.spravne)} ${esc(h.jednotka)}</div>
@@ -204,6 +251,9 @@ function postav(h, j) {
 }
 function pripoj(h, j) {
   const sc = $('#screen');
+  if (avEdit) { avatar.start(); return; }
+  const az = $('#avZnova'); if (az) az.onclick = () => { avEdit = true; render(); };
+  sc.querySelectorAll('[data-slovo]').forEach(b => b.onclick = () => { sc.querySelectorAll('[data-slovo]').forEach(x => { x.disabled = true; }); b.classList.add('on'); posli('slovo', {u: +b.dataset.slovo}).then(() => poll(true)).catch(chyba); });
   sc.querySelectorAll('[data-hlas]').forEach(b => b.onclick = () => { edit.hlas = b.dataset.hlas; obnov(hra(), ja()); posli('hlas', {za: b.dataset.hlas}).catch(() => chyba()); });
   if (h.faza === 'kresli' && j.kreslim) kresba.start();
   else kresba.stop();
@@ -216,16 +266,17 @@ function obnov(h, j) {
   const kap = $('#kapBox');
   if (kap) {
     const som = h.kapitan === me.id;
-    const label = h.faza === 'lobby' ? '▶ Spustiť hru' : h.faza === 'koniec' ? '↻ Hrať znova' : '▶ Pokračovať';
+    const label = h.faza === 'lobby' ? '▶ Spustiť hru' : h.faza === 'koniec' ? '↻ Hrať znova' : h.faza === 'klam-obhajoba' ? '🗳️ Ideme hlasovať' : '▶ Pokračovať';
     const html = som ? `<button class="go" type="button" data-start>${label}</button>${h.faza === 'lobby' ? '<p class="muted" style="font-size:13px">👑 Si prvý hráč – hru môžeš spustiť ty alebo ten, kto ovláda TV.</p>' : ''}` : '';
     if (kap.dataset.h !== html) { kap.dataset.h = html; kap.innerHTML = html; const b = kap.querySelector('[data-start]'); if (b) b.onclick = () => { b.disabled = true; posli('start').catch(chyba); }; }
   }
   if (h.faza === 'lobby') {
     const on = S.hraci.filter(p => p.online);
-    const t = $('#lobbyTxt'); if (t) t.textContent = h.kapitan === me.id ? (on.length < 2 ? 'Čakáme aspoň na jedného ďalšieho hráča.' : 'Keď sú všetci, spusti hru.') : `Čakáme, kým ${meno(h.kapitan)} spustí hru.`;
+    const t = $('#lobbyTxt'); if (t) t.textContent = h.kapitan === me.id ? (on.length < 2 ? 'Čakáme aspoň na jedného ďalšieho hráča.' : 'Keď sú všetci, spusti hru.') : h.kapitan ? `Čakáme, kým ${meno(h.kapitan)} spustí hru.` : 'Čakáme, kým sa hra spustí na TV.';
     const l = $('#lobbyHraci'); if (l) { const html = on.map(p => `<span class="chip" style="border-color:${farba(p.id)}">${esc(p.name)}</span>`).join(''); if (l.innerHTML !== html) l.innerHTML = html; }
   }
-  if (h.faza === 'kto-pis') {
+  if (h.faza === 'kto-pis' || h.faza === 'klam-pis') {
+    const druh = h.faza === 'kto-pis' ? 'kto' : 'klam';
     const box = $('#ktoBox'), poslane = j.moja && !edit.ktoUprav;
     const stav = poslane ? 'sent:' + j.moja : 'form';
     if (box.dataset.s !== stav) {
@@ -236,11 +287,11 @@ function obnov(h, j) {
       } else {
         box.innerHTML = `<textarea id="ktoT" maxlength="120" placeholder="Tvoja odpoveď…">${esc(edit.ktoText != null ? edit.ktoText : j.moja || '')}</textarea><button class="go" type="button" id="ktoSend">Odoslať</button>`;
         $('#ktoT').oninput = e => { edit.ktoText = e.target.value; };
-        $('#ktoSend').onclick = () => { const t = $('#ktoT').value.trim(); if (!t) return; edit.ktoUprav = false; edit.ktoText = null; posli('kto', {t}).then(() => poll(true)).catch(chyba); };
+        $('#ktoSend').onclick = () => { const t = $('#ktoT').value.trim(); if (!t) return; edit.ktoUprav = false; edit.ktoText = null; posli(druh, {t}).then(() => poll(true)).catch(chyba); };
       }
     }
   }
-  if (h.faza === 'kto-hadaj') {
+  if (['kto-hadaj', 'kzn-hlas', 'klam-hlas'].includes(h.faza)) {
     const vybrany = edit.hlas || j.hlas;
     document.querySelectorAll('[data-hlas]').forEach(b => b.classList.toggle('on', b.dataset.hlas === vybrany));
     const inf = $('#hlasInfo'); if (inf) inf.textContent = vybrany ? 'Hlas je odoslaný – do konca času ho môžeš zmeniť.' : '';
@@ -372,6 +423,54 @@ const kresba = {
       else if (b.dataset.t === 'ine') { posli('ine').then(() => poll(true)).catch(chyba); }
       this.toolsKey = ''; this.tools(ja());
     };
+  }
+};
+
+/* ---------- avatar: hráč si nakreslí sám seba ---------- */
+let avEdit = false, avAuto = false;
+const avatar = {
+  cv: null, g: null, tahy: [], akt: null, farba: '#111111', hrubka: 14,
+  start() {
+    const cv = $('#avcv'); if (!cv) return;
+    this.cv = cv; this.g = cv.getContext('2d'); this.tahy = []; this.kresli();
+    const bod = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * 600, (e.clientY - r.top) / r.height * 600]; };
+    cv.onpointerdown = e => { e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (err) {} this.akt = {c: this.farba, w: this.hrubka, p: [bod(e)]}; this.tahy.push(this.akt); this.kresli(); };
+    cv.onpointermove = e => { if (!this.akt) return; this.akt.p.push(bod(e)); this.kresli(); };
+    cv.onpointerup = cv.onpointercancel = () => { this.akt = null; };
+    const farby = ['#111111', '#E53935', '#1E88E5', '#43A047', '#FDD835', '#FB8C00', '#8E24AA', '#6D4C41', '#F4C2A1'];
+    const tools = () => {
+      $('#avTools').innerHTML = farby.map(c => `<button type="button" class="col${c === this.farba ? ' on' : ''}" style="--c:${c}" data-c="${c}"></button>`).join('') +
+        [8, 14, 30].map(w => `<button type="button" class="size${w === this.hrubka ? ' on' : ''}" data-w="${w}"><i style="width:${w / 2 + 3}px;height:${w / 2 + 3}px"></i></button>`).join('') +
+        '<button type="button" class="tbtn" data-t="spat">↶ Späť</button><button type="button" class="tbtn" data-t="zmaz">🗑️ Všetko</button>';
+    };
+    tools();
+    $('#avTools').onclick = e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.c) this.farba = b.dataset.c; else if (b.dataset.w) this.hrubka = +b.dataset.w;
+      else if (b.dataset.t === 'spat') this.tahy.pop(); else if (b.dataset.t === 'zmaz') this.tahy = [];
+      tools(); this.kresli();
+    };
+    $('#avOk').onclick = () => this.uloz();
+    $('#avSkip').onclick = () => { try { localStorage.setItem('kck-av-skip-' + me.id, '1'); } catch (e) {} avEdit = false; lastKey = ''; render(); };
+  },
+  kresli() {
+    const g = this.g; g.fillStyle = '#fff'; g.fillRect(0, 0, 600, 600); g.lineCap = 'round'; g.lineJoin = 'round';
+    for (const t of this.tahy) {
+      g.strokeStyle = t.c; g.fillStyle = t.c; g.lineWidth = t.w;
+      if (t.p.length === 1) { g.beginPath(); g.arc(t.p[0][0], t.p[0][1], t.w / 2, 0, Math.PI * 2); g.fill(); continue; }
+      g.beginPath(); g.moveTo(t.p[0][0], t.p[0][1]); t.p.forEach(([x, y]) => g.lineTo(x, y)); g.stroke();
+    }
+  },
+  async uloz() {
+    if (!this.tahy.length) { $('#status').textContent = 'Najprv sa nakresli 🙂'; return; }
+    const off = document.createElement('canvas'); off.width = off.height = 160;
+    const o = off.getContext('2d'); o.drawImage(this.cv, 0, 0, 160, 160);
+    $('#avOk').disabled = true;
+    try {
+      const r = await api('avatar?id=' + encodeURIComponent(me.id), {img: off.toDataURL('image/png')});
+      if (!r.ok) throw new Error();
+      avEdit = false; lastKey = ''; poll(true);
+    } catch (e) { $('#status').textContent = 'Obrázok sa nepodarilo odoslať, skús znova.'; $('#avOk').disabled = false; }
   }
 };
 

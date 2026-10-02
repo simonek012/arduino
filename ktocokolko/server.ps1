@@ -16,9 +16,10 @@ try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 $playersFile = Join-Path $root 'hraci.json'
+$avDir = Join-Path $root 'avatary'                    # obrázky, ktoré si hráči nakreslili
 
 # ---------- stav na serveri ----------
-$players  = New-Object System.Collections.ArrayList   # @{ id; name }
+$players  = New-Object System.Collections.ArrayList   # @{ id; name; av } – av: verzia avatara (0 = nemá)
 $lastSeen = @{}                                       # id -> čas posledného ozvania
 $script:verejne = 'null'                              # čo vidia všetci (JSON od TV)
 $pre = @{}                                            # id -> súkromné údaje pre jeden mobil (JSON od TV)
@@ -29,12 +30,17 @@ $script:hraciKey = ''
 $script:hraciJson = '[]'
 
 function SavePlayers {
-  try { [System.IO.File]::WriteAllText($playersFile, (ConvertTo-Json -InputObject @($players | ForEach-Object { @{ id = $_.id; name = $_.name } }) -Compress), $utf8) } catch {}
+  try { [System.IO.File]::WriteAllText($playersFile, (ConvertTo-Json -InputObject @($players | ForEach-Object { @{ id = $_.id; name = $_.name; av = $_.av } }) -Compress), $utf8) } catch {}
 }
 if (Test-Path $playersFile) {
   try {
     $saved = ConvertFrom-Json -InputObject ([System.IO.File]::ReadAllText($playersFile, $utf8))
-    foreach ($p in $saved) { if ($p.id -and $p.name) { [void]$players.Add(@{ id = [string]$p.id; name = [string]$p.name }) } }
+    foreach ($p in $saved) {
+      if ($p.id -and $p.name) {
+        $av = 0; if (Test-Path (Join-Path $avDir ([string]$p.id + '.png'))) { $av = [Math]::Max(1, [int]$p.av) }
+        [void]$players.Add(@{ id = [string]$p.id; name = [string]$p.name; av = $av })
+      }
+    }
   } catch {}
 }
 
@@ -76,7 +82,7 @@ function HraciJson {
   foreach ($p in $players) { $key += if (IsOnline $p.id) { '1' } else { '0' } }
   if ($key -ne $script:hraciKey) {
     $pl = New-Object System.Collections.ArrayList
-    foreach ($p in $players) { [void]$pl.Add(@{ id = $p.id; name = $p.name; online = (IsOnline $p.id) }) }
+    foreach ($p in $players) { [void]$pl.Add(@{ id = $p.id; name = $p.name; online = (IsOnline $p.id); av = [int]$p.av }) }
     $script:hraciJson = ConvertTo-Json -InputObject @($pl) -Compress -Depth 3
     if (-not $script:hraciJson -or $players.Count -eq 0) { $script:hraciJson = '[]' }
     $script:hraciKey = $key
@@ -115,7 +121,7 @@ function Handle($client, $req) {
   # Z internetu sú dostupné len veci pre mobily.
   if ($req.remote) {
     if ($path -eq '/' -or $path -eq '/m') { SendFile $client 'mobil.html'; return }
-    if ($path -notin '/api/state', '/api/join', '/api/vstup') { Send $client 404 'text/plain; charset=utf-8' ($utf8.GetBytes('Nenájdené')); return }
+    if ($path -notin '/api/state', '/api/join', '/api/vstup', '/api/avatar') { Send $client 404 'text/plain; charset=utf-8' ($utf8.GetBytes('Nenájdené')); return }
   }
   switch ($path) {
     '/'          { SendFile $client 'tv.html'; return }
@@ -142,7 +148,7 @@ function Handle($client, $req) {
       }
       if (-not $p) {
         if ($players.Count -ge 12) { SendJson $client @{ error = 'Hra je plná (najviac 12 hráčov).' }; return }
-        $p = @{ id = [guid]::NewGuid().ToString('N').Substring(0, 10); name = $name }
+        $p = @{ id = [guid]::NewGuid().ToString('N').Substring(0, 10); name = $name; av = 0 }
         [void]$players.Add($p)
         Write-Host "  + pripojil sa hráč: $name"
       }
@@ -162,6 +168,25 @@ function Handle($client, $req) {
         $ok = $true
       }
       SendText $client ('{"ok":' + $(if ($ok) { 'true' } else { 'false' }) + '}'); return
+    }
+    '/api/avatar' {   # GET: obrázok hráča, POST: mobil posiela nakreslený obrázok (PNG ako data URL)
+      $id = QueryParam $req.path 'id'
+      $p = FindPlayer $id
+      $f = Join-Path $avDir ($id + '.png')
+      if ($req.method -eq 'POST') {
+        $ok = $false
+        if ($p -and $req.body -and $req.body.Length -lt 400000 -and $req.body -match 'data:image/png;base64,([A-Za-z0-9+/=]+)') {
+          try {
+            if (-not (Test-Path $avDir)) { [void](New-Item -ItemType Directory -Path $avDir) }
+            [System.IO.File]::WriteAllBytes($f, [Convert]::FromBase64String($matches[1]))
+            $p.av = [int]$p.av + 1; $script:ver++; SavePlayers; $ok = $true
+          } catch {}
+        }
+        SendText $client ('{"ok":' + $(if ($ok) { 'true' } else { 'false' }) + '}'); return
+      }
+      if ($id -match '^[0-9a-f]{10}$' -and (Test-Path $f)) { Send $client 200 'image/png' ([System.IO.File]::ReadAllBytes($f)) }
+      else { Send $client 404 'text/plain; charset=utf-8' ($utf8.GetBytes('Nenájdené')) }
+      return
     }
     # --- len pre TV ---
     '/api/hraci'   { SendText $client ('{"hraci":' + (HraciJson) + ',"public":"' + $PublicUrl + '"}'); return }
