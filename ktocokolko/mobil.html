@@ -124,7 +124,7 @@ body.kreslim .tbtn{padding:10px 12px;font-size:15px}
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const PCOL = ['#FF4D8D', '#22C3A6', '#FFB020', '#8B6CFF', '#4FC3F7', '#FF7A45', '#B5E61D', '#F06EF0', '#FFD93D', '#5EEAD4', '#F87171', '#A5B4FC'];
-const TC = {kto: 'var(--kto)', kresli: 'var(--co)', odhad: 'var(--kolko)', kzn: '#9B7BFF', klamar: '#4FC3F7', reflex: '#FFD93D', pamat: '#F06EF0', zemiak: '#FF7A45', vydrz: '#3DDC84', mmzv: '#A5B4FC'};
+const TC = {kto: 'var(--kto)', kresli: 'var(--co)', odhad: 'var(--kolko)', kzn: '#9B7BFF', klamar: '#4FC3F7', reflex: '#FFD93D', pamat: '#F06EF0', zemiak: '#FF7A45', vydrz: '#3DDC84', mmzv: '#A5B4FC', panto: '#FF6EC7'};
 let mmzvLok = {};   // rozpísané Meno/Mesto/Zviera/Vec – prežije aj prekreslenie obrazovky
 let me = null, S = null, lastKey = '', failCount = 0, edit = {};
 // na skúšku na jednom počítači: /m?hrac=2, /m?hrac=3… sú samostatní hráči
@@ -173,7 +173,7 @@ function screenKey() {
   const h = hra(), j = ja();
   // súkromné údaje môžu prísť o chvíľu neskôr ako nová fáza – obrazovku postavíme znova, keď dorazia
   if (avEdit) return 'avatar';
-  return [h.faza, h.krok, j.krok === h.krok, j.kreslim ? 'k' : '', j.moj ? 'm' : '', j.klamar ? 'K' : '', j.drzim ? 'Z' : '', j.zivy ? 'V' : '', h.faza === 'lobby' ? (h.kapitan === me.id) : ''].join('|');
+  return [h.faza, h.krok, j.krok === h.krok, j.kreslim ? 'k' : '', j.moj ? 'm' : '', j.klamar ? 'K' : '', j.drzim ? 'Z' : '', j.zivy ? 'V' : '', j.herec ? 'H' : '', h.faza === 'lobby' ? (h.kapitan === me.id) : ''].join('|');
 }
 function render() {
   if (!S || !me || $('#game').hidden) return;
@@ -242,6 +242,26 @@ function postav(h, j) {
     case 'zemiak-bum':
       return `<div class="card center">${hlavicka(h)}<div class="icon">💥</div><div class="big">BUM!</div><p>Bomba vybuchla: <b style="color:${farba(h.drzi)}">${esc(meno(h.drzi))}</b></p>
         <div class="res ${j.zisk > 0 ? 'ok' : j.zisk < 0 ? 'bad' : ''}">${j.zisk ? (j.zisk > 0 ? '+' : '') + j.zisk : ''}</div></div>`;
+    case 'panto-vyber':
+      if (j.herec && j.ponuka) return `<div class="card">${hlavicka(h)}<h2>🎭 Vyber si, čo budeš ukazovať</h2><div class="opts">${j.ponuka.map((w, u) => `<button type="button" class="opt" data-slovo="${u}">
+          <span style="font-size:28px">${['😊', '🤔', '🔥'][u]}</span><span style="flex:1">${esc(w)}<br><small>${['ľahké · body ×1', 'stredné · body ×1,5', 'ťažké · body ×2'][u]}</small></span></button>`).join('')}</div>
+          <p class="status">Ukazuješ bez slov. Keď niekto uhádne, ťukneš naňho v mobile.</p></div>`;
+      return `<div class="card center">${hlavicka(h)}<div class="icon">🎭</div><h2><span style="color:${farba(h.herec)}">${esc(meno(h.herec))}</span> si vyberá, čo bude ukazovať…</h2><p class="muted">Priprav sa hádať nahlas!</p></div>`;
+    case 'panto':
+      if (j.herec) return `<div class="card center">${hlavicka(h)}<p class="eye">🤫 Ukazuj bez slov:</p><div class="big" id="pantoSlovo" style="color:#FF6EC7;margin:4px 0 2px"></div>
+        <p class="muted" style="font-size:13px;margin-top:0">Nehovor, nepíš písmená, neukazuj na veci okolo.</p><div id="pantoIne"></div>
+        <p class="eye" style="margin-top:14px">Kto uhádol? Ťukni naňho:</p><div class="opts">${Object.keys(h.body || {}).filter(id => id !== me.id).map(id => `<button type="button" class="opt" data-uhadol="${id}" style="--pc:${farba(id)}">${kart(id)}${esc(meno(id))}</button>`).join('')}</div>
+        <button class="ghost" type="button" id="pantoVzdat">🏳️ Nikto neuhádol – vzdávam</button></div>`;
+      return `<div class="card center">${hlavicka(h)}<div class="icon">🎭</div><h2><span style="color:${farba(h.herec)}">${esc(meno(h.herec))}</span> ukazuje…</h2>
+        <div class="big" style="color:#FF6EC7">Hádaj nahlas! 🗣️</div><p class="muted">${['😊 ľahké', '🤔 stredné', '🔥 ťažké'][h.tazkost]} zadanie · body ×${['1', '1,5', '2'][h.tazkost]}</p>
+        <p class="muted" style="font-size:14px">Kto uhádne prvý, toho ${esc(meno(h.herec))} označí – čím skôr, tým viac bodov.</p></div>`;
+    case 'panto-odhal': {
+      const b = h.bodyPanto || {}, moj = me.id;
+      const res = !h.uhadol ? `<div class="res">😅 Nikto neuhádol</div>` : moj === h.uhadol ? `<div class="res ok">🎉 Uhádol si! +${b[moj]}</div>`
+        : moj === h.herec ? `<div class="res ok">Uhádol(a) ${esc(meno(h.uhadol))} · +${b[moj]} pre teba</div>` : `<div class="res">Uhádol(a) <b style="color:${farba(h.uhadol)}">${esc(meno(h.uhadol))}</b></div>`;
+      return `<div class="card center">${hlavicka(h)}<p class="muted">Bolo to:</p><div class="big" style="color:#FF6EC7">${esc(h.slovo)}</div>${res}
+        ${j.herec || h.kapitan === me.id ? '<button class="ghost" type="button" id="pantoSpat">↩️ Omyl – vrátiť a ukazovať ďalej</button>' : ''}</div>`;
+    }
     case 'vydrz-otazka':
       if (!j.zivy) return `<div class="card center">${hlavicka(h)}<div class="icon">😢</div><h2>Vypadol si</h2><p class="muted">${esc(h.otazka)}</p>
         <p class="muted" style="font-size:14px">Ešte ${(h.zivi || []).length} ${(h.zivi || []).length === 1 ? 'hráč vydrží' : 'hráči vydržia'} – drž palce!</p></div>`;
@@ -347,6 +367,9 @@ function pripoj(h, j) {
   sc.querySelectorAll('[data-pamat]').forEach(b => b.onclick = () => { edit.pamat = b.dataset.pamat; obnov(hra(), ja()); posli('pamat', {v: b.dataset.pamat}).catch(chyba); });
   const zd = $('#zemDalej'); if (zd) zd.onclick = () => { zd.disabled = true; posli('zemiak', {a: 'dalej'}).then(() => poll(true)).catch(e => { zd.disabled = false; chyba(); }); };
   const zi = $('#zemIna'); if (zi) zi.onclick = () => posli('zemiak', {a: 'ina'}).then(() => poll(true)).catch(chyba);
+  sc.querySelectorAll('[data-uhadol]').forEach(b => b.onclick = () => { sc.querySelectorAll('[data-uhadol]').forEach(x => { x.disabled = true; }); b.classList.add('on'); posli('panto', {a: 'uhadol', za: b.dataset.uhadol}).then(() => poll(true)).catch(e => { sc.querySelectorAll('[data-uhadol]').forEach(x => { x.disabled = false; }); chyba(); }); });
+  const pv = $('#pantoVzdat'); if (pv) pv.onclick = () => { pv.disabled = true; posli('panto', {a: 'vzdat'}).then(() => poll(true)).catch(chyba); };
+  const ps = $('#pantoSpat'); if (ps) ps.onclick = () => { ps.disabled = true; posli('panto', {a: 'spat'}).then(() => poll(true)).catch(chyba); };
   sc.querySelectorAll('[data-vydrz]').forEach(b => b.onclick = () => { edit.vydrz = b.dataset.vydrz; obnov(hra(), ja()); posli('vydrz', {v: +b.dataset.vydrz}).catch(chyba); });
   if (h.faza === 'mmzv-pis') {
     const krok = h.krok, polia = [...sc.querySelectorAll('[data-mm]')];
@@ -409,6 +432,11 @@ function obnov(h, j) {
     // prvý hráč môže vrátiť bombu, keď ju niekto posunul omylom alebo mu ostatní odpoveď neuznali
     const sp = $('#zemSpat'), html = h.kapitan === me.id && h.spatMozne ? '<button class="ghost" type="button" data-spat style="border-color:var(--bad)">↩️ Vrátiť bombu – neuznali sme</button>' : '';
     if (sp && sp.dataset.h !== html) { sp.dataset.h = html; sp.innerHTML = html; const b = sp.querySelector('[data-spat]'); if (b) b.onclick = () => posli('zemiak', {a: 'spat'}).then(() => poll(true)).catch(chyba); }
+  }
+  if (h.faza === 'panto' && j.herec) {
+    const s = $('#pantoSlovo'); if (s && s.textContent !== (j.slovo || '')) s.textContent = j.slovo || '';
+    const box = $('#pantoIne'), html = j.ine ? '<button class="ghost" type="button" data-ine style="margin:4px 0 0;padding:10px">🔄 Iné zadanie (raz)</button>' : '';
+    if (box && box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; const b = box.querySelector('[data-ine]'); if (b) b.onclick = () => { b.disabled = true; posli('panto', {a: 'ine'}).then(() => poll(true)).catch(chyba); }; }
   }
   if (h.faza === 'vydrz-otazka' && j.zivy) {
     const v = edit.vydrz != null ? edit.vydrz : j.odp != null ? String(j.odp) : null;

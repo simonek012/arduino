@@ -125,7 +125,7 @@ kbd{font:700 .8em system-ui;background:rgba(255,255,255,.14);border-radius:5px;p
 .lobby .mode .ic{font-size:clamp(18px,2vw,32px)}
 .lobby .mode b{font-size:clamp(14px,1.35vw,22px)}
 .lobby .mode .n button{width:1.6em;height:1.6em}
-.mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1vmin;margin-top:1vmin}
+.mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1vmin;margin-top:1vmin}
 .mini .mode{flex-direction:column;align-items:flex-start;gap:.4vmin}
 .mini .mode .n{margin-left:0}
 .lobbywrap{overflow:auto}
@@ -422,11 +422,12 @@ const TYP = {
   pamat:  {nazov: 'Pamäťovka',       ikona: '🧠', farba: '#F06EF0',      popis: 'Na pár sekúnd sa ukáže obrázok plný vecí. Zapamätaj si čo najviac – potom príde otázka. Za správnu odpoveď 100 bodov.'},
   zemiak: {nazov: 'Horúci zemiak',   ikona: '💣', farba: '#FF7A45',      popis: 'Kto má bombu, povie nahlas odpoveď na svoju otázku. Keď mu ju ostatní uznajú, posunie bombu ďalej (+20). Nevieš? Daj si inú otázku – ale bomba tiká! U koho vybuchne, stráca 100.'},
   vydrz:  {nazov: 'Kto vydrží',      ikona: '🏁', farba: '#3DDC84',      popis: 'Odpovedaj A, B alebo C. Kto sa pomýli alebo nestihne, vypadáva. Otázky postupne pritvrdzujú. Za každú správnu +30, posledný, kto vydrží, berie 200.'},
-  mmzv:   {nazov: 'Meno, mesto, zviera, vec', ikona: '📝', farba: '#A5B4FC', popis: 'Ukáže sa písmeno a každý v mobile napíše meno, mesto, zviera a vec na to písmeno. Vlastná odpoveď 100 bodov, keď má to isté aj niekto iný, polovica.'}
+  panto:  {nazov: 'Pantomíma',       ikona: '🎭', farba: '#FF6EC7',      popis: 'Jeden dostane v mobile zadanie a bez slov ho ukazuje. Ostatní hádajú nahlas – kto uhádne, toho ukazujúci ťukne v mobile. Body dostane on aj ten, kto ukazoval (rýchlejšie = viac).'},
+  mmzv:   {nazov: 'Meno, mesto, zviera, vec', kratko: 'Meno, mesto…', ikona: '📝', farba: '#A5B4FC', popis: 'Ukáže sa písmeno a každý v mobile napíše meno, mesto, zviera a vec na to písmeno. Vlastná odpoveď 100 bodov, keď má to isté aj niekto iný, polovica.'}
 };
-const CAS = {uvod: 7, ktoPis: 60, ktoHadaj: 20, ktoOdhal: 7, kresliVyber: 12, kresli: 80, kresliOdhal: 6, odhadTip: 25, odhadOdhal: 9,
+const CAS = {uvod: 7, ktoPis: 60, ktoHadaj: 20, ktoOdhal: 7, kresliVyber: 12, kresli: 80, kresliOdhal: 6, pantoVyber: 12, panto: 90, pantoOdhal: 8, odhadTip: 25, odhadOdhal: 9,
   kznHlas: 20, kznOdhal: 8, klamPis: 60, klamObhajoba: 90, klamHlas: 25, klamOdhal: 12, skore: 12};
-const DRUHY = ['kto', 'reflex', 'kresli', 'pamat', 'odhad', 'zemiak', 'kzn', 'mmzv', 'klamar', 'vydrz'];   // minihry sú medzi väčšími kolami
+const DRUHY = ['kto', 'reflex', 'kresli', 'pamat', 'odhad', 'panto', 'zemiak', 'kzn', 'mmzv', 'klamar', 'vydrz'];   // minihry sú medzi väčšími kolami
 const REFLEX_POKUSOV = 5, PAMAT_OBRAZKOV = 3, ZEMIAK_BOMB = 3, VYDRZ_MAX = 20, MMZV_PISMEN = 2;
 const PAMAT_VECI = ['🍎', '🐱', '🚗', '⚽', '🌻', '🐶', '🍌', '🎈', '⭐', '🐟', '🍕', '🎸', '🌙', '🦋', '🍦', '🚲', '🐸', '🎁', '☂️', '🔑', '🐝', '🍓', '🏠', '🐢', '🎩', '🥕', '🐞', '🍩', '🦆', '🌵'];
 // Horúci zemiak: každý, ku komu bomba príde, dostane inú úlohu; {P} sa nahradí náhodným písmenom
@@ -567,6 +568,24 @@ const MMZV_BOT = {
   zviera: ['Antilopa', 'Bocian', 'Činčila', 'Delfín', 'Fretka', 'Hroch', 'Jašterica', 'Kôň', 'Lev', 'Mačka', 'Nosorožec', 'Ovca', 'Pes', 'Rys', 'Slon', 'Tiger', 'Vlk', 'Zebra'],
   vec: ['Auto', 'Bábika', 'Ceruzka', 'Dáždnik', 'Fľaša', 'Hrnček', 'Jojo', 'Kľúč', 'Lampa', 'Metla', 'Nôž', 'Okno', 'Pero', 'Rádio', 'Stolička', 'Taška', 'Váza', 'Zrkadlo']
 };
+// 🎭 Pantomíma: zadania podľa obťažnosti (ľahké, stredné, ťažké)
+const PANTO = [
+  ['plávať', 'čistiť si zuby', 'jesť špagety', 'telefonovať', 'spať', 'bicyklovať', 'hrať futbal', 'variť', 'šoférovať auto', 'tancovať', 'plakať', 'smiať sa', 'kýchať', 'umývať riad', 'česať sa', 'obliekať si sveter',
+   'hrať na gitare', 'rybárčiť', 'lietadlo', 'pes', 'mačka', 'opica', 'had', 'slon', 'kohút', 'žaba', 'zajac', 'čítať knihu', 'písať esemesku', 'fotografovať', 'piť kávu', 'lízať zmrzlinu', 'hrať tenis', 'skákať cez švihadlo',
+   'boxovať', 'lyžovať', 'veslovať', 'kopať jamu', 'zametať', 'žehliť', 'chytať motýle', 'zívať', 'cvičiť drepy', 'nafukovať balón', 'otvárať dáždnik', 'vešať prádlo', 'strihať vlasy', 'piecť koláč', 'umývať okná', 'hrať na klavíri',
+   'krájať chlieb', 'zbierať huby', 'stavať snehuliaka', 'hádzať loptu', 'pozerať televízor', 'mávať na rozlúčku', 'dojiť kravu', 'kopnúť do lopty', 'lúpať banán', 'čistiť topánky'],
+  ['opaľovať sa na pláži', 'stratiť kľúče', 'zmeškať autobus', 'surfovať', 'potápať sa', 'jazdiť na koni', 'dirigovať orchester', 'rozbaliť darček', 'vyliezť na strom', 'šliapnuť na lego', 'hasič', 'policajt', 'kuchár', 'zubár', 'čašník',
+   'kaderník', 'pilot', 'futbalový brankár', 'kúzelník', 'robot', 'tučniak', 'klokan', 'chobotnica', 'gorila', 'krokodíl', 'medúza', 'mravec', 'pavúk', 'ťava', 'žirafa', 'selfie s kamarátmi', 'čakať v rade', 'hrať bowling',
+   'hrať golf', 'jazdiť na skateboarde', 'robiť stojku', 'nafukovať matrac', 'stavať stan', 'grilovať', 'zapáliť táborák', 'chytiť rybu', 'zaspať v autobuse', 'vyskočiť z lietadla s padákom', 'premočiť sa v daždi',
+   'hrať hokej', 'karate', 'joga', 'balet', 'vzpieranie', 'zjesť niečo príliš štipľavé', 'vyhrať v lotérii', 'pristihnutý pri chladničke v noci', 'triasť sa od zimy', 'prechádzať sa po rozžeravenom piesku', 'kŕmiť holuby',
+   'umyť auto', 'vysávať', 'bubeník', 'operný spevák'],
+  ['Titanic', 'Harry Potter', 'Spider-Man', 'Pán prsteňov', 'Hviezdne vojny', 'Leví kráľ', 'Batman', 'Shrek', 'Jurský park', 'Doba ľadová', 'Mamma Mia', 'Piráti z Karibiku', 'Ľadové kráľovstvo', 'Rocky', 'Superman',
+   'astronaut na Mesiaci', 'prvé rande', 'svadba', 'pohovor do práce', 'dentista a vystrašený pacient', 'zombie apokalypsa', 'upír', 'múmia', 'tajný agent', 'stratený v púšti', 'nájsť poklad', 'ufón pristáva',
+   'zjazd na tobogane', 'nakupovanie v supermarkete', 'výlet na lodi v búrke', 'jazda na horskej dráhe', 'zaseknutý výťah', 'strata batožiny na letisku', 'beh na olympiáde', 'majster sveta v šachu', 'prvý krok bábätka',
+   'dieťa, ktoré nechce ísť spať', 'svokra na návšteve', 'dovolenka v Grécku', 'turista bez mapy', 'požiar v kuchyni', 'vypočúvanie na polícii', 'divadelné predstavenie', 'otec na ihrisku',
+   'bábätko a plienka', 'zabudnutý text na koncerte', 'Mona Lisa', 'Socha slobody', 'Eiffelova veža', 'Michael Jackson', 'Elvis Presley', 'Mr. Bean', 'Charlie Chaplin', 'Tarzan', 'Popoluška', 'Snehulienka', 'Pinocchio',
+   'Červená čiapočka', 'Janko Hraško']
+];
 const novaUloha = (bez) => { let u; do { u = nahodne(ZEMIAK_ULOHY).replace('{P}', nahodne(ZEMIAK_PISMENA)); } while (u === bez); return u; };
 const UROVNE = [{n: 'ľahké', ik: '😊', x: 1}, {n: 'stredné', ik: '🤔', x: 1.5}, {n: 'ťažké', ik: '🔥', x: 2}];
 const NAST_KEY = 'kck-nastavenia', HRA_KEY = 'kck-hra', POUZ_KEY = 'kck-pouzite', ZVUK_KEY = 'kck-zvuk';
@@ -580,7 +599,7 @@ try { const u = JSON.parse(localStorage.getItem(HRA_KEY)); if (u && u.faza && u.
 
 function nast() {
   let n = {}; try { n = JSON.parse(localStorage.getItem(NAST_KEY)) || {}; } catch (e) {}
-  return Object.assign({kto: 1, kresli: 2, odhad: 1, kzn: 1, klamar: 1, reflex: 1, pamat: 1, zemiak: 1, vydrz: 1, mmzv: 1, kresieb: 3, otazok: 4, kznOtazok: 4}, n);
+  return Object.assign({kto: 1, kresli: 2, odhad: 1, kzn: 1, klamar: 1, reflex: 1, pamat: 1, zemiak: 1, vydrz: 1, mmzv: 1, panto: 1, pantoUkazok: 3, kresieb: 3, otazok: 4, kznOtazok: 4}, n);
 }
 function ulozNast(n) { try { localStorage.setItem(NAST_KEY, JSON.stringify(n)); } catch (e) {} }
 
@@ -697,7 +716,7 @@ function zacniHru() {
   if (ids.length < 2) { toast('Pripoj aspoň dvoch hráčov'); return; }
   if (!plan.length) { toast('Zapni aspoň jeden druh kola'); return; }
   ac();
-  G = {faza: 'lobby', krok: 0, plan, k: -1, n, hraci: hraci.map(p => p.id), mena: {}, body: {}, ziskKolo: {}, kresliFronta: [], deadline: 0, pauza: null};
+  G = {faza: 'lobby', krok: 0, plan, k: -1, n, hraci: hraci.map(p => p.id), mena: {}, body: {}, ziskKolo: {}, kresliFronta: [], pantoFronta: [], deadline: 0, pauza: null};
   G.hraci.forEach(id => { G.body[id] = 0; G.mena[id] = meno(id); });
   ulozena = null;
   dalsieKolo();
@@ -713,7 +732,7 @@ function dalsieKolo() {
   if (G.k >= G.plan.length) { prejdi('koniec', 0); konfety(); return; }
   const typ = G.plan[G.k];
   if (['kto', 'kzn', 'klamar'].includes(typ) && aktivni().length < 3) { toast(`Kolo „${TYP[typ].nazov}“ potrebuje aspoň troch hráčov – preskakujem`); return dalsieKolo(); }
-  if (typ === 'kresli' && aktivni().length < 2) return dalsieKolo();
+  if ((typ === 'kresli' || typ === 'panto') && aktivni().length < 2) return dalsieKolo();
   G.typ = typ; G.ziskKolo = {};
   prejdi('uvod', CAS.uvod);
 }
@@ -732,6 +751,17 @@ function zacniTyp() {
     }
     G.kresli = {kolo, i: -1, akt: null};
     kresliDalsia();
+  } else if (G.typ === 'panto') {
+    const kolko = Math.min(G.n.pantoUkazok || 3, aktivni().length), kolo = [];
+    if (!G.pantoFronta) G.pantoFronta = [];
+    while (kolo.length < kolko) {
+      if (!G.pantoFronta.length) G.pantoFronta = shuffle(aktivni());
+      const id = G.pantoFronta.shift();
+      if (online(id) && !kolo.includes(id)) kolo.push(id);
+      if (!aktivni().some(x => !kolo.includes(x))) break;
+    }
+    G.panto = {kolo, i: -1, akt: null};
+    pantoDalsia();
   } else if (G.typ === 'vydrz') {
     // otázky od ľahkých po ťažké
     const otazky = [...vyber(VYDRZ.filter(q => q[2] === 1), 'vydrz1', 6), ...vyber(VYDRZ.filter(q => q[2] === 2), 'vydrz2', 7), ...vyber(VYDRZ.filter(q => q[2] === 3), 'vydrz3', 7)];
@@ -966,6 +996,37 @@ function odkryPismeno(A) {
   if (idx.length && A.odkryte.length < maxOdkryte(A)) { A.odkryte.push(idx[Math.floor(Math.random() * idx.length)]); zmena(); }
 }
 
+/* ----- 🎭 Pantomíma: ukazujúci ťukne v mobile toho, kto uhádol ----- */
+function pantoDalsia() {
+  const R = G.panto;
+  do { R.i++; } while (R.i < R.kolo.length && !online(R.kolo[R.i]));
+  if (R.i >= R.kolo.length) return skore();
+  R.akt = {herec: R.kolo[R.i], ponuka: PANTO.map((z, u) => vyber(z, 'panto' + u, 1)[0]), slovo: null, tazkost: 1, ine: false, uhadol: null, body: null};
+  G.zisk = {};
+  prejdi('panto-vyber', CAS.pantoVyber);
+}
+function pantoVyberSlovo(u) {
+  const A = G.panto.akt;
+  A.tazkost = Math.max(0, Math.min(2, u | 0)); A.slovo = A.ponuka[A.tazkost];
+  prejdi('panto', CAS.panto);
+}
+function pantoUhadol(za) {
+  const A = G.panto.akt, x = UROVNE[A.tazkost].x;
+  const zost = Math.max(0, Math.min(1, (G.pauza != null ? G.pauza : G.deadline - Date.now()) / G.dlzka));
+  A.uhadol = za; A.zostatok = Math.max(15000, (G.pauza != null ? G.pauza : G.deadline - Date.now()));
+  G.zisk = {};
+  A.body = za ? {[za]: Math.round((50 + 100 * zost) * x), [A.herec]: Math.round(60 * x)} : null;
+  if (A.body) Object.keys(A.body).forEach(id => pripis(id, A.body[id]));
+  prejdi('panto-odhal', CAS.pantoOdhal);
+  if (za) konfety();
+}
+function pantoSpat() {   // ťukol omylom – body sa vrátia a pantomíma pokračuje
+  const A = G.panto.akt;
+  if (A.body) Object.keys(A.body).forEach(id => { G.body[id] -= A.body[id]; G.ziskKolo[id] = (G.ziskKolo[id] || 0) - A.body[id]; });
+  A.uhadol = null; A.body = null; G.zisk = {};
+  prejdi('panto', Math.round(A.zostatok / 1000));
+}
+
 /* ----- Odhadovačka ----- */
 function odhadDalsia() {
   const O = G.odhad; O.i++;
@@ -1016,6 +1077,9 @@ function koniecFazy() {
     case 'klam-hlas': klamOdhal(); break;
     case 'klam-odhal': skore(); break;
     case 'kresli-odhal': kresliDalsia(); break;
+    case 'panto-vyber': pantoVyberSlovo(1); break;
+    case 'panto': pantoUhadol(null); break;
+    case 'panto-odhal': pantoDalsia(); break;
     case 'odhad-tip': odhadOdhal(); break;
     case 'odhad-odhal': odhadDalsia(); break;
     case 'skore': dalsieKolo(); break;
@@ -1070,6 +1134,15 @@ function spracuj(v) {
     G.kto.hlasy[id] = d.za; zmena();
   } else if (G.faza === 'kresli-vyber' && d.k === 'slovo') {
     if (id === G.kresli.akt.kreslic) vyberSlovo(+d.u);
+  } else if (G.faza === 'panto-vyber' && d.k === 'slovo') {
+    if (id === G.panto.akt.herec) pantoVyberSlovo(+d.u);
+  } else if (G.faza === 'panto' && d.k === 'panto') {
+    const A = G.panto.akt; if (id !== A.herec) return;
+    if (d.a === 'uhadol' && d.za !== A.herec && G.hraci.includes(d.za)) pantoUhadol(d.za);
+    else if (d.a === 'vzdat') pantoUhadol(null);
+    else if (d.a === 'ine' && !A.ine) { A.ine = true; A.slovo = vyber(PANTO[A.tazkost], 'panto' + A.tazkost, 1)[0]; zmena(); }
+  } else if (G.faza === 'panto-odhal' && d.k === 'panto' && d.a === 'spat') {
+    if (id === G.panto.akt.herec || id === kapitan()) pantoSpat();
   } else if (G.faza === 'vydrz-otazka' && d.k === 'vydrz') {
     const V = G.vydrz; if (!V.zivi.includes(id) || ![0, 1, 2].includes(+d.v)) return;
     if (V.odp[id] == null) zahraj('hlas');
@@ -1167,6 +1240,11 @@ function verejne() {
     v.tazkost = A.tazkost;
     if (G.faza === 'kresli-odhal') v.slovo = hlavne(A.slovo);
   }
+  if (/^panto/.test(G.faza)) {
+    const A = G.panto.akt;
+    Object.assign(v, {herec: A.herec, tazkost: A.tazkost, poradove: G.panto.i + 1, spolu: G.panto.kolo.length});
+    if (G.faza === 'panto-odhal') Object.assign(v, {slovo: A.slovo, uhadol: A.uhadol, bodyPanto: A.body || {}});
+  }
   if (/^vydrz-/.test(G.faza)) {
     const V = G.vydrz;
     Object.assign(v, {zivi: V.zivi, vypadli: V.vypadli});
@@ -1230,6 +1308,7 @@ function pre(id) {
   if (G.faza === 'reflex' || G.faza === 'reflex-vysledok') { const R = G.reflex; p.cas = R.casy[id] == null ? null : R.casy[id]; p.skoro = !!R.skoro[id]; }
   if (/^pamat-/.test(G.faza)) p.odp = G.pamat.odpovede[id] || '';
   if (/^vydrz-/.test(G.faza)) { const V = G.vydrz; p.odp = V.odp ? (V.odp[id] == null ? null : V.odp[id]) : null; p.zivy = V.zivi.includes(id) || (V.teraz || []).includes(id) && G.faza === 'vydrz-otazka'; p.vypadol = V.vypadli.includes(id); }
+  if (/^panto/.test(G.faza) && G.panto.akt.herec === id) { p.herec = true; if (G.faza === 'panto-vyber') p.ponuka = G.panto.akt.ponuka; if (G.faza === 'panto') { p.slovo = G.panto.akt.slovo; p.ine = !G.panto.akt.ine; } }
   if (/^mmzv-/.test(G.faza)) { p.moje = G.mmzv.odp[id] || null; p.hotovo = !!G.mmzv.hotovi[id]; }
   if (G.faza === 'zemiak') p.drzim = G.zemiak.drzi === id;
   if (/^klam-/.test(G.faza)) {
@@ -1297,6 +1376,7 @@ function stavHraca() {
   if (G.faza === 'reflex') return id => G.reflex.casy[id] != null ? 'done' : G.reflex.skoro[id] ? 'bad' : '';
   if (/^vydrz-/.test(G.faza)) return id => G.vydrz.vypadli.includes(id) ? 'out' : G.faza === 'vydrz-otazka' && G.vydrz.odp[id] != null ? 'done' : '';
   if (G.faza === 'mmzv-pis') return id => G.mmzv.hotovi[id] ? 'done' : '';
+  if (/^panto/.test(G.faza)) return id => id === G.panto.akt.herec ? 'me' : G.faza === 'panto-odhal' && id === G.panto.akt.uhadol ? 'done' : '';
   if (G.faza === 'pamat-otazka') return id => G.pamat.odpovede[id] ? 'done' : '';
   if (G.faza === 'zemiak') return id => G.zemiak.drzi === id ? 'me' : '';
   if (G.faza === 'klam-pis') return id => G.klam.odpovede[id] != null ? 'done' : '';
@@ -1306,7 +1386,7 @@ function stavHraca() {
 
 function vLobby() {
   const n = nast(), url = publicUrl || lanUrl;
-  const mode = (t, label) => `<div class="mode" style="--tc:${TYP[t].farba}"><span class="ic">${TYP[t].ikona}</span><div><b>${TYP[t].nazov}</b><small>${label}</small></div>
+  const mode = (t, label) => `<div class="mode" style="--tc:${TYP[t].farba}"><span class="ic">${TYP[t].ikona}</span><div><b>${TYP[t].kratko || TYP[t].nazov}</b><small>${label}</small></div>
       <div class="n"><button data-act="nast" data-k="${t}" data-d="-1">−</button>${n[t]}<button data-act="nast" data-k="${t}" data-d="1">+</button></div></div>`;
   return `<div class="main lobbywrap" style="justify-content:flex-start;gap:2vmin;padding-top:1vmin">
     <h1 class="logo" style="font-size:clamp(28px,4.2vw,76px)"><span class="a">Kto?</span> <span class="b">Čo?</span> <span class="c">Koľko?</span></h1>
@@ -1322,8 +1402,8 @@ function vLobby() {
         ${serverOk ? '' : '<p class="lead" style="color:var(--bad)">Server nebeží – spusti start.bat alebo online.bat.</p>'}
       </section>
       <section class="panel"><h3>🎲 Kolá v hre</h3>
-        <div class="modes dva">${mode('kto', 'počet kôl · v každom jedna otázka pre všetkých (od 3 hráčov)')}${mode('kresli', `počet kôl · v každom ${n.kresieb} ${n.kresieb === 1 ? 'kresba' : n.kresieb < 5 ? 'kresby' : 'kresieb'}`)}${mode('odhad', `počet kôl · v každom ${n.otazok} ${n.otazok === 1 ? 'otázka' : n.otazok < 5 ? 'otázky' : 'otázok'}`)}${mode('kzn', `počet kôl · v každom ${n.kznOtazok} ${n.kznOtazok < 5 ? 'otázky' : 'otázok'} (od 3 hráčov)`)}${mode('klamar', 'počet kôl · v každom jedna otázka a jeden klamár (od 3 hráčov)')}${mode('reflex', '5 pokusov')}${mode('pamat', '3 obrázky')}${mode('zemiak', '3 bomby')}${mode('mmzv', '2 písmená')}${mode('vydrz', 'vyraďovačka')}</div>
-        <div class="mini">${[['kresieb', '🖌️ Kresieb'], ['otazok', '🔢 Odhadov'], ['kznOtazok', '🗳️ Kto z nás']].map(([k, l]) => `<div class="mode"><b style="color:#fff">${l}</b><div class="n"><button data-act="nast" data-k="${k}" data-d="-1">−</button>${n[k]}<button data-act="nast" data-k="${k}" data-d="1">+</button></div></div>`).join('')}</div>
+        <div class="modes dva">${mode('kto', 'počet kôl · v každom jedna otázka pre všetkých (od 3 hráčov)')}${mode('kresli', `počet kôl · v každom ${n.kresieb} ${n.kresieb === 1 ? 'kresba' : n.kresieb < 5 ? 'kresby' : 'kresieb'}`)}${mode('odhad', `počet kôl · v každom ${n.otazok} ${n.otazok === 1 ? 'otázka' : n.otazok < 5 ? 'otázky' : 'otázok'}`)}${mode('kzn', `počet kôl · v každom ${n.kznOtazok} ${n.kznOtazok < 5 ? 'otázky' : 'otázok'} (od 3 hráčov)`)}${mode('klamar', 'počet kôl · v každom jedna otázka a jeden klamár (od 3 hráčov)')}${mode('reflex', '5 pokusov')}${mode('pamat', '3 obrázky')}${mode('zemiak', '3 bomby')}${mode('panto', `počet kôl · v každom ${n.pantoUkazok} ${n.pantoUkazok === 1 ? 'pantomíma' : n.pantoUkazok < 5 ? 'pantomímy' : 'pantomím'}`)}${mode('mmzv', '2 písmená')}${mode('vydrz', 'vyraďovačka')}</div>
+        <div class="mini">${[['kresieb', '🖌️ Kresieb'], ['otazok', '🔢 Odhadov'], ['kznOtazok', '🗳️ Kto z nás'], ['pantoUkazok', '🎭 Pantomím']].map(([k, l]) => `<div class="mode"><b style="color:#fff">${l}</b><div class="n"><button data-act="nast" data-k="${k}" data-d="-1">−</button>${n[k]}<button data-act="nast" data-k="${k}" data-d="1">+</button></div></div>`).join('')}</div>
         <p class="lead" style="margin-top:1.4vmin;font-size:clamp(13px,1.2vw,19px)">Spolu ${planKol(n).length} kôl. Kolá sa striedajú a hra beží sama – netreba moderátora.</p>
       </section>
     </div>
@@ -1388,6 +1468,21 @@ function vVydrz() {
     : V.teraz.length ? `<p class="lead">❌ Vypadáva: ${V.teraz.map(id => `<b style="color:${farba(id)}">${esc(meno(id))}</b>`).join(', ')} · ostáva ${V.zivi.length}</p>` : '<p class="lead">✅ Všetci odpovedali správne!</p>';
   return `<div class="main" style="--tc:#3DDC84;gap:1.8vmin"><span class="eyebrow">Otázka ${V.i + 1} · ${['', 'ľahká', 'stredná', 'ťažká'][V.otazky[V.i][2]]}</span>
     <h2 class="q">${esc(V.q.text)}</h2><div class="vopts">${opts}</div>${spodok}</div>`;
+}
+function vPanto() {
+  const A = G.panto.akt, f = G.faza, U = UROVNE[A.tazkost];
+  const hl = `<span class="eyebrow">Pantomíma ${G.panto.i + 1} z ${G.panto.kolo.length}</span><div style="--pc:${farba(A.herec)}">${avBig(A.herec, 'clamp(80px,15vmin,190px)')}</div>`;
+  if (f === 'panto-vyber') return `<div class="main" style="--tc:#FF6EC7">${hl}<h2 class="big">${esc(meno(A.herec))} si vyberá, čo bude ukazovať…</h2>
+    <div class="players">${UROVNE.map(u => `<span class="chip">${u.ik} ${u.n} · body ×${String(u.x).replace('.', ',')}</span>`).join('')}</div>
+    <p class="lead">Zadanie vidí iba on v mobile. Ostatní hádajú nahlas.</p></div>`;
+  if (f === 'panto') return `<div class="main" style="--tc:#FF6EC7">${hl}<h2 class="big">🎭 Ukazuje <span style="color:${farba(A.herec)}">${esc(meno(A.herec))}</span></h2>
+    <div class="players"><span class="chip">${U.ik} ${U.n} zadanie · body ×${String(U.x).replace('.', ',')}</span></div>
+    <h2 class="q">Hádajte nahlas! 🗣️</h2><p class="lead">Kto uhádne, toho ${esc(meno(A.herec))} ťukne v mobile. Bez slov, bez písmen, bez ukazovania na veci!</p></div>`;
+  const b = A.body || {};
+  return `<div class="main" style="--tc:#FF6EC7;gap:2vmin"><span class="eyebrow">Pantomíma ${G.panto.i + 1} z ${G.panto.kolo.length} · ukazoval(a) ${esc(meno(A.herec))}</span>
+    <h2 class="q" style="font-size:clamp(40px,7vw,120px);color:#FF6EC7">${esc(A.slovo)}</h2>
+    ${A.uhadol ? `<div style="--pc:${farba(A.uhadol)}">${avBig(A.uhadol, 'clamp(70px,12vmin,150px)')}</div><h2 class="big">🎉 Uhádol(a) <span style="color:${farba(A.uhadol)}">${esc(meno(A.uhadol))}</span> +${b[A.uhadol]}</h2><p class="lead">${esc(meno(A.herec))} za ukazovanie +${b[A.herec]}</p>`
+      : '<h2 class="big">😅 Nikto neuhádol</h2>'}</div>`;
 }
 function vMmzv() {
   const M = G.mmzv;
@@ -1516,6 +1611,7 @@ function render() {
       case 'reflex': body = vReflex(false); break;
       case 'vydrz-otazka': case 'vydrz-odhal': case 'vydrz-koniec': body = vVydrz(); break;
       case 'mmzv-pis': case 'mmzv-vys': body = vMmzv(); break;
+      case 'panto-vyber': case 'panto': case 'panto-odhal': body = vPanto(); break;
       case 'reflex-vysledok': body = vReflex(true); break;
       case 'pamat-pozri': case 'pamat-otazka': case 'pamat-odhal': body = vPamat(); break;
       case 'zemiak': body = vZemiak(false); break;
@@ -1555,7 +1651,7 @@ function casomer() {
   t.style.setProperty('--p', G.dlzka ? Math.min(1, ms / G.dlzka) : 0);
   t.classList.toggle('low', s <= 5);
   $('#tsec').textContent = s;
-  if (s !== lastSec) { if (s <= 5 && s > 0 && !G.pauza && /pis|hadaj|kresli$|tip|hlas|otazka/.test(G.faza)) zahraj('tik'); lastSec = s; }
+  if (s !== lastSec) { if (s <= 5 && s > 0 && !G.pauza && /pis|hadaj|kresli$|panto$|tip|hlas|otazka/.test(G.faza)) zahraj('tik'); lastSec = s; }
   // bomba tiká tým rýchlejšie, čím je bližšie k výbuchu
   if (G.faza === 'zemiak' && !G.pauza) { const k = ms > 12000 ? 1000 : ms > 5000 ? 500 : 250; if (Date.now() - (casomer.tik || 0) >= k) { casomer.tik = Date.now(); ton(ms > 5000 ? 900 : 1300, 0, .05, .07, 'square'); } }
 }
@@ -1623,7 +1719,7 @@ document.addEventListener('click', e => {
   ac();
   const a = b.dataset.act;
   if (a === 'start') zacniHru();
-  else if (a === 'nast') { const n = nast(), k = b.dataset.k, lim = {kto: [0, 4], kresli: [0, 4], odhad: [0, 4], kzn: [0, 4], klamar: [0, 4], reflex: [0, 4], pamat: [0, 4], zemiak: [0, 4], vydrz: [0, 4], mmzv: [0, 4], kresieb: [1, 8], otazok: [2, 8], kznOtazok: [2, 8]}[k]; n[k] = Math.max(lim[0], Math.min(lim[1], n[k] + (+b.dataset.d))); ulozNast(n); render(); }
+  else if (a === 'nast') { const n = nast(), k = b.dataset.k, lim = {kto: [0, 4], kresli: [0, 4], odhad: [0, 4], kzn: [0, 4], klamar: [0, 4], reflex: [0, 4], pamat: [0, 4], zemiak: [0, 4], vydrz: [0, 4], mmzv: [0, 4], panto: [0, 4], pantoUkazok: [1, 8], kresieb: [1, 8], otazok: [2, 8], kznOtazok: [2, 8]}[k]; n[k] = Math.max(lim[0], Math.min(lim[1], n[k] + (+b.dataset.d))); ulozNast(n); render(); }
   else if (a === 'vyhod') api('vyhod?id=' + encodeURIComponent(b.dataset.id), {}).then(nacitajHracov).catch(() => {});
   else if (a === 'odpoj') { if (confirm('Naozaj odpojiť všetky mobily? Hráči sa budú musieť pripojiť znova.')) api('reset', {}).then(nacitajHracov).catch(() => {}); }
   else if (a === 'zvuk') { zvuk = !zvuk; try { localStorage.setItem(ZVUK_KEY, zvuk ? '1' : '0'); } catch (e) {} lastKey = ''; render(); }
@@ -1705,6 +1801,12 @@ function botiHraju() {
     else if (G.faza === 'reflex') {
       if (!P.reakcia) { P.reakcia = 220 + Math.round(Math.random() * 280); P.at = G.reflex.start + G.reflex.za + P.reakcia; continue; }
       P.hotovo = true; posli(Math.random() < .08 ? {k: 'reflex', skoro: true} : {k: 'reflex', ms: P.reakcia});
+    }
+    else if (G.faza === 'panto-vyber') { P.hotovo = true; if (G.panto.akt.herec === id) posli({k: 'slovo', u: Math.floor(Math.random() * 3)}); }
+    else if (G.faza === 'panto') {   // robot „ukazuje“ a po chvíli označí niekoho, kto uhádol
+      if (G.panto.akt.herec !== id) { P.hotovo = true; continue; }
+      if (!P.cakal) { P.cakal = true; P.at = now + 6000 + Math.random() * 10000; continue; }
+      P.hotovo = true; const m = G.hraci.filter(x => x !== id && online(x)); posli(Math.random() < .15 || !m.length ? {k: 'panto', a: 'vzdat'} : {k: 'panto', a: 'uhadol', za: nahodne(m)});
     }
     else if (G.faza === 'vydrz-otazka') { P.hotovo = true; if (G.vydrz.zivi.includes(id)) posli({k: 'vydrz', v: Math.random() < .75 ? G.vydrz.q.spravna : Math.floor(Math.random() * 3)}); }
     else if (G.faza === 'mmzv-pis') {
