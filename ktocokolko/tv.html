@@ -657,9 +657,11 @@ function maska(A, vsetko) {
   const w = hlavne(A.slovo).toUpperCase();
   return [...w].map((ch, i) => /[\p{L}\d]/u.test(ch) ? (vsetko || A.odkryte.includes(i) ? ch : '_') : ch === ' ' ? '  ' : ch).join(' ');
 }
+const pismenaSlova = A => { const w = hlavne(A.slovo); return [...w].map((ch, i) => i).filter(i => /[\p{L}\d]/u.test(w[i])); };
+const maxOdkryte = A => Math.floor(pismenaSlova(A).length / 2);
 function odkryPismeno(A) {
   const w = hlavne(A.slovo), idx = [...w].map((ch, i) => i).filter(i => /[\p{L}\d]/u.test(w[i]) && !A.odkryte.includes(i));
-  if (idx.length > 2) { A.odkryte.push(idx[Math.floor(Math.random() * idx.length)]); zmena(); }
+  if (idx.length && A.odkryte.length < maxOdkryte(A)) { A.odkryte.push(idx[Math.floor(Math.random() * idx.length)]); zmena(); }
 }
 
 /* ----- Odhadovačka ----- */
@@ -1252,8 +1254,9 @@ tikac(250, () => {
   if (G && !G.pauza && G.deadline && Date.now() >= G.deadline) koniecFazy();
   if (G && G.faza === 'kresli' && !G.pauza) {
     const A = G.kresli.akt, uplynulo = 1 - Math.max(0, G.deadline - Date.now()) / G.dlzka;
-    if (uplynulo > .5 && A.odkryte.length < 1) odkryPismeno(A);
-    if (uplynulo > .75 && A.odkryte.length < 2) odkryPismeno(A);
+    // písmená sa odkrývajú postupne od štvrtiny času až do 90 %, najviac polovica písmen slova
+    const cieľ = Math.floor(maxOdkryte(A) * Math.min(1, Math.max(0, (uplynulo - .25) / .65)));
+    if (A.odkryte.length < cieľ) odkryPismeno(A);
   }
   skontroluj();
   casomer();
