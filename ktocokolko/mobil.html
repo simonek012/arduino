@@ -281,7 +281,7 @@ function postav(h, j) {
     case 'skore': case 'koniec': {
       const zoz = Object.keys(h.body || {}).sort((a, b) => h.body[b] - h.body[a]), r = zoz.indexOf(me.id) + 1;
       return `<div class="card center">${h.faza === 'koniec' ? '<p class="eye">Koniec hry</p>' : hlavicka(h)}<div class="icon">${h.faza === 'koniec' ? (r === 1 ? '🏆' : r === 2 ? '🥈' : r === 3 ? '🥉' : '🎉') : '📊'}</div>
-        <div class="big">${r}. miesto</div><p>${h.body[me.id] || 0} bodov${j.ziskKolo && h.faza === 'skore' ? ` <span class="ok">(+${j.ziskKolo} v tomto kole)</span>` : ''}</p>
+        <div class="big">${r}. miesto</div><p>${h.body[me.id] || 0} bodov${j.ziskKolo && h.faza === 'skore' ? ` <span class="${j.ziskKolo > 0 ? 'ok' : 'bad'}">(${j.ziskKolo > 0 ? '+' : '−'}${Math.abs(j.ziskKolo)} v tomto kole)</span>` : ''}</p>
         <p class="muted">${zoz.slice(0, 3).map((id, i) => `${i + 1}. ${esc(meno(id))} – ${h.body[id]}`).join('<br>')}</p><div id="kapBox"></div></div>`;
     }
   }

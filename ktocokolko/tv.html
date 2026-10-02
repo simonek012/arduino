@@ -12,6 +12,7 @@ html,body{height:100%;margin:0}
 body{background:radial-gradient(1200px 700px at 15% -10%,var(--bg2),transparent 60%),radial-gradient(900px 600px at 110% 110%,#3A0F4F,transparent 60%),var(--bg);
   color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;overflow:hidden}
 button{font:inherit;cursor:pointer}
+[hidden]{display:none!important}
 #app{height:100%;display:flex;flex-direction:column;padding:2.2vmin 3vmin;gap:2vmin}
 .logo{font:900 clamp(30px,5.4vw,96px)/1 var(--disp);letter-spacing:-.01em;margin:0;white-space:nowrap}
 .logo .a{color:var(--kto)} .logo .b{color:var(--co)} .logo .c{color:var(--kolko)}
@@ -940,7 +941,7 @@ function verejne() {
   }
   if (G.faza === 'reflex' || G.faza === 'reflex-vysledok') {
     const R = G.reflex;
-    Object.assign(v, {za: R.za, poradove: R.i + 1, spolu: REFLEX_POKUSOV, hotovi: [...Object.keys(R.casy), ...Object.keys(R.skoro)]});
+    Object.assign(v, {deadline: 0, za: R.za, poradove: R.i + 1, spolu: REFLEX_POKUSOV, hotovi: [...Object.keys(R.casy), ...Object.keys(R.skoro)]});
     if (G.faza === 'reflex-vysledok') Object.assign(v, {casy: R.casy, skoro: Object.keys(R.skoro)});
   }
   if (/^pamat-/.test(G.faza)) {
@@ -1219,7 +1220,7 @@ function vSkore(konecne) {
       <div style="display:flex;gap:2vmin"><button class="btn" data-act="znova">↻ Hrať znova<kbd>Enter</kbd></button><button class="btn ghost" data-act="dolobby">Späť na úvod</button></div></div>`;
   }
   return `<div class="main"><span class="eyebrow" style="color:var(--kolko)">Priebežné poradie po ${G.k + 1}. kole</span>
-    <div class="board-sc">${zoz.map((id, i) => `<div class="sc" style="--pc:${farba(id)}"><span>${i + 1}.</span><div><div class="bar" style="width:${Math.max(8, (G.body[id] || 0) / max * 100)}%">${avatarUrl(id) ? `<img src="${avatarUrl(id)}" alt="">` : ''}${esc(meno(id))}</div></div><span>${G.body[id] || 0} ${G.ziskKolo[id] ? `<span class="plus">+${G.ziskKolo[id]}</span>` : ''}</span></div>`).join('')}</div>
+    <div class="board-sc">${zoz.map((id, i) => `<div class="sc" style="--pc:${farba(id)}"><span>${i + 1}.</span><div><div class="bar" style="width:${Math.max(8, (G.body[id] || 0) / max * 100)}%">${avatarUrl(id) ? `<img src="${avatarUrl(id)}" alt="">` : ''}${esc(meno(id))}</div></div><span>${G.body[id] || 0} ${G.ziskKolo[id] ? `<span class="plus" style="${G.ziskKolo[id] < 0 ? 'color:var(--bad)' : ''}">${G.ziskKolo[id] > 0 ? '+' : '−'}${Math.abs(G.ziskKolo[id])}</span>` : ''}</span></div>`).join('')}</div>
     <p class="lead">${G.k + 1 < G.plan.length ? `Ďalej: ${TYP[G.plan[G.k + 1]].ikona} ${TYP[G.plan[G.k + 1]].nazov}` : 'Ďalej: vyhlásenie víťaza'}</p></div>`;
 }
 
