@@ -83,6 +83,11 @@ body.kreslim .tbtn{padding:10px 12px;font-size:15px}
 .mriezka span{aspect-ratio:1;border-radius:12px;background:rgba(255,255,255,.08);display:grid;place-items:center;font-size:34px}
 .pam{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .pam .opt{justify-content:center;font-size:26px}
+.vy{display:flex;flex-direction:column;gap:10px;margin-top:8px}.vy .opt{min-height:68px;font-size:20px;text-align:left}.vy .opt b{font-size:26px;color:var(--tc);width:28px}
+.pismeno{font:900 92px/1 system-ui;color:var(--tc);text-shadow:0 0 30px rgba(165,180,252,.4);margin:2px 0 8px}
+.mm{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}.mm label{display:flex;flex-direction:column;font-weight:800;font-size:14px;color:var(--muted);gap:4px;text-align:left}.mm input{font-size:20px}
+.mtab{width:100%;border-collapse:collapse;margin:8px 0;font-size:18px;text-align:left}.mtab td{padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.08)}.mtab td:last-child{text-align:right;font-weight:900}
+.b100{color:var(--ok)}.b50{color:#FFB020}.b0{color:var(--muted)}
 .bomba{font-size:90px;line-height:1;text-align:center;animation:tras .35s ease-in-out infinite alternate;margin:6px 0 18px}
 @keyframes tras{from{transform:rotate(-8deg)}to{transform:rotate(8deg) scale(1.06)}}
 .chain{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
@@ -119,7 +124,8 @@ body.kreslim .tbtn{padding:10px 12px;font-size:15px}
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const PCOL = ['#FF4D8D', '#22C3A6', '#FFB020', '#8B6CFF', '#4FC3F7', '#FF7A45', '#B5E61D', '#F06EF0', '#FFD93D', '#5EEAD4', '#F87171', '#A5B4FC'];
-const TC = {kto: 'var(--kto)', kresli: 'var(--co)', odhad: 'var(--kolko)', kzn: '#9B7BFF', klamar: '#4FC3F7', reflex: '#FFD93D', pamat: '#F06EF0', zemiak: '#FF7A45'};
+const TC = {kto: 'var(--kto)', kresli: 'var(--co)', odhad: 'var(--kolko)', kzn: '#9B7BFF', klamar: '#4FC3F7', reflex: '#FFD93D', pamat: '#F06EF0', zemiak: '#FF7A45', vydrz: '#3DDC84', mmzv: '#A5B4FC'};
+let mmzvLok = {};   // rozpísané Meno/Mesto/Zviera/Vec – prežije aj prekreslenie obrazovky
 let me = null, S = null, lastKey = '', failCount = 0, edit = {};
 // na skúšku na jednom počítači: /m?hrac=2, /m?hrac=3… sú samostatní hráči
 const SLOT = new URLSearchParams(location.search).get('hrac'), ME_KEY = 'kck-mobil' + (SLOT ? '-' + SLOT : '');
@@ -167,7 +173,7 @@ function screenKey() {
   const h = hra(), j = ja();
   // súkromné údaje môžu prísť o chvíľu neskôr ako nová fáza – obrazovku postavíme znova, keď dorazia
   if (avEdit) return 'avatar';
-  return [h.faza, h.krok, j.krok === h.krok, j.kreslim ? 'k' : '', j.moj ? 'm' : '', j.klamar ? 'K' : '', j.drzim ? 'Z' : '', h.faza === 'lobby' ? (h.kapitan === me.id) : ''].join('|');
+  return [h.faza, h.krok, j.krok === h.krok, j.kreslim ? 'k' : '', j.moj ? 'm' : '', j.klamar ? 'K' : '', j.drzim ? 'Z' : '', j.zivy ? 'V' : '', h.faza === 'lobby' ? (h.kapitan === me.id) : ''].join('|');
 }
 function render() {
   if (!S || !me || $('#game').hidden) return;
@@ -236,6 +242,38 @@ function postav(h, j) {
     case 'zemiak-bum':
       return `<div class="card center">${hlavicka(h)}<div class="icon">💥</div><div class="big">BUM!</div><p>Bomba vybuchla: <b style="color:${farba(h.drzi)}">${esc(meno(h.drzi))}</b></p>
         <div class="res ${j.zisk > 0 ? 'ok' : j.zisk < 0 ? 'bad' : ''}">${j.zisk ? (j.zisk > 0 ? '+' : '') + j.zisk : ''}</div></div>`;
+    case 'vydrz-otazka':
+      if (!j.zivy) return `<div class="card center">${hlavicka(h)}<div class="icon">😢</div><h2>Vypadol si</h2><p class="muted">${esc(h.otazka)}</p>
+        <p class="muted" style="font-size:14px">Ešte ${(h.zivi || []).length} ${(h.zivi || []).length === 1 ? 'hráč vydrží' : 'hráči vydržia'} – drž palce!</p></div>`;
+      return `<div class="card center">${hlavicka(h)}<p class="eye">🏁 Ešte ${(h.zivi || []).length} v hre</p><h2 style="font-size:24px">${esc(h.otazka)}</h2>
+        <div class="vy">${(h.moznosti || []).map((m, k) => `<button type="button" class="opt" data-vydrz="${k}"><b>${'ABC'[k]}</b><span style="flex:1">${esc(m)}</span></button>`).join('')}</div><p class="status" id="hlasInfo"></p></div>`;
+    case 'vydrz-odhal': {
+      const vypadol = (h.teraz || []).includes(me.id), bolVonku = j.vypadol && !vypadol;
+      const res = bolVonku ? '<div class="res muted">Si už vonku – sleduj ostatných</div>' : vypadol ? '<div class="res bad">💥 Vypadávaš!</div>'
+        : h.vsetciZle ? '<div class="res">😅 Všetci zle – nikto nevypadáva</div>' : '<div class="res ok">✓ Správne · +30 · ideš ďalej</div>';
+      return `<div class="card center">${hlavicka(h)}<p class="muted">${esc(h.otazka)}</p><div class="big" style="color:#3DDC84">${'ABC'[h.spravna]}: ${esc((h.moznosti || [])[h.spravna])}</div>${res}
+        <p class="muted" style="font-size:14px">${(h.teraz || []).length ? 'Vypadli: ' + h.teraz.map(id => esc(meno(id))).join(', ') + '<br>' : ''}V hre: ${(h.zivi || []).length}</p></div>`;
+    }
+    case 'vydrz-koniec': {
+      const z = h.zivi || [], vyhral = z.includes(me.id);
+      return `<div class="card center">${hlavicka(h)}<div class="icon">${vyhral ? '🏆' : '🏁'}</div><p class="muted">${z.length === 1 ? 'Vydržal(a) najdlhšie' : 'Vydržali až do konca'}</p>
+        <div class="big">${z.map(id => `<span style="color:${farba(id)}">${esc(meno(id))}</span>`).join(', ') || '–'}</div>
+        ${vyhral ? `<div class="res ok">+${z.length === 1 ? 200 : 100}</div>` : ''}</div>`;
+    }
+    case 'mmzv-pis': {
+      const v = mmzvLok[h.krok] || j.moje || {};
+      return `<div class="card">${hlavicka(h)}<div class="center"><p class="eye" style="margin:0">Všetko na písmeno</p><div class="pismeno">${esc(h.pismeno)}</div></div>
+        <div class="mm">${[['meno', 'Meno', '👤'], ['mesto', 'Mesto', '🏙️'], ['zviera', 'Zviera', '🐾'], ['vec', 'Vec', '📦']].map(([k, n, e]) =>
+          `<label>${e} ${n}<input data-mm="${k}" maxlength="30" autocomplete="off" autocapitalize="sentences" enterkeyhint="next" value="${esc(v[k] || '')}" placeholder="${esc(h.pismeno)}…"></label>`).join('')}</div>
+        <div id="mmBox"></div></div>`;
+    }
+    case 'mmzv-vys': {
+      const o = (h.odp || {})[me.id] || {}, b = (h.bodyKat || {})[me.id] || {};
+      return `<div class="card center">${hlavicka(h)}<div class="pismeno" style="font-size:56px">${esc(h.pismeno)}</div>
+        <table class="mtab">${[['meno', 'Meno'], ['mesto', 'Mesto'], ['zviera', 'Zviera'], ['vec', 'Vec']].map(([k, n]) =>
+          `<tr><td class="muted">${n}</td><td>${esc(o[k] || '–')}</td><td class="b${b[k] || 0}">${b[k] ? '+' + b[k] : '0'}</td></tr>`).join('')}</table>
+        <div class="res ${j.zisk ? 'ok' : ''}">${j.zisk ? '+' + j.zisk : 'Tentoraz bez bodov'}</div><p class="muted" style="font-size:13px">Rovnaké slovo ako niekto iný = polovica bodov</p></div>`;
+    }
     case 'kzn-hlas':
       return `<div class="card">${hlavicka(h)}<h2>${esc(h.otazka)}</h2><div class="opts">${Object.keys(h.body || {}).map(id => `<button type="button" class="opt" data-hlas="${id}" style="--pc:${farba(id)}">${kart(id)}${esc(meno(id))}${id === me.id ? ' <small>(ja)</small>' : ''}</button>`).join('')}</div>
         <p class="status" id="hlasInfo"></p></div>`;
@@ -309,6 +347,19 @@ function pripoj(h, j) {
   sc.querySelectorAll('[data-pamat]').forEach(b => b.onclick = () => { edit.pamat = b.dataset.pamat; obnov(hra(), ja()); posli('pamat', {v: b.dataset.pamat}).catch(chyba); });
   const zd = $('#zemDalej'); if (zd) zd.onclick = () => { zd.disabled = true; posli('zemiak', {a: 'dalej'}).then(() => poll(true)).catch(e => { zd.disabled = false; chyba(); }); };
   const zi = $('#zemIna'); if (zi) zi.onclick = () => posli('zemiak', {a: 'ina'}).then(() => poll(true)).catch(chyba);
+  sc.querySelectorAll('[data-vydrz]').forEach(b => b.onclick = () => { edit.vydrz = b.dataset.vydrz; obnov(hra(), ja()); posli('vydrz', {v: +b.dataset.vydrz}).catch(chyba); });
+  if (h.faza === 'mmzv-pis') {
+    const krok = h.krok, polia = [...sc.querySelectorAll('[data-mm]')];
+    const hodnoty = () => { const v = {}; polia.forEach(i => { v[i.dataset.mm] = i.value.trim(); }); return v; };
+    let tm = null;
+    const odosli = (hotovo) => { clearTimeout(tm); if (hra().krok !== krok) return Promise.resolve(); return posli('mmzv', {v: hodnoty(), hotovo: !!hotovo}); };
+    polia.forEach((i, k) => {
+      i.oninput = () => { mmzvLok = {[krok]: hodnoty()}; clearTimeout(tm); tm = setTimeout(() => odosli().catch(() => {}), 700); };
+      i.onblur = () => odosli().catch(() => {});
+      i.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); if (polia[k + 1]) polia[k + 1].focus(); else i.blur(); } };
+    });
+    sc.mmHotovo = () => odosli(true).then(() => poll(true)).catch(chyba);
+  }
   const az = $('#avZnova'); if (az) az.onclick = () => { avEdit = true; render(); };
   sc.querySelectorAll('[data-slovo]').forEach(b => b.onclick = () => { sc.querySelectorAll('[data-slovo]').forEach(x => { x.disabled = true; }); b.classList.add('on'); posli('slovo', {u: +b.dataset.slovo}).then(() => poll(true)).catch(chyba); });
   sc.querySelectorAll('[data-hlas]').forEach(b => b.onclick = () => { edit.hlas = b.dataset.hlas; obnov(hra(), ja()); posli('hlas', {za: b.dataset.hlas}).catch(() => chyba()); });
@@ -358,6 +409,16 @@ function obnov(h, j) {
     // prvý hráč môže vrátiť bombu, keď ju niekto posunul omylom alebo mu ostatní odpoveď neuznali
     const sp = $('#zemSpat'), html = h.kapitan === me.id && h.spatMozne ? '<button class="ghost" type="button" data-spat style="border-color:var(--bad)">↩️ Vrátiť bombu – neuznali sme</button>' : '';
     if (sp && sp.dataset.h !== html) { sp.dataset.h = html; sp.innerHTML = html; const b = sp.querySelector('[data-spat]'); if (b) b.onclick = () => posli('zemiak', {a: 'spat'}).then(() => poll(true)).catch(chyba); }
+  }
+  if (h.faza === 'vydrz-otazka' && j.zivy) {
+    const v = edit.vydrz != null ? edit.vydrz : j.odp != null ? String(j.odp) : null;
+    document.querySelectorAll('[data-vydrz]').forEach(b => b.classList.toggle('on', b.dataset.vydrz === v));
+    const inf = $('#hlasInfo'); if (inf) inf.textContent = v != null ? 'Odpoveď je odoslaná – do konca času ju môžeš zmeniť.' : 'Kto nestihne odpovedať, vypadáva!';
+  }
+  if (h.faza === 'mmzv-pis') {
+    const box = $('#mmBox'), html = j.hotovo ? '<p class="ok center" style="font-weight:800">Hotovo ✓ Čakáme na ostatných – ešte môžeš opravovať.</p>'
+      : '<button class="go" type="button" id="mmOk">Hotovo ✓</button><p class="status">Píše sa priebežne – kto nestihne kliknúť Hotovo, odošle sa, čo má napísané.</p>';
+    if (box && box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; const b = $('#mmOk'); if (b) b.onclick = () => { b.disabled = true; $('#screen').mmHotovo(); }; }
   }
   if (['kto-hadaj', 'kzn-hlas', 'klam-hlas'].includes(h.faza)) {
     const vybrany = edit.hlas || j.hlas;

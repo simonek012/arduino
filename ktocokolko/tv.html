@@ -130,6 +130,16 @@ kbd{font:700 .8em system-ui;background:rgba(255,255,255,.14);border-radius:5px;p
 .mini .mode .n{margin-left:0}
 .lobbywrap{overflow:auto}
 /* minihry */
+.pl.out{opacity:.3;text-decoration:line-through}
+.vopts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.6vmin;width:min(1400px,94%)}
+.vopt{display:flex;gap:1.2vmin;align-items:center;text-align:left;padding:1.6vmin 2vmin;border-radius:18px;background:var(--card);border:2px solid var(--line);font:800 clamp(18px,2.4vw,40px)/1.2 system-ui}
+.vopt i{font-style:normal;width:1.6em;height:1.6em;flex:0 0 auto;border-radius:12px;display:grid;place-items:center;background:#3DDC84;color:#062814}
+.vopt.right{background:rgba(61,220,132,.25);border-color:var(--ok);box-shadow:0 0 30px rgba(61,220,132,.5)} .vopt.wrong{opacity:.35}
+.mtab{border-collapse:separate;border-spacing:.6vmin;font-size:clamp(14px,1.6vw,26px);max-width:96%}
+.mtab th{color:var(--muted);font-weight:800;text-align:left;padding:0 .6em}
+.mtab td{background:var(--card);border-radius:10px;padding:.4em .7em;font-weight:700;text-align:left}
+.mtab td.b100{background:rgba(61,220,132,.25)} .mtab td.b50{background:rgba(255,176,32,.25)} .mtab td.b0{color:var(--muted);text-decoration:line-through}
+.mtab td.sum{color:var(--ok);font-weight:900;background:none}
 .pl.bad{border-color:var(--bad);background:rgba(255,90,95,.15)}
 .reflex{width:min(70vmin,620px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;background:#3a3550;box-shadow:0 0 0 1.4vmin rgba(255,255,255,.08);font:900 clamp(30px,6vmin,90px)/1.1 var(--disp);text-align:center;padding:4vmin;transition:background .05s}
 .reflex.go{background:#2ECC71;color:#062814;box-shadow:0 0 12vmin #2ECC71}
@@ -410,12 +420,14 @@ const TYP = {
   klamar: {nazov: 'Klamár',          ikona: '🕵️', farba: '#4FC3F7',      popis: 'Všetci dostanú rovnakú otázku – okrem jedného, ktorý o tom ani nevie. Napíšte odpoveď, obhajujte ju (otázku neprezrádzajte!) a potom spoločne odhaľte klamára.'},
   reflex: {nazov: 'Bleskový reflex', ikona: '⚡', farba: '#FFD93D',      popis: 'Pozeraj do mobilu. Keď zozelenie, čo najrýchlejšie ťukni! Najrýchlejší 100 bodov, kto ťukne priskoro, stráca 50.'},
   pamat:  {nazov: 'Pamäťovka',       ikona: '🧠', farba: '#F06EF0',      popis: 'Na pár sekúnd sa ukáže obrázok plný vecí. Zapamätaj si čo najviac – potom príde otázka. Za správnu odpoveď 100 bodov.'},
-  zemiak: {nazov: 'Horúci zemiak',   ikona: '💣', farba: '#FF7A45',      popis: 'Kto má bombu, povie nahlas odpoveď na svoju otázku. Keď mu ju ostatní uznajú, posunie bombu ďalej (+20). Nevieš? Daj si inú otázku – ale bomba tiká! U koho vybuchne, stráca 100.'}
+  zemiak: {nazov: 'Horúci zemiak',   ikona: '💣', farba: '#FF7A45',      popis: 'Kto má bombu, povie nahlas odpoveď na svoju otázku. Keď mu ju ostatní uznajú, posunie bombu ďalej (+20). Nevieš? Daj si inú otázku – ale bomba tiká! U koho vybuchne, stráca 100.'},
+  vydrz:  {nazov: 'Kto vydrží',      ikona: '🏁', farba: '#3DDC84',      popis: 'Odpovedaj A, B alebo C. Kto sa pomýli alebo nestihne, vypadáva. Otázky postupne pritvrdzujú. Za každú správnu +30, posledný, kto vydrží, berie 200.'},
+  mmzv:   {nazov: 'Meno, mesto, zviera, vec', ikona: '📝', farba: '#A5B4FC', popis: 'Ukáže sa písmeno a každý v mobile napíše meno, mesto, zviera a vec na to písmeno. Vlastná odpoveď 100 bodov, keď má to isté aj niekto iný, polovica.'}
 };
 const CAS = {uvod: 7, ktoPis: 60, ktoHadaj: 20, ktoOdhal: 7, kresliVyber: 12, kresli: 80, kresliOdhal: 6, odhadTip: 25, odhadOdhal: 9,
   kznHlas: 20, kznOdhal: 8, klamPis: 60, klamObhajoba: 90, klamHlas: 25, klamOdhal: 12, skore: 12};
-const DRUHY = ['kto', 'reflex', 'kresli', 'pamat', 'odhad', 'zemiak', 'kzn', 'klamar'];   // minihry sú medzi väčšími kolami
-const REFLEX_POKUSOV = 5, PAMAT_OBRAZKOV = 3, ZEMIAK_BOMB = 3;
+const DRUHY = ['kto', 'reflex', 'kresli', 'pamat', 'odhad', 'zemiak', 'kzn', 'mmzv', 'klamar', 'vydrz'];   // minihry sú medzi väčšími kolami
+const REFLEX_POKUSOV = 5, PAMAT_OBRAZKOV = 3, ZEMIAK_BOMB = 3, VYDRZ_MAX = 20, MMZV_PISMEN = 2;
 const PAMAT_VECI = ['🍎', '🐱', '🚗', '⚽', '🌻', '🐶', '🍌', '🎈', '⭐', '🐟', '🍕', '🎸', '🌙', '🦋', '🍦', '🚲', '🐸', '🎁', '☂️', '🔑', '🐝', '🍓', '🏠', '🐢', '🎩', '🥕', '🐞', '🍩', '🦆', '🌵'];
 // Horúci zemiak: každý, ku komu bomba príde, dostane inú úlohu; {P} sa nahradí náhodným písmenom
 const ZEMIAK_ULOHY = [
@@ -431,6 +443,130 @@ const ZEMIAK_ULOHY = [
   'Niečo, čo je mäkké', 'Niečo, čo je v chladničke', 'Ročné obdobie alebo mesiac a prečo ho máš rád', 'Niečo, čo nesmie chýbať na párty', 'Pizza – povedz prísadu'
 ];
 const ZEMIAK_PISMENA = [...'ABDHJKLMNOPRSTVZ'];
+/* Kto vydrží – [otázka, [správna, zlá, zlá], úroveň 1–3] */
+const VYDRZ = [
+  ["Koľko nôh má pavúk?", ["8", "6", "10"], 1], ["Akú farbu dostaneš zmiešaním červenej a bielej?", ["Ružovú", "Fialovú", "Oranžovú"], 1],
+  ["Aké je hlavné mesto Francúzska?", ["Paríž", "Lyon", "Marseille"], 1], ["Ktoré zviera robí „mú“?", ["Krava", "Ovca", "Koza"], 1],
+  ["Ktorá planéta je najväčšia v slnečnej sústave?", ["Jupiter", "Saturn", "Zem"], 1], ["Ktorý mesiac nasleduje po júni?", ["Júl", "August", "Máj"], 1],
+  ["Koľko je 12 × 12?", ["144", "124", "132"], 1], ["Akú farbu má citrón?", ["Žltú", "Zelenú", "Oranžovú"], 1],
+  ["Kde žijú tučniaky vo voľnej prírode najmä?", ["Na južnej pologuli", "Na severnom póle", "V Sahare"], 1], ["Ktorý nástroj má klávesy?", ["Klavír", "Gitara", "Husle"], 1],
+  ["Aké je hlavné mesto Česka?", ["Praha", "Brno", "Ostrava"], 1], ["Ktorý šport sa hrá na Wimbledone?", ["Tenis", "Golf", "Kriket"], 1],
+  ["Koľko hráčov má futbalové mužstvo na ihrisku?", ["11", "10", "12"], 1], ["Čo zbierajú včely z kvetov?", ["Nektár", "Mlieko", "Živicu"], 1],
+  ["Ktorá rieka preteká Bratislavou?", ["Dunaj", "Váh", "Hron"], 1], ["Z čoho sa robia hranolky?", ["Zo zemiakov", "Z mrkvy", "Z cukety"], 1],
+  ["Koľko minút má hodina?", ["60", "100", "50"], 1], ["Ktoré zviera sa volá kráľ zvierat?", ["Lev", "Tiger", "Slon"], 1],
+  ["Aké je hlavné mesto Talianska?", ["Rím", "Miláno", "Benátky"], 1], ["Akou farbou svieti na semafore „stoj“?", ["Červenou", "Oranžovou", "Zelenou"], 1],
+  ["Koľko strán má trojuholník?", ["3", "4", "5"], 1], ["Ktoré ročné obdobie nasleduje po zime?", ["Jar", "Jeseň", "Leto"], 1],
+  ["Čo meria teplomer?", ["Teplotu", "Tlak", "Vlhkosť"], 1], ["Ktoré zviera má chobot?", ["Slon", "Nosorožec", "Hroch"], 1],
+  ["Ako sa volá najvyšší vrch Slovenska?", ["Gerlachovský štít", "Kriváň", "Rysy"], 1], ["Čo je hlavnou zložkou guacamole?", ["Avokádo", "Paradajka", "Uhorka"], 1],
+  ["Čo robí pekár?", ["Pečie chlieb", "Opravuje autá", "Šije šaty"], 1], ["Koľko je 100 − 37?", ["63", "73", "67"], 1],
+  ["Ktoré z týchto zvierat je cicavec?", ["Delfín", "Žralok", "Kapor"], 1], ["Koľko svetadielov je na Zemi?", ["7", "5", "6"], 1],
+  ["Ktorý vták je symbolom mieru?", ["Holubica", "Sova", "Orol"], 1], ["Ktorý deň nasleduje po piatku?", ["Sobota", "Nedeľa", "Štvrtok"], 1],
+  ["Kto napísal knihy o Harrym Potterovi?", ["J. K. Rowlingová", "Astrid Lindgrenová", "Roald Dahl"], 1], ["Ktoré ovocie je žlté a zahnuté?", ["Banán", "Hruška", "Slivka"], 1],
+  ["Koľko kolies má bicykel?", ["2", "3", "4"], 1], ["Čo je H₂O?", ["Voda", "Soľ", "Kyslík"], 1],
+  ["Aké zviera je Garfield?", ["Mačka", "Pes", "Líška"], 1], ["Aké je hlavné mesto Maďarska?", ["Budapešť", "Debrecín", "Szeged"], 1],
+  ["Koľko hodín má jeden deň?", ["24", "12", "48"], 1], ["Ktorý z týchto nástrojov má struny?", ["Husle", "Bubon", "Trúbka"], 1],
+  ["Akou menou platíme na Slovensku?", ["Eurom", "Korunou", "Dolárom"], 1], ["Ako sa volá prirodzený satelit Zeme?", ["Mesiac", "Slnko", "Mars"], 1],
+  ["Čo sa slávi 24. decembra?", ["Štedrý deň", "Nový rok", "Veľká noc"], 1], ["Koľko nôh má hmyz?", ["6", "8", "4"], 1],
+  ["Ktorá z týchto krajín je ostrov?", ["Island", "Rakúsko", "Švajčiarsko"], 1], ["Ktoré zviera nám dáva vlnu?", ["Ovca", "Krava", "Kôň"], 1],
+  ["Čo je opakom slova „horúci“?", ["Studený", "Teplý", "Vlažný"], 1], ["Ktorý orgán pumpuje krv?", ["Srdce", "Pečeň", "Pľúca"], 1],
+  ["Koľko je 7 × 8?", ["56", "54", "64"], 1], ["Akú farbu dostaneš zmiešaním modrej a žltej?", ["Zelenú", "Fialovú", "Hnedú"], 1],
+
+  ["Koľko štátov susedí so Slovenskom?", ["5", "4", "6"], 2], ["Kto namaľoval Monu Lisu?", ["Leonardo da Vinci", "Michelangelo", "Raffael"], 2],
+  ["Aké je hlavné mesto Austrálie?", ["Canberra", "Sydney", "Melbourne"], 2], ["Koľko je 15 % z 200?", ["30", "15", "35"], 2],
+  ["Ktorý plyn uvoľňujú rastliny pri fotosyntéze?", ["Kyslík", "Oxid uhličitý", "Dusík"], 2], ["V ktorom roku vznikla samostatná Slovenská republika?", ["1993", "1989", "1918"], 2],
+  ["Ktorá rieka preteká Parížom?", ["Seina", "Rýn", "Loira"], 2], ["Koľko hráčov má volejbalové družstvo na ihrisku?", ["6", "5", "7"], 2],
+  ["Kto zložil Malú nočnú hudbu?", ["Mozart", "Beethoven", "Bach"], 2], ["Akú chemickú značku má zlato?", ["Au", "Ag", "Zl"], 2],
+  ["Ktorý oceán leží medzi Európou a Amerikou?", ["Atlantický", "Tichý", "Indický"], 2], ["Koľko je 2 na desiatu?", ["1 024", "512", "2 048"], 2],
+  ["V ktorej krajine je Machu Picchu?", ["V Peru", "V Mexiku", "V Čile"], 2], ["Ktoré zviera je najrýchlejšie na súši?", ["Gepard", "Lev", "Antilopa"], 2],
+  ["Kto bol prvý človek na Mesiaci?", ["Neil Armstrong", "Jurij Gagarin", "Buzz Aldrin"], 2], ["Ktorá krajina má na mape tvar čižmy?", ["Taliansko", "Grécko", "Španielsko"], 2],
+  ["Aké je hlavné mesto Kanady?", ["Ottawa", "Toronto", "Vancouver"], 2], ["Koľko kostí má dospelý človek?", ["206", "186", "256"], 2],
+  ["Kto napísal Rómea a Júliu?", ["William Shakespeare", "Charles Dickens", "Johann Wolfgang Goethe"], 2], ["V ktorom meste stojí Koloseum?", ["V Ríme", "V Aténach", "V Neapole"], 2],
+  ["Ktorý prvok má chemickú značku O?", ["Kyslík", "Olovo", "Ortuť"], 2], ["Akú farbu má stredný pruh slovenskej vlajky?", ["Modrú", "Bielu", "Červenú"], 2],
+  ["Ktorý svetadiel je najväčší?", ["Ázia", "Afrika", "Amerika"], 2], ["Ako sa volá najvyšší vrch Afriky?", ["Kilimandžáro", "Mount Kenya", "Atlas"], 2],
+  ["Kto vymyslel prakticky použiteľnú žiarovku?", ["Thomas Edison", "Nikola Tesla", "Alexander Graham Bell"], 2], ["Koľko minút majú 3 hodiny?", ["180", "160", "300"], 2],
+  ["Aké je hlavné mesto Španielska?", ["Madrid", "Barcelona", "Sevilla"], 2], ["Ktorá krajina vyhrala MS vo futbale v roku 2022?", ["Argentína", "Francúzsko", "Brazília"], 2],
+  ["Ktorý prírodný materiál je najtvrdší?", ["Diamant", "Žula", "Kremeň"], 2], ["Koľko planét má slnečná sústava?", ["8", "9", "7"], 2],
+  ["Z ktorého jazyka pochádza slovo „robot“?", ["Z češtiny", "Z angličtiny", "Z ruštiny"], 2], ["Ktorý hrad je rozlohou najväčší na Slovensku?", ["Spišský", "Bratislavský", "Oravský"], 2],
+  ["Ktoré zviera nosí mláďa vo vaku?", ["Klokan", "Lenivec", "Pásavec"], 2], ["Koľko stupňov má pravý uhol?", ["90", "180", "45"], 2],
+  ["Kto bol prvým prezidentom USA?", ["George Washington", "Abraham Lincoln", "Thomas Jefferson"], 2], ["Aké je hlavné mesto Poľska?", ["Varšava", "Krakov", "Gdansk"], 2],
+  ["Koľko kruhov je na olympijskej vlajke?", ["5", "6", "4"], 2], ["Ktorá hora je najvyššia na svete?", ["Mount Everest", "K2", "Mont Blanc"], 2],
+  ["V ktorej krajine sú pyramídy v Gíze?", ["V Egypte", "V Mexiku", "V Iraku"], 2], ["Kto napísal Malého princa?", ["Antoine de Saint-Exupéry", "Victor Hugo", "Jules Verne"], 2],
+  ["Koľko strún majú husle?", ["4", "6", "5"], 2], ["Ktorý vitamín si telo vyrába na slnku?", ["D", "C", "A"], 2],
+  ["Ktorého plynu je vo vzduchu najviac?", ["Dusíka", "Kyslíka", "Oxidu uhličitého"], 2], ["Ako sa volá mena Japonska?", ["Jen", "Jüan", "Won"], 2],
+  ["V ktorom meste stojí socha Krista Spasiteľa?", ["V Rio de Janeiro", "V Lisabone", "V Buenos Aires"], 2], ["Ktorý z týchto vtákov nevie lietať?", ["Pštros", "Čajka", "Labuť"], 2],
+  ["Ktoré mesto je druhé najväčšie na Slovensku?", ["Košice", "Prešov", "Žilina"], 2], ["Pri akej teplote vrie voda na hladine mora?", ["100 °C", "90 °C", "110 °C"], 2],
+
+  ["V ktorom roku padol Berlínsky múr?", ["1989", "1991", "1987"], 3], ["Koľko sŕdc má chobotnica?", ["3", "1", "2"], 3],
+  ["Kto napísal Božskú komédiu?", ["Dante Alighieri", "Francesco Petrarca", "Giovanni Boccaccio"], 3], ["Ktorý prvok má značku Fe?", ["Železo", "Fluór", "Fosfor"], 3],
+  ["Aké je hlavné mesto Turecka?", ["Ankara", "Istanbul", "Izmir"], 3], ["Kto objavil penicilín?", ["Alexander Fleming", "Louis Pasteur", "Robert Koch"], 3],
+  ["Ktorá krajina má najviac obyvateľov?", ["India", "Čína", "USA"], 3], ["V ktorom roku sa potopil Titanic?", ["1912", "1905", "1921"], 3],
+  ["Ktorá púšť je najväčšia na svete, ak rátame aj studené?", ["Antarktída", "Sahara", "Gobi"], 3], ["Koľko je druhá odmocnina zo 169?", ["13", "14", "12"], 3],
+  ["Koho korunovali v Bratislave v roku 1741?", ["Máriu Teréziu", "Jozefa II.", "Karola VI."], 3], ["Ktorá planéta má najviac známych mesiacov?", ["Saturn", "Jupiter", "Urán"], 3],
+  ["Kto zložil Štyri ročné obdobia?", ["Antonio Vivaldi", "Georg Friedrich Händel", "Joseph Haydn"], 3], ["Aké je hlavné mesto Nového Zélandu?", ["Wellington", "Auckland", "Christchurch"], 3],
+  ["Koľko percent povrchu Zeme pokrýva voda?", ["Asi 71 %", "Asi 51 %", "Asi 85 %"], 3], ["Ktoré jazero je najhlbšie na svete?", ["Bajkal", "Tanganika", "Titicaca"], 3],
+  ["Kto bol prvým prezidentom samostatnej Slovenskej republiky?", ["Michal Kováč", "Rudolf Schuster", "Ivan Gašparovič"], 3], ["Akou rýchlosťou sa šíri zvuk vo vzduchu?", ["Asi 340 m/s", "Asi 34 m/s", "Asi 3 400 m/s"], 3],
+  ["Kto napísal Hájnikovu ženu?", ["Pavol Országh Hviezdoslav", "Martin Kukučín", "Andrej Sládkovič"], 3], ["V ktorom roku sa začala druhá svetová vojna?", ["1939", "1941", "1936"], 3],
+  ["Ktorý kov je pri izbovej teplote tekutý?", ["Ortuť", "Olovo", "Cín"], 3], ["Ktoré mesto je spolkovým mestom Švajčiarska?", ["Bern", "Zürich", "Ženeva"], 3],
+  ["Koľko kláves má klavír?", ["88", "76", "96"], 3], ["Kto namaľoval Hviezdnu noc?", ["Vincent van Gogh", "Claude Monet", "Paul Cézanne"], 3],
+  ["Kto sformuloval teóriu relativity?", ["Albert Einstein", "Isaac Newton", "Niels Bohr"], 3], ["Ktorá krajina má najviac ostrovov?", ["Švédsko", "Grécko", "Indonézia"], 3],
+  ["Kto vynašiel bleskozvod?", ["Benjamin Franklin", "Thomas Edison", "Michael Faraday"], 3], ["Ktorý je najmenší štát sveta?", ["Vatikán", "Monako", "San Maríno"], 3],
+  ["Ktorý orgán ľudského tela je najväčší?", ["Koža", "Pečeň", "Pľúca"], 3], ["V ktorom roku vstúpilo Slovensko do Európskej únie?", ["2004", "2009", "1999"], 3],
+  ["Koľko rokov trvala storočná vojna?", ["116", "100", "99"], 3], ["Kto vládol na Veľkej Morave, keď prišli Cyril a Metod?", ["Rastislav", "Svätopluk", "Pribina"], 3],
+  ["Ktorá krvná skupina je univerzálny darca?", ["0 negatívna", "AB pozitívna", "A negatívna"], 3], ["Ktorá najdlhšia rieka tečie len po Slovensku?", ["Váh", "Hron", "Nitra"], 3],
+  ["Aké je hlavné mesto Kazachstanu?", ["Astana", "Almaty", "Taškent"], 3], ["Ktorý kráľ dal prestavať Versailles do dnešnej podoby?", ["Ľudovít XIV.", "Napoleon", "Ľudovít XVI."], 3],
+  ["Koľko je 3 na štvrtú?", ["81", "64", "27"], 3], ["Kto napísal román 1984?", ["George Orwell", "Aldous Huxley", "Ray Bradbury"], 3],
+  ["Ktorý prvok je najrozšírenejší vo vesmíre?", ["Vodík", "Hélium", "Kyslík"], 3], ["Akú chemickú značku má sodík?", ["Na", "So", "S"], 3],
+  ["V ktorom meste je hlavné sídlo OSN?", ["V New Yorku", "V Ženeve", "Vo Viedni"], 3], ["Kto namaľoval Guernicu?", ["Pablo Picasso", "Salvador Dalí", "Joan Miró"], 3],
+  ["Koľko hráčov jedného tímu je naraz na ľade v hokeji aj s brankárom?", ["6", "5", "7"], 3], ["Ktorý ostrov je najväčší na svete?", ["Grónsko", "Borneo", "Madagaskar"], 3],
+  ["Kto bol prvý človek vo vesmíre?", ["Jurij Gagarin", "Neil Armstrong", "German Titov"], 3], ["Ktorá slovenská ľadová jaskyňa je na zozname UNESCO?", ["Dobšinská ľadová jaskyňa", "Demänovská jaskyňa slobody", "Bystrianska jaskyňa"], 3],
+  ["Kto napísal text hymny Nad Tatrou sa blýska?", ["Janko Matúška", "Samo Chalupka", "Ján Botto"], 3], ["Koľko časových pásiem má Rusko?", ["11", "9", "13"], 3],
+  ["Ktorá je najväčšia krajina Južnej Ameriky?", ["Brazília", "Argentína", "Peru"], 3], ["Ktoré mesto bolo hlavným mestom Uhorska takmer 250 rokov?", ["Prešporok (Bratislava)", "Budín", "Ostrihom"], 3]
+];
+
+/* doplnky pre ostatné kolá */
+ZEMIAK_ULOHY.push(
+  'Niečo, čo je modré', 'Niečo, čo je červené', 'Niečo, čo je zelené', 'Filmová postava', 'Slovenský alebo český herec či herečka', 'Slávny športovec',
+  'Hrad alebo zámok', 'Niečo, čo nájdeš na pláži', 'Niečo, čo nájdeš v lese', 'Niečo, čo je v aute', 'Kus oblečenia', 'Druh syra', 'Druh cestovín',
+  'Niečo, čo robíš v lete', 'Niečo, čo robíš v zime', 'Zviera z farmy', 'Exotické zviera', 'Niečo, čo nájdeš v nemocnici', 'Náradie (kladivo, píla…)',
+  'Niečo, čo sa zapája do zásuvky', 'Slovo, ktoré sa rýmuje na „mačka“', 'Slovo, ktoré sa rýmuje na „pes“', 'Slovo na písmeno {P}, ktoré má aspoň 6 písmen',
+  'Niečo na raňajky', 'Hlavné mesto mimo Európy', 'Grécke jedlo alebo grécky ostrov', 'Postava z Harryho Pottera', 'Postava z Disneyho rozprávky',
+  'Pieseň, ktorú pozná každý – zanôť ju', 'Zvuk zvieraťa – predveď ho', 'Vec, ktorú nájdeš v kabelke alebo batohu', 'Niečo, čo má gombíky',
+  'Niečo, čo sa nosí na hlave', 'Slovenský vrch alebo pohorie', 'Rieka v Európe', 'Ako sa povie „ahoj“ v cudzom jazyku', 'Kartová hra',
+  'Niečo, čo sa dá hodiť', 'Niečo, čo je mokré', 'Niečo, čo je ťažké', 'Niečo, čo sa dá otvoriť', 'Značka mobilu alebo počítača', 'Mesto na písmeno {P}'
+);
+PAMAT_VECI.push('🍋', '🐳', '🚀', '🎲', '🌽', '🦒', '🍪', '🧸', '🎺', '🐧', '🍒', '🚁', '🪁', '🦀', '🍔', '🎨', '🐌', '🍇', '⏰', '🧀');
+KZN_OTAZKY.push(
+  "Kto z nás by sa najskôr stratil v cudzom meste?", "Kto z nás by zjedol najštipľavejšiu papriku?", "Kto z nás by vyhral v kartách?", "Kto z nás najviac nadáva pri šoférovaní?",
+  "Kto z nás by prvý skočil do studeného mora?", "Kto z nás by si kúpil úplne zbytočnú vec?", "Kto z nás by vyhral súťaž v jedení koláčov?", "Kto z nás najčastejšie zabúda mená?",
+  "Kto z nás by bol najlepší rodič?", "Kto z nás by prežil bez internetu mesiac?", "Kto z nás by sa najskôr urazil?", "Kto z nás by sa hodil na moderátora?",
+  "Kto z nás by dokázal uvariť obed pre desať ľudí?", "Kto z nás najviac zbožňuje zvieratá?", "Kto z nás by sa najskôr pustil do bitky s čajkou o hranolky?", "Kto z nás by zaspal na pláži a spálil sa?",
+  "Kto z nás by ako prvý utiekol z escape roomu?", "Kto z nás najviac rád spieva?", "Kto z nás by dostal pokutu za rýchlosť?", "Kto z nás by vedel opraviť auto?",
+  "Kto z nás by vydržal najdlhšie mlčať?", "Kto z nás by si vzal na dovolenku najväčší kufor?", "Kto z nás by vyhral súťaž v pantomíme?", "Kto z nás má najlepší zmysel pre humor?",
+  "Kto z nás by prvý zaspal pri filme?", "Kto z nás by si dal na Vianoce najviac koláčov?", "Kto z nás najčastejšie prehráva v hrách?", "Kto z nás by bol najlepší detektív?",
+  "Kto z nás by zvládol žiť na farme?", "Kto z nás by si najskôr kúpil motorku?"
+);
+KLAMAR.push(
+  ["Koľko kávy denne vypiješ?", "Koľko hodín týždenne športuješ?"], ["Aké je tvoje obľúbené zviera?", "Aké zviera by si nechcel stretnúť v noci v lese?"],
+  ["Aké jedlo si naposledy varil?", "Aké jedlo by si si dal na oslavu?"], ["Čo by si si kúpil za 100 eur?", "Čo si naposledy dostal ako darček?"],
+  ["Koľko ľudí by si pozval na svoju oslavu?", "Koľko ľudí poznáš osobne zo svojej ulice?"], ["Kde by si chcel stráviť víkend?", "Kde si strávil minulý víkend?"],
+  ["Aký film by si pozeral na Vianoce?", "Pri akom filme si sa naposledy bál?"], ["Akú farbu by mal tvoj vysnívaný dom?", "Akú farbu má tvoja zubná kefka?"],
+  ["Čo by si robil, keby si vyhral v lotérii?", "Čo by si robil, keby si mal celý deň voľno?"], ["Aký šport by si skúsil aspoň raz?", "Aký šport by si nerobil ani za peniaze?"],
+  ["Aké ovocie by si zobral na výlet?", "Aké ovocie nemáš rád?"], ["V akom veku si dostal prvý mobil?", "V akom veku si sa naučil bicyklovať?"],
+  ["Čo nesmie chýbať na tvojich raňajkách?", "Čo si dáš o polnoci, keď si hladný?"], ["Ktorý spevák by mal spievať na tvojej svadbe?", "Ktorého speváka počúvajú tvoji rodičia?"],
+  ["Ako by si nazval svojho psa?", "Ako by si nazval svoju loď?"], ["Akú vec si vždy zabudneš doma?", "Akú vec si vždy zoberieš na dovolenku?"],
+  ["Ktoré mesto na Slovensku máš najradšej?", "V ktorom meste na Slovensku si bol naposledy?"], ["Akú najdlhšiu cestu autom si absolvoval?", "Kam by si šiel autom, keby si mal týždeň voľna?"],
+  ["Koľko hodín by si vydržal hrať spoločenskú hru?", "Koľko hodín vydržíš bez jedla?"], ["Čo by si si objednal v reštaurácii v Grécku?", "Čo si naposledy jedol v reštaurácii?"]
+);
+
+/* Meno, mesto, zviera, vec – písmená a zásoba pre robotov */
+const MMZV_PISMENA = [...'ABCDFHJKLMNOPRSTVZ'];
+const MMZV_KAT = [['meno', 'Meno'], ['mesto', 'Mesto'], ['zviera', 'Zviera'], ['vec', 'Vec']];
+const MMZV_BOT = {
+  meno: ['Adam', 'Barbora', 'Cyril', 'Dana', 'Filip', 'Hana', 'Jana', 'Karol', 'Lucia', 'Marek', 'Nina', 'Oto', 'Peter', 'Rado', 'Sára', 'Tomáš', 'Viera', 'Zuzana'],
+  mesto: ['Amsterdam', 'Bratislava', 'Cardiff', 'Detva', 'Florencia', 'Hamburg', 'Jihlava', 'Košice', 'Levoča', 'Martin', 'Nitra', 'Oslo', 'Prešov', 'Rím', 'Senec', 'Trnava', 'Viedeň', 'Zvolen'],
+  zviera: ['Antilopa', 'Bocian', 'Činčila', 'Delfín', 'Fretka', 'Hroch', 'Jašterica', 'Kôň', 'Lev', 'Mačka', 'Nosorožec', 'Ovca', 'Pes', 'Rys', 'Slon', 'Tiger', 'Vlk', 'Zebra'],
+  vec: ['Auto', 'Bábika', 'Ceruzka', 'Dáždnik', 'Fľaša', 'Hrnček', 'Jojo', 'Kľúč', 'Lampa', 'Metla', 'Nôž', 'Okno', 'Pero', 'Rádio', 'Stolička', 'Taška', 'Váza', 'Zrkadlo']
+};
 const novaUloha = (bez) => { let u; do { u = nahodne(ZEMIAK_ULOHY).replace('{P}', nahodne(ZEMIAK_PISMENA)); } while (u === bez); return u; };
 const UROVNE = [{n: 'ľahké', ik: '😊', x: 1}, {n: 'stredné', ik: '🤔', x: 1.5}, {n: 'ťažké', ik: '🔥', x: 2}];
 const NAST_KEY = 'kck-nastavenia', HRA_KEY = 'kck-hra', POUZ_KEY = 'kck-pouzite', ZVUK_KEY = 'kck-zvuk';
@@ -444,7 +580,7 @@ try { const u = JSON.parse(localStorage.getItem(HRA_KEY)); if (u && u.faza && u.
 
 function nast() {
   let n = {}; try { n = JSON.parse(localStorage.getItem(NAST_KEY)) || {}; } catch (e) {}
-  return Object.assign({kto: 1, kresli: 2, odhad: 1, kzn: 1, klamar: 1, reflex: 1, pamat: 1, zemiak: 1, kresieb: 3, otazok: 4, kznOtazok: 4}, n);
+  return Object.assign({kto: 1, kresli: 2, odhad: 1, kzn: 1, klamar: 1, reflex: 1, pamat: 1, zemiak: 1, vydrz: 1, mmzv: 1, kresieb: 3, otazok: 4, kznOtazok: 4}, n);
 }
 function ulozNast(n) { try { localStorage.setItem(NAST_KEY, JSON.stringify(n)); } catch (e) {} }
 
@@ -596,6 +732,13 @@ function zacniTyp() {
     }
     G.kresli = {kolo, i: -1, akt: null};
     kresliDalsia();
+  } else if (G.typ === 'vydrz') {
+    // otázky od ľahkých po ťažké
+    const otazky = [...vyber(VYDRZ.filter(q => q[2] === 1), 'vydrz1', 6), ...vyber(VYDRZ.filter(q => q[2] === 2), 'vydrz2', 7), ...vyber(VYDRZ.filter(q => q[2] === 3), 'vydrz3', 7)];
+    G.vydrz = {otazky, i: -1, zivi: aktivni().slice(), vypadli: []};
+    vydrzDalsia();
+  } else if (G.typ === 'mmzv') {
+    G.mmzv = {i: -1, pouzite: []}; mmzvDalsie();
   } else if (G.typ === 'reflex') {
     G.reflex = {i: -1}; reflexDalsi();
   } else if (G.typ === 'pamat') {
@@ -613,6 +756,52 @@ function zacniTyp() {
     G.odhad = {otazky: vyber(ODHADY, 'odhad', G.n.otazok), i: -1, tipy: {}};
     odhadDalsia();
   }
+}
+
+/* ----- 🏁 Kto vydrží: kto sa pomýli, vypadáva ----- */
+function vydrzDalsia() {
+  const V = G.vydrz; V.i++;
+  if (V.zivi.length <= 1 || V.i >= Math.min(VYDRZ_MAX, V.otazky.length)) return vydrzKoniec();
+  const q = V.otazky[V.i], mix = shuffle([0, 1, 2]);
+  V.q = {text: q[0], moznosti: mix.map(k => q[1][k]), spravna: mix.indexOf(0)};
+  V.odp = {}; V.teraz = []; G.zisk = {};
+  prejdi('vydrz-otazka', 12);
+}
+function vydrzOdhal() {
+  const V = G.vydrz; G.zisk = {};
+  const spravni = V.zivi.filter(id => V.odp[id] === V.q.spravna);
+  spravni.forEach(id => pripis(id, 30));
+  V.vsetciZle = !spravni.length;                                   // keď sa pomýlia všetci, nikto nevypadne
+  V.teraz = V.vsetciZle ? [] : V.zivi.filter(id => !spravni.includes(id));
+  V.zivi = V.zivi.filter(id => !V.teraz.includes(id)); V.vypadli.push(...V.teraz);
+  prejdi('vydrz-odhal', 6);
+}
+function vydrzKoniec() {
+  const V = G.vydrz; G.zisk = {};
+  if (V.zivi.length === 1) pripis(V.zivi[0], 200); else V.zivi.forEach(id => pripis(id, 100));
+  prejdi('vydrz-koniec', 8); konfety();
+}
+
+/* ----- 📝 Meno, mesto, zviera, vec ----- */
+function mmzvDalsie() {
+  const M = G.mmzv; M.i++;
+  if (M.i >= MMZV_PISMEN) return skore();
+  let p; do { p = nahodne(MMZV_PISMENA); } while (M.pouzite.includes(p) && M.pouzite.length < MMZV_PISMENA.length);
+  M.pouzite.push(p); M.pismeno = p; M.odp = {}; M.hotovi = {}; G.zisk = {};
+  prejdi('mmzv-pis', 90);
+}
+function mmzvVyhodnot() {
+  const M = G.mmzv, P = bezDiakritiky(M.pismeno); G.zisk = {}; M.body = {};
+  const platne = (t) => { const n = bezDiakritiky(t || ''); return n.replace(/ /g, '').length >= 2 && n[0] === P ? n : ''; };
+  MMZV_KAT.forEach(([k]) => {
+    const vsetky = Object.keys(M.odp).map(id => platne(M.odp[id][k])).filter(Boolean);
+    Object.keys(M.odp).forEach(id => {
+      const n = platne(M.odp[id][k]);
+      const b = !n ? 0 : vsetky.filter(x => x === n).length > 1 ? 50 : 100;   // rovnaká odpoveď ako niekto iný = polovica
+      (M.body[id] = M.body[id] || {})[k] = b; pripis(id, b);
+    });
+  });
+  prejdi('mmzv-vys', 14);
 }
 
 /* ----- ⚡ Bleskový reflex: čas sa meria priamo v mobile, takže pomalší internet nikoho neznevýhodní ----- */
@@ -810,6 +999,11 @@ function koniecFazy() {
     case 'kresli': kresliOdhal(); break;
     case 'kzn-hlas': kznOdhal(); break;
     case 'reflex': reflexVysledok(); break;
+    case 'vydrz-otazka': vydrzOdhal(); break;
+    case 'vydrz-odhal': vydrzDalsia(); break;
+    case 'vydrz-koniec': skore(); break;
+    case 'mmzv-pis': mmzvVyhodnot(); break;
+    case 'mmzv-vys': mmzvDalsie(); break;
     case 'reflex-vysledok': reflexDalsi(); break;
     case 'pamat-pozri': prejdi('pamat-otazka', 12); break;
     case 'pamat-otazka': pamatOdhal(); break;
@@ -838,6 +1032,8 @@ function vsetciHotovi() {
     case 'odhad-tip': return akt.every(id => G.odhad.tipy[id] != null);
     case 'kzn-hlas': return akt.every(id => G.kzn.hlasy[id]);
     case 'reflex': return akt.every(id => G.reflex.casy[id] != null || G.reflex.skoro[id]);
+    case 'vydrz-otazka': { const z = G.vydrz.zivi.filter(online); return z.length > 0 && z.every(id => G.vydrz.odp[id] != null); }
+    case 'mmzv-pis': return akt.every(id => G.mmzv.hotovi[id]);
     case 'pamat-otazka': return akt.every(id => G.pamat.odpovede[id]);
     case 'klam-pis': return akt.every(id => G.klam.odpovede[id] != null);
     case 'klam-hlas': return akt.every(id => G.klam.hlasy[id] || G.klam.odpovede[id] == null);
@@ -874,6 +1070,16 @@ function spracuj(v) {
     G.kto.hlasy[id] = d.za; zmena();
   } else if (G.faza === 'kresli-vyber' && d.k === 'slovo') {
     if (id === G.kresli.akt.kreslic) vyberSlovo(+d.u);
+  } else if (G.faza === 'vydrz-otazka' && d.k === 'vydrz') {
+    const V = G.vydrz; if (!V.zivi.includes(id) || ![0, 1, 2].includes(+d.v)) return;
+    if (V.odp[id] == null) zahraj('hlas');
+    V.odp[id] = +d.v; zmena();
+  } else if (G.faza === 'mmzv-pis' && d.k === 'mmzv') {
+    const M = G.mmzv, o = {};
+    MMZV_KAT.forEach(([k]) => { o[k] = String((d.v || {})[k] || '').trim().slice(0, 30); });
+    M.odp[id] = o;
+    if (d.hotovo && !M.hotovi[id]) { M.hotovi[id] = true; zahraj('hlas'); }
+    zmena();
   } else if (G.faza === 'reflex' && d.k === 'reflex') {
     const R = G.reflex; if (R.casy[id] != null || R.skoro[id]) return;
     const ms = Math.round(+d.ms);
@@ -961,6 +1167,17 @@ function verejne() {
     v.tazkost = A.tazkost;
     if (G.faza === 'kresli-odhal') v.slovo = hlavne(A.slovo);
   }
+  if (/^vydrz-/.test(G.faza)) {
+    const V = G.vydrz;
+    Object.assign(v, {zivi: V.zivi, vypadli: V.vypadli});
+    if (G.faza !== 'vydrz-koniec') Object.assign(v, {otazka: V.q.text, moznosti: V.q.moznosti, odpovedali: Object.keys(V.odp), poradove: V.i + 1, spolu: Math.min(VYDRZ_MAX, V.otazky.length)});
+    if (G.faza === 'vydrz-odhal') Object.assign(v, {spravna: V.q.spravna, teraz: V.teraz, vsetciZle: V.vsetciZle});
+  }
+  if (/^mmzv-/.test(G.faza)) {
+    const M = G.mmzv;
+    Object.assign(v, {pismeno: M.pismeno, hotovi: Object.keys(M.hotovi), poradove: M.i + 1, spolu: MMZV_PISMEN});
+    if (G.faza === 'mmzv-vys') Object.assign(v, {odp: M.odp, bodyKat: M.body});
+  }
   if (G.faza === 'reflex' || G.faza === 'reflex-vysledok') {
     const R = G.reflex;
     Object.assign(v, {deadline: 0, za: R.za, poradove: R.i + 1, spolu: REFLEX_POKUSOV, hotovi: [...Object.keys(R.casy), ...Object.keys(R.skoro)]});
@@ -1012,6 +1229,8 @@ function pre(id) {
   if (G.faza === 'kzn-hlas' || G.faza === 'kzn-odhal') p.hlas = G.kzn.hlasy[id] || '';
   if (G.faza === 'reflex' || G.faza === 'reflex-vysledok') { const R = G.reflex; p.cas = R.casy[id] == null ? null : R.casy[id]; p.skoro = !!R.skoro[id]; }
   if (/^pamat-/.test(G.faza)) p.odp = G.pamat.odpovede[id] || '';
+  if (/^vydrz-/.test(G.faza)) { const V = G.vydrz; p.odp = V.odp ? (V.odp[id] == null ? null : V.odp[id]) : null; p.zivy = V.zivi.includes(id) || (V.teraz || []).includes(id) && G.faza === 'vydrz-otazka'; p.vypadol = V.vypadli.includes(id); }
+  if (/^mmzv-/.test(G.faza)) { p.moje = G.mmzv.odp[id] || null; p.hotovo = !!G.mmzv.hotovi[id]; }
   if (G.faza === 'zemiak') p.drzim = G.zemiak.drzi === id;
   if (/^klam-/.test(G.faza)) {
     const L = G.klam;
@@ -1076,6 +1295,8 @@ function stavHraca() {
   if (G.faza === 'kresli') return id => G.kresli.akt.uhadli.includes(id) ? 'done' : id === G.kresli.akt.kreslic ? 'me' : '';
   if (G.faza === 'kzn-hlas') return id => G.kzn.hlasy[id] ? 'done' : '';
   if (G.faza === 'reflex') return id => G.reflex.casy[id] != null ? 'done' : G.reflex.skoro[id] ? 'bad' : '';
+  if (/^vydrz-/.test(G.faza)) return id => G.vydrz.vypadli.includes(id) ? 'out' : G.faza === 'vydrz-otazka' && G.vydrz.odp[id] != null ? 'done' : '';
+  if (G.faza === 'mmzv-pis') return id => G.mmzv.hotovi[id] ? 'done' : '';
   if (G.faza === 'pamat-otazka') return id => G.pamat.odpovede[id] ? 'done' : '';
   if (G.faza === 'zemiak') return id => G.zemiak.drzi === id ? 'me' : '';
   if (G.faza === 'klam-pis') return id => G.klam.odpovede[id] != null ? 'done' : '';
@@ -1101,7 +1322,7 @@ function vLobby() {
         ${serverOk ? '' : '<p class="lead" style="color:var(--bad)">Server nebeží – spusti start.bat alebo online.bat.</p>'}
       </section>
       <section class="panel"><h3>🎲 Kolá v hre</h3>
-        <div class="modes dva">${mode('kto', 'počet kôl · v každom jedna otázka pre všetkých (od 3 hráčov)')}${mode('kresli', `počet kôl · v každom ${n.kresieb} ${n.kresieb === 1 ? 'kresba' : n.kresieb < 5 ? 'kresby' : 'kresieb'}`)}${mode('odhad', `počet kôl · v každom ${n.otazok} ${n.otazok === 1 ? 'otázka' : n.otazok < 5 ? 'otázky' : 'otázok'}`)}${mode('kzn', `počet kôl · v každom ${n.kznOtazok} ${n.kznOtazok < 5 ? 'otázky' : 'otázok'} (od 3 hráčov)`)}${mode('klamar', 'počet kôl · v každom jedna otázka a jeden klamár (od 3 hráčov)')}${mode('reflex', '5 pokusov')}${mode('pamat', '3 obrázky')}${mode('zemiak', '3 bomby')}</div>
+        <div class="modes dva">${mode('kto', 'počet kôl · v každom jedna otázka pre všetkých (od 3 hráčov)')}${mode('kresli', `počet kôl · v každom ${n.kresieb} ${n.kresieb === 1 ? 'kresba' : n.kresieb < 5 ? 'kresby' : 'kresieb'}`)}${mode('odhad', `počet kôl · v každom ${n.otazok} ${n.otazok === 1 ? 'otázka' : n.otazok < 5 ? 'otázky' : 'otázok'}`)}${mode('kzn', `počet kôl · v každom ${n.kznOtazok} ${n.kznOtazok < 5 ? 'otázky' : 'otázok'} (od 3 hráčov)`)}${mode('klamar', 'počet kôl · v každom jedna otázka a jeden klamár (od 3 hráčov)')}${mode('reflex', '5 pokusov')}${mode('pamat', '3 obrázky')}${mode('zemiak', '3 bomby')}${mode('mmzv', '2 písmená')}${mode('vydrz', 'vyraďovačka')}</div>
         <div class="mini">${[['kresieb', '🖌️ Kresieb'], ['otazok', '🔢 Odhadov'], ['kznOtazok', '🗳️ Kto z nás']].map(([k, l]) => `<div class="mode"><b style="color:#fff">${l}</b><div class="n"><button data-act="nast" data-k="${k}" data-d="-1">−</button>${n[k]}<button data-act="nast" data-k="${k}" data-d="1">+</button></div></div>`).join('')}</div>
         <p class="lead" style="margin-top:1.4vmin;font-size:clamp(13px,1.2vw,19px)">Spolu ${planKol(n).length} kôl. Kolá sa striedajú a hra beží sama – netreba moderátora.</p>
       </section>
@@ -1148,6 +1369,37 @@ function vKresli(odhal) {
     </aside>
     <div class="board"><canvas id="platno" width="900" height="1200"></canvas></div>
     <aside class="side"><div class="feed" id="feed"></div>${ovladanie()}</aside></div>`;
+}
+function vVydrz() {
+  const V = G.vydrz, f = G.faza;
+  if (f === 'vydrz-koniec') {
+    const z = V.zivi;
+    return `<div class="main" style="--tc:#3DDC84;gap:2vmin"><span class="eyebrow">🏁 Kto vydrží · koniec</span>
+      ${z.length === 1 ? `<div style="--pc:${farba(z[0])}">${avBig(z[0], 'clamp(100px,18vmin,230px)')}</div><h2 class="big">🏆 ${esc(meno(z[0]))} vydržal(a)! +200</h2>`
+        : z.length ? `<div style="display:flex;gap:3vmin;justify-content:center;flex-wrap:wrap">${z.map(id => `<div style="--pc:${farba(id)};display:flex;flex-direction:column;align-items:center;gap:1vmin">${avBig(id, 'clamp(80px,13vmin,170px)')}<b class="author" style="font-size:clamp(20px,3vw,48px)">${esc(meno(id))}</b></div>`).join('')}</div><h2 class="big">Vydržali až do konca! +100</h2>`
+        : '<h2 class="big">Nikto nevydržal 😅</h2>'}</div>`;
+  }
+  const opts = V.q.moznosti.map((m, k) => {
+    const cls = f === 'vydrz-odhal' ? (k === V.q.spravna ? 'right' : 'wrong') : '';
+    return `<div class="vopt ${cls}"><i>${'ABC'[k]}</i><span>${esc(m)}</span></div>`;
+  }).join('');
+  let spodok = `<p class="lead">V hre ${V.zivi.length === 1 ? 'ostáva' : V.zivi.length < 5 ? 'ostávajú' : 'ostáva'} <b>${V.zivi.length}</b> ${V.zivi.length === 1 ? 'hráč' : V.zivi.length < 5 ? 'hráči' : 'hráčov'}. Odpovedaj v mobile!</p>`;
+  if (f === 'vydrz-odhal') spodok = V.vsetciZle ? '<p class="lead">😅 Všetci sa pomýlili – nikto nevypadáva!</p>'
+    : V.teraz.length ? `<p class="lead">❌ Vypadáva: ${V.teraz.map(id => `<b style="color:${farba(id)}">${esc(meno(id))}</b>`).join(', ')} · ostáva ${V.zivi.length}</p>` : '<p class="lead">✅ Všetci odpovedali správne!</p>';
+  return `<div class="main" style="--tc:#3DDC84;gap:1.8vmin"><span class="eyebrow">Otázka ${V.i + 1} · ${['', 'ľahká', 'stredná', 'ťažká'][V.otazky[V.i][2]]}</span>
+    <h2 class="q">${esc(V.q.text)}</h2><div class="vopts">${opts}</div>${spodok}</div>`;
+}
+function vMmzv() {
+  const M = G.mmzv;
+  if (G.faza === 'mmzv-pis') return `<div class="main" style="--tc:#A5B4FC"><span class="eyebrow">Písmeno ${M.i + 1} z ${MMZV_PISMEN} · píšte do mobilu</span>
+    <div class="pism" style="width:1.3em;height:1.3em;font-size:clamp(90px,20vmin,240px);background:#A5B4FC;border-radius:30px;margin:0">${esc(M.pismeno)}</div>
+    <h2 class="q">Meno · Mesto · Zviera · Vec</h2><p class="lead">Vlastná odpoveď 100 bodov, rovnaká ako má niekto iný 50, nič 0.</p></div>`;
+  const ids = G.hraci.filter(id => M.odp[id]);
+  return `<div class="main" style="--tc:#A5B4FC;gap:1.4vmin"><span class="eyebrow">Písmeno ${esc(M.pismeno)} · výsledky</span>
+    <table class="mtab"><tr><th></th>${MMZV_KAT.map(([, n]) => `<th>${n}</th>`).join('')}<th>Body</th></tr>
+    ${ids.map(id => `<tr><td style="color:${farba(id)}"><b>${esc(meno(id))}</b></td>${MMZV_KAT.map(([k]) => { const b = (M.body[id] || {})[k] || 0;
+      return `<td class="b${b}">${esc(M.odp[id][k] || '–')}<small>${b ? (b === 50 ? ' ½' : '') : ''}</small></td>`; }).join('')}<td class="sum">+${G.zisk[id] || 0}</td></tr>`).join('')}</table>
+    ${ids.length ? '' : '<p class="lead">Nikto nič nenapísal.</p>'}<p class="lead" style="font-size:clamp(12px,1.1vw,18px)">Zelená = vlastná odpoveď (100), žltá = rovnakú má viac hráčov (50), prečiarknutá = neplatí (0).</p></div>`;
 }
 function vReflex(vys) {
   const R = G.reflex;
@@ -1262,6 +1514,8 @@ function render() {
       case 'kresli-vyber': body = vKresliVyber(); break;
       case 'kzn-hlas': body = vKzn(false); break;
       case 'reflex': body = vReflex(false); break;
+      case 'vydrz-otazka': case 'vydrz-odhal': case 'vydrz-koniec': body = vVydrz(); break;
+      case 'mmzv-pis': case 'mmzv-vys': body = vMmzv(); break;
       case 'reflex-vysledok': body = vReflex(true); break;
       case 'pamat-pozri': case 'pamat-otazka': case 'pamat-odhal': body = vPamat(); break;
       case 'zemiak': body = vZemiak(false); break;
@@ -1369,7 +1623,7 @@ document.addEventListener('click', e => {
   ac();
   const a = b.dataset.act;
   if (a === 'start') zacniHru();
-  else if (a === 'nast') { const n = nast(), k = b.dataset.k, lim = {kto: [0, 4], kresli: [0, 4], odhad: [0, 4], kzn: [0, 4], klamar: [0, 4], reflex: [0, 4], pamat: [0, 4], zemiak: [0, 4], kresieb: [1, 8], otazok: [2, 8], kznOtazok: [2, 8]}[k]; n[k] = Math.max(lim[0], Math.min(lim[1], n[k] + (+b.dataset.d))); ulozNast(n); render(); }
+  else if (a === 'nast') { const n = nast(), k = b.dataset.k, lim = {kto: [0, 4], kresli: [0, 4], odhad: [0, 4], kzn: [0, 4], klamar: [0, 4], reflex: [0, 4], pamat: [0, 4], zemiak: [0, 4], vydrz: [0, 4], mmzv: [0, 4], kresieb: [1, 8], otazok: [2, 8], kznOtazok: [2, 8]}[k]; n[k] = Math.max(lim[0], Math.min(lim[1], n[k] + (+b.dataset.d))); ulozNast(n); render(); }
   else if (a === 'vyhod') api('vyhod?id=' + encodeURIComponent(b.dataset.id), {}).then(nacitajHracov).catch(() => {});
   else if (a === 'odpoj') { if (confirm('Naozaj odpojiť všetky mobily? Hráči sa budú musieť pripojiť znova.')) api('reset', {}).then(nacitajHracov).catch(() => {}); }
   else if (a === 'zvuk') { zvuk = !zvuk; try { localStorage.setItem(ZVUK_KEY, zvuk ? '1' : '0'); } catch (e) {} lastKey = ''; render(); }
@@ -1451,6 +1705,12 @@ function botiHraju() {
     else if (G.faza === 'reflex') {
       if (!P.reakcia) { P.reakcia = 220 + Math.round(Math.random() * 280); P.at = G.reflex.start + G.reflex.za + P.reakcia; continue; }
       P.hotovo = true; posli(Math.random() < .08 ? {k: 'reflex', skoro: true} : {k: 'reflex', ms: P.reakcia});
+    }
+    else if (G.faza === 'vydrz-otazka') { P.hotovo = true; if (G.vydrz.zivi.includes(id)) posli({k: 'vydrz', v: Math.random() < .75 ? G.vydrz.q.spravna : Math.floor(Math.random() * 3)}); }
+    else if (G.faza === 'mmzv-pis') {
+      P.hotovo = true; const pis = bezDiakritiky(G.mmzv.pismeno), v = {};
+      MMZV_KAT.forEach(([k]) => { const z = MMZV_BOT[k].filter(w => bezDiakritiky(w)[0] === pis); v[k] = z.length && Math.random() < .8 ? nahodne(z) : ''; });
+      posli({k: 'mmzv', v, hotovo: true});
     }
     else if (G.faza === 'pamat-otazka') { P.hotovo = true; posli({k: 'pamat', v: Math.random() < .6 ? G.pamat.q.odp : nahodne(G.pamat.q.moznosti)}); }
     else if (G.faza === 'zemiak') {
