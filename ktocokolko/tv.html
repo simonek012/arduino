@@ -1214,8 +1214,8 @@ function spracuj(v) {
   } else if (G.faza === 'celo-hra' && (d.k === 'celoNie' || d.k === 'celoUhadol') && G.pauza == null) {
     // n = poradové číslo ťahu – dvojité ťuknutie alebo starý klik nič nepreskočí
     const C = G.celo; if (+d.n !== C.n || !C.tah) return;
-    // kapitán posúva za iných – ale nie hneď po predošlom kroku (dvojité ťuknutie by preskočilo ďalšieho hráča)
-    if (d.k === 'celoNie' && (id === C.tah || id === kapitan() && Date.now() - (C.cas || 0) > 1500)) celoNie();
+    // „nie“ môže ťuknúť ktokoľvek – ale nie hneď po predošlom kroku (dvojité ťuknutie by preskočilo ďalšieho hráča)
+    if (d.k === 'celoNie' && (id === C.tah || G.hraci.includes(id) && Date.now() - (C.cas || 0) > 1500)) celoNie();
     if (d.k === 'celoUhadol' && id === C.tah) celoUhadol();
   } else if ((G.faza === 'celo-hra' || G.faza === 'celo-uhadol') && d.k === 'celoSpat' && id === kapitan()) {
     celoSpat();

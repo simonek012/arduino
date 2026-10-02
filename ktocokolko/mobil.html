@@ -260,12 +260,13 @@ function postav(h, j) {
       if (h.faza === 'celo-uhadol' && h.posledny) hore = `<div class="center"><div class="icon">🎉</div><h2><span style="color:${farba(h.posledny.id)}">${h.posledny.id === me.id ? 'Uhádol si' : esc(meno(h.posledny.id)) + ' uhádol(a)'}</span>!</h2>
         <div class="big" style="color:#FFC93C">${esc(odh[h.posledny.id] || '')}</div><div class="res ok">+${h.posledny.b}</div></div>`;
       else if (h.faza === 'celo-koniec') hore = '<div class="center"><div class="icon">🏁</div><h2>Všetci uhádli!</h2></div>';
-      else if (u.includes(me.id)) hore = `<div class="center"><div class="res ok">✓ Uhádol si – bol si:</div><div class="big" style="color:#FFC93C">${esc(odh[me.id] || '')}</div><p class="muted">Pomáhaj ostatným odpovedať áno / nie.</p></div>`;
+      else if (u.includes(me.id)) hore = `<div class="center"><div class="res ok">✓ Uhádol si – bol si:</div><div class="big" style="color:#FFC93C">${esc(odh[me.id] || '')}</div><p class="muted">Pomáhaj ostatným odpovedať áno / nie.</p>
+        ${h.tah ? `<p class="eye" style="margin:10px 0 0">Na rade je</p><div class="big" style="color:${farba(h.tah)};font-size:28px">🎤 ${esc(meno(h.tah))}</div><button class="ghost" type="button" id="celoNie" style="border-color:var(--bad)">❌ Povedali sme NIE – ďalší</button>` : ''}</div>`;
       else if (naRade) hore = `<div class="center"><div class="big" style="color:#FFC93C">🎤 Si na rade!</div><p class="muted" style="margin-top:4px">Pýtaj sa otázky áno / nie. Keď zaznie NIE, ide ďalší.</p>
         <button class="go" type="button" id="celoUh" style="font-size:22px;padding:18px">🎉 Uhádol som!</button>
         <button class="ghost" type="button" id="celoNie" style="border-color:var(--bad)">❌ Odpoveď bola NIE – ďalší</button></div>`;
       else hore = `<div class="center"><p class="eye" style="margin:0">Na rade je</p><div class="big" style="color:${farba(h.tah)}">🎤 ${esc(meno(h.tah))}</div><p class="muted">Odpovedajte mu nahlas áno / nie.</p>
-        ${kap && h.faza === 'celo-hra' ? '<button class="ghost" type="button" id="celoNie" style="border-color:var(--bad)">❌ Povedali sme NIE – ďalší</button>' : ''}</div>`;
+        ${h.faza === 'celo-hra' ? '<button class="ghost" type="button" id="celoNie" style="border-color:var(--bad)">❌ Povedali sme NIE – ďalší</button>' : ''}</div>`;
       const riadky = (h.poradie || []).map(id => {
         const ja2 = id === me.id, poz = u.indexOf(id), co = h.faza === 'celo-koniec' || poz >= 0 ? odh[id] : ja2 ? null : ost[id];
         return `<div class="cr${id === h.tah && h.faza === 'celo-hra' ? ' tah' : ''}" style="--pc:${farba(id)}">${kart(id)}<span class="cm">${esc(meno(id))}${ja2 ? ' (ty)' : ''}</span>
