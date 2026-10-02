@@ -87,7 +87,9 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&am
 const PCOL = ['#FF4D8D', '#22C3A6', '#FFB020', '#8B6CFF', '#4FC3F7', '#FF7A45', '#B5E61D', '#F06EF0', '#FFD93D', '#5EEAD4', '#F87171', '#A5B4FC'];
 const TC = {kto: 'var(--kto)', kresli: 'var(--co)', odhad: 'var(--kolko)'};
 let me = null, S = null, lastKey = '', failCount = 0, edit = {};
-try { me = JSON.parse(localStorage.getItem('kck-mobil')); } catch (e) {}
+// na skúšku na jednom počítači: /m?hrac=2, /m?hrac=3… sú samostatní hráči
+const SLOT = new URLSearchParams(location.search).get('hrac'), ME_KEY = 'kck-mobil' + (SLOT ? '-' + SLOT : '');
+try { me = JSON.parse(localStorage.getItem(ME_KEY)); } catch (e) {}
 
 function api(path, body) {
   const ctl = window.AbortController ? new AbortController() : null;
@@ -96,7 +98,7 @@ function api(path, body) {
     .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
     .finally(() => { if (tm) clearTimeout(tm); });
 }
-const saveMe = () => { try { localStorage.setItem('kck-mobil', JSON.stringify(me)); } catch (e) {} };
+const saveMe = () => { try { localStorage.setItem(ME_KEY, JSON.stringify(me)); } catch (e) {} };
 const hra = () => (S && S.hra) || {faza: 'lobby'};
 const ja = () => (S && S.ja) || {};
 const meno = id => { const p = S && S.hraci.find(x => x.id === id); return p ? p.name : '?'; };

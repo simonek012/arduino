@@ -335,7 +335,7 @@ const meno = id => { const h = hraci.find(p => p.id === id); return h ? h.name :
 const farba = id => PCOL[((G && G.hraci ? G.hraci.indexOf(id) : hraci.findIndex(p => p.id === id)) + PCOL.length) % PCOL.length];
 const online = id => { const h = hraci.find(p => p.id === id); return !!(h && h.online); };
 const aktivni = () => (G ? G.hraci : hraci.map(p => p.id)).filter(online);
-const kapitan = () => (G ? G.hraci : hraci.map(p => p.id)).find(online) || null;
+const kapitan = () => (G ? G.hraci : hraci.map(p => p.id)).find(id => online(id) && !jeBot(id)) || null;   // robot hru nespúšťa
 
 /* ---------- zvuky (vyrábajú sa priamo v prehliadači) ---------- */
 let AC = null;
@@ -718,8 +718,10 @@ function vLobby() {
         <div class="join"><div class="qr" id="qr">${url ? '' : '…'}</div><div><p class="lead" style="margin-bottom:1vmin">Naskenuj QR kód alebo otvor v mobile:</p><div class="url">${esc(url || 'čakám na server…')}</div>
         ${publicUrl ? '<p class="lead" style="margin-top:1vmin;font-size:clamp(13px,1.2vw,18px)">🌍 Hra beží cez internet – odkaz môžeš poslať kamarátom kamkoľvek.</p>' : ''}</div></div>
         <h3 style="margin-top:2.4vmin">Hráči (${hraci.length})</h3>
-        <div class="players" style="justify-content:flex-start">${hraci.length ? hraci.map((p, i) => `<div class="pl${p.online ? '' : ' off'}" style="--pc:${PCOL[i % PCOL.length]}"><span class="dot">${i === hraci.findIndex(x => x.online) ? '👑' : ''}</span>${esc(p.name)}<button data-act="vyhod" data-id="${p.id}" title="Odstrániť">✕</button></div>`).join('') : '<p class="lead">Zatiaľ nikto. Hráči sa pripájajú cez mobil.</p>'}</div>
+        <div class="players" style="justify-content:flex-start">${hraci.length ? hraci.map((p, i) => `<div class="pl${p.online ? '' : ' off'}" style="--pc:${PCOL[i % PCOL.length]}"><span class="dot">${p.id === kapitan() ? '👑' : ''}</span>${esc(p.name)}<button data-act="vyhod" data-id="${p.id}" title="Odstrániť">✕</button></div>`).join('') : '<p class="lead">Zatiaľ nikto. Hráči sa pripájajú cez mobil.</p>'}</div>
         ${hraci.length ? '<p class="lead" style="margin-top:1vmin;font-size:clamp(12px,1.1vw,17px)">👑 Prvý hráč môže hru spustiť aj zo svojho mobilu.</p>' : ''}
+        <div style="display:flex;gap:1vmin;flex-wrap:wrap;margin-top:1.4vmin"><button class="btn ghost" data-act="bot" style="font-size:clamp(13px,1.2vw,18px);padding:.6em 1em">🤖 Pridať skúšobného hráča</button>${boti.length ? `<button class="btn ghost" data-act="botiPreč" style="font-size:clamp(13px,1.2vw,18px);padding:.6em 1em">Odstrániť robotov (${boti.length})</button>` : ''}</div>
+        <p class="lead" style="margin-top:.8vmin;font-size:clamp(11px,1vw,15px)">Na skúšku osamote: pridaj robotov – sami odpovedajú, hlasujú, tipujú aj čarbú. Ďalších „hráčov“ si otvoríš aj v kartách prehliadača: ${esc((lanUrl || 'http://localhost:8082/m').replace(/\/m$/, ''))}/m?hrac=2, ?hrac=3…</p>
         ${serverOk ? '' : '<p class="lead" style="color:var(--bad)">Server nebeží – spusti start.bat alebo online.bat.</p>'}
       </section>
       <section class="panel"><h3>🎲 Kolá v hre</h3>
@@ -880,6 +882,8 @@ document.addEventListener('click', e => {
   else if (a === 'odpoj') { if (confirm('Naozaj odpojiť všetky mobily? Hráči sa budú musieť pripojiť znova.')) api('reset', {}).then(nacitajHracov).catch(() => {}); }
   else if (a === 'zvuk') { zvuk = !zvuk; try { localStorage.setItem(ZVUK_KEY, zvuk ? '1' : '0'); } catch (e) {} lastKey = ''; render(); }
   else if (a === 'pokracuj') pokracuj();
+  else if (a === 'bot') pridajBota();
+  else if (a === 'botiPreč') odstranBotov();
   else if (a === 'pauza') pauza();
   else if (a === 'dalej') { if (G && G.faza !== 'koniec') { if (G.pauza != null) pauza(); koniecFazy(); } }
   else if (a === 'koniec') { if (G && confirm('Ukončiť hru a vyhlásiť výsledky?')) { G.k = G.plan.length; prejdi('koniec', 0); konfety(); } }
@@ -906,6 +910,63 @@ function pokracuj() {
   zmena(true);
   toast('Hra pokračuje – spusti ju medzerníkom');
 }
+
+/* ---------- skúšobní hráči (roboti) – na vyskúšanie hry osamote ---------- */
+const BOT_KEY = 'kck-roboti';
+let boti = []; try { boti = JSON.parse(localStorage.getItem(BOT_KEY)) || []; } catch (e) {}
+function jeBot(id) { return boti.includes(id); }
+const BOT_MENA = ['🤖 Robo', '🤖 Čipko', '🤖 Pixel', '🤖 Šróbik', '🤖 Bitka', '🤖 Kábel'];
+const BOT_ODPOVEDE = ['Kopu ponožiek', 'Asi by som zaspal', 'Pizzu so šunkou', 'Neviem, som len robot', 'Nabíjačku na mobil', 'Lietajúci koberec', 'Tri kilá čokolády',
+  'Mačku menom Fero', 'Gitaru a stan', 'Babkin recept na buchty', 'Toho by som sa bál', 'Určite by som sa smial', 'Na Orave, kde inde', 'Zjedol by som to'];
+const botPlan = {};
+function ulozBotov() { try { localStorage.setItem(BOT_KEY, JSON.stringify(boti)); } catch (e) {} }
+async function pridajBota() {
+  const mena = hraci.map(p => p.name), meno = BOT_MENA.find(m => !mena.includes(m)) || '🤖 Robo ' + (boti.length + 1);
+  try { const r = await api('join', {name: meno}); if (r.id) { boti.push(r.id); ulozBotov(); await nacitajHracov(); lastKey = ''; render(); } }
+  catch (e) { toast('Server nebeží'); }
+}
+async function odstranBotov() {
+  for (const id of boti) { try { await api('vyhod?id=' + encodeURIComponent(id), {}); } catch (e) {} }
+  boti = []; ulozBotov(); await nacitajHracov(); lastKey = ''; render();
+}
+function botiZiju() {   // roboti sa ozývajú serveru, aby boli „online“
+  boti.forEach(id => api('state?id=' + encodeURIComponent(id)).then(r => {
+    if (r.known === false) { boti = boti.filter(x => x !== id); ulozBotov(); }
+  }).catch(() => {}));
+}
+function nahodnyTah(n) {
+  const sid = 1000 + n, c = ['#111111', '#E53935', '#1E88E5', '#43A047', '#FB8C00'][n % 5];
+  let x = 150 + Math.random() * 700, y = 120 + Math.random() * 500;
+  const ops = [['s', sid, c, 8, Math.round(x), Math.round(y)]], p = ['p', sid];
+  for (let i = 0; i < 14; i++) { x = Math.max(20, Math.min(980, x + (Math.random() - .5) * 140)); y = Math.max(20, Math.min(730, y + (Math.random() - .5) * 140)); p.push(Math.round(x), Math.round(y)); }
+  ops.push(p); return ops;
+}
+const nahodne = a => a[Math.floor(Math.random() * a.length)];
+function botiHraju() {
+  if (!G || G.pauza != null || !boti.length) return;
+  const now = Date.now();
+  for (const id of boti) {
+    if (!G.hraci.includes(id) || !online(id)) continue;
+    let P = botPlan[id];
+    if (!P || P.krok !== G.krok) P = botPlan[id] = {krok: G.krok, at: now + 2000 + Math.random() * 7000, hotovo: false, tahy: 0};
+    if (now < P.at || P.hotovo) continue;
+    const posli = d => api('vstup?id=' + encodeURIComponent(id), Object.assign({f: G.krok}, d)).catch(() => {});
+    if (G.faza === 'kto-pis') { P.hotovo = true; posli({k: 'kto', t: nahodne(BOT_ODPOVEDE)}); }
+    else if (G.faza === 'kto-hadaj') { const K = G.kto; P.hotovo = true; if (K.poradie[K.i] !== id) posli({k: 'hlas', za: nahodne(K.poradie.filter(x => x !== id))}); }
+    else if (G.faza === 'kresli') {
+      const A = G.kresli.akt;
+      if (A.kreslic === id) { if (P.tahy < 14) { P.tahy++; P.at = now + 1400; posli({k: 'kresba', ops: nahodnyTah(P.tahy)}); } }
+      else if (!A.uhadli.includes(id)) { P.at = now + 6000 + Math.random() * 9000; posli({k: 'tip', t: Math.random() < .3 ? hlavne(A.slovo) : hlavne(nahodne(SLOVA))}); }
+    }
+    else if (G.faza === 'odhad-tip') {
+      P.hotovo = true;
+      const q = G.odhad.otazky[G.odhad.i][1], v = q * (0.5 + Math.random());
+      posli({k: 'odhad', v: Number.isInteger(q) ? Math.round(v) : Math.round(v * 100) / 100});
+    }
+  }
+}
+tikac(2000, botiZiju);
+tikac(500, botiHraju);
 
 /* ---------- slučky ---------- */
 function nacitajHracov() {
