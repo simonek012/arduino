@@ -87,6 +87,8 @@ body.kreslim .tbtn{padding:10px 12px;font-size:15px}
 .pismeno{font:900 92px/1 system-ui;color:var(--tc);text-shadow:0 0 30px rgba(165,180,252,.4);margin:2px 0 8px}
 .mm{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}.mm label{display:flex;flex-direction:column;font-weight:800;font-size:14px;color:var(--muted);gap:4px;text-align:left}.mm input{font-size:20px}
 .mtab{width:100%;border-collapse:collapse;margin:8px 0;font-size:18px;text-align:left}.mtab td{padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.08)}.mtab td:last-child{text-align:right;font-weight:900}
+.clist{display:flex;flex-direction:column;gap:6px}.cr{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,.2);border:2px solid transparent}
+.cr.tah{border-color:var(--pc)}.cr .cm{color:var(--pc);font-weight:800;font-size:14px;flex:0 0 32%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cr b{flex:1;font-size:18px;overflow-wrap:anywhere}.cr small{color:var(--muted);font-weight:800}
 .mk{border-left:4px solid var(--pc);background:rgba(0,0,0,.18);border-radius:12px;padding:8px 10px;margin:8px 0}.mk>b{color:var(--pc)}
 .mr{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid rgba(255,255,255,.07);font-weight:700}.mr>span:first-child{flex:1;overflow-wrap:anywhere}.mr small{color:var(--muted);font-size:12px}
 .seg{display:flex;gap:4px;flex:0 0 auto}.seg button{width:44px;height:40px;margin:0;padding:0;border-radius:10px;border:2px solid var(--line);background:var(--card);color:#fff;font:900 18px system-ui}
@@ -129,7 +131,7 @@ body.kreslim .tbtn{padding:10px 12px;font-size:15px}
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const PCOL = ['#FF4D8D', '#22C3A6', '#FFB020', '#8B6CFF', '#4FC3F7', '#FF7A45', '#B5E61D', '#F06EF0', '#FFD93D', '#5EEAD4', '#F87171', '#A5B4FC'];
-const TC = {kto: 'var(--kto)', kresli: 'var(--co)', odhad: 'var(--kolko)', kzn: '#9B7BFF', klamar: '#4FC3F7', reflex: '#FFD93D', pamat: '#F06EF0', zemiak: '#FF7A45', vydrz: '#3DDC84', mmzv: '#A5B4FC', panto: '#FF6EC7'};
+const TC = {kto: 'var(--kto)', kresli: 'var(--co)', odhad: 'var(--kolko)', kzn: '#9B7BFF', klamar: '#4FC3F7', reflex: '#FFD93D', pamat: '#F06EF0', zemiak: '#FF7A45', vydrz: '#3DDC84', mmzv: '#A5B4FC', panto: '#FF6EC7', celo: '#FFC93C'};
 let mmzvLok = {};   // rozpísané Meno/Mesto/Zviera/Vec – prežije aj prekreslenie obrazovky
 let me = null, S = null, lastKey = '', failCount = 0, edit = {};
 // na skúšku na jednom počítači: /m?hrac=2, /m?hrac=3… sú samostatní hráči
@@ -178,7 +180,7 @@ function screenKey() {
   const h = hra(), j = ja();
   // súkromné údaje môžu prísť o chvíľu neskôr ako nová fáza – obrazovku postavíme znova, keď dorazia
   if (avEdit) return 'avatar';
-  return [h.faza, h.krok, j.krok === h.krok, j.kreslim ? 'k' : '', j.moj ? 'm' : '', j.klamar ? 'K' : '', j.drzim ? 'Z' : '', j.zivy ? 'V' : '', j.herec ? 'H' : '', h.faza === 'lobby' ? (h.kapitan === me.id) : ''].join('|');
+  return [h.faza, h.krok, j.krok === h.krok, j.kreslim ? 'k' : '', j.moj ? 'm' : '', j.klamar ? 'K' : '', j.drzim ? 'Z' : '', j.zivy ? 'V' : '', j.herec ? 'H' : '', h.celoN, h.faza === 'lobby' ? (h.kapitan === me.id) : ''].join('|');
 }
 function render() {
   if (!S || !me || $('#game').hidden) return;
@@ -247,6 +249,31 @@ function postav(h, j) {
     case 'zemiak-bum':
       return `<div class="card center">${hlavicka(h)}<div class="icon">💥</div><div class="big">BUM!</div><p>Bomba vybuchla: <b style="color:${farba(h.drzi)}">${esc(meno(h.drzi))}</b></p>
         <div class="res ${j.zisk > 0 ? 'ok' : j.zisk < 0 ? 'bad' : ''}">${j.zisk ? (j.zisk > 0 ? '+' : '') + j.zisk : ''}</div></div>`;
+    case 'celo-zadaj':
+      if (!j.komu) return `<div class="card center">${hlavicka(h)}<div class="icon">🤪</div><h2>Ostatní vymýšľajú…</h2></div>`;
+      return `<div class="card">${hlavicka(h)}<p class="eye">🤫 Nikomu to neprezraď</p><h2>Kto alebo čo bude <span style="color:${farba(j.komu)}">${esc(meno(j.komu))}</span>?</h2>
+        <p class="muted" style="font-size:14px;margin-top:-4px">Známa osoba, postava z rozprávky či filmu, zviera alebo vec – niečo, čo ostatní poznajú.</p>
+        <div id="ktoBox"></div><button class="ghost" type="button" id="celoNah">🎲 Vymysli za mňa</button></div>`;
+    case 'celo-hra': case 'celo-uhadol': case 'celo-koniec': {
+      const u = h.uhadli || [], odh = h.odhalene || {}, ost = j.ostatni || {}, kap = h.kapitan === me.id, naRade = h.faza === 'celo-hra' && h.tah === me.id;
+      let hore = '';
+      if (h.faza === 'celo-uhadol' && h.posledny) hore = `<div class="center"><div class="icon">🎉</div><h2><span style="color:${farba(h.posledny.id)}">${h.posledny.id === me.id ? 'Uhádol si' : esc(meno(h.posledny.id)) + ' uhádol(a)'}</span>!</h2>
+        <div class="big" style="color:#FFC93C">${esc(odh[h.posledny.id] || '')}</div><div class="res ok">+${h.posledny.b}</div></div>`;
+      else if (h.faza === 'celo-koniec') hore = '<div class="center"><div class="icon">🏁</div><h2>Všetci uhádli!</h2></div>';
+      else if (u.includes(me.id)) hore = `<div class="center"><div class="res ok">✓ Uhádol si – bol si:</div><div class="big" style="color:#FFC93C">${esc(odh[me.id] || '')}</div><p class="muted">Pomáhaj ostatným odpovedať áno / nie.</p></div>`;
+      else if (naRade) hore = `<div class="center"><div class="big" style="color:#FFC93C">🎤 Si na rade!</div><p class="muted" style="margin-top:4px">Pýtaj sa otázky áno / nie. Keď zaznie NIE, ide ďalší.</p>
+        <button class="go" type="button" id="celoUh" style="font-size:22px;padding:18px">🎉 Uhádol som!</button>
+        <button class="ghost" type="button" id="celoNie" style="border-color:var(--bad)">❌ Odpoveď bola NIE – ďalší</button></div>`;
+      else hore = `<div class="center"><p class="eye" style="margin:0">Na rade je</p><div class="big" style="color:${farba(h.tah)}">🎤 ${esc(meno(h.tah))}</div><p class="muted">Odpovedajte mu nahlas áno / nie.</p>
+        ${kap && h.faza === 'celo-hra' ? '<button class="ghost" type="button" id="celoNie" style="border-color:var(--bad)">❌ Povedali sme NIE – ďalší</button>' : ''}</div>`;
+      const riadky = (h.poradie || []).map(id => {
+        const ja2 = id === me.id, poz = u.indexOf(id), co = h.faza === 'celo-koniec' || poz >= 0 ? odh[id] : ja2 ? null : ost[id];
+        return `<div class="cr${id === h.tah && h.faza === 'celo-hra' ? ' tah' : ''}" style="--pc:${farba(id)}">${kart(id)}<span class="cm">${esc(meno(id))}${ja2 ? ' (ty)' : ''}</span>
+          <b>${co == null ? '❓ hádaš ty' : esc(co)}</b><small>${poz >= 0 ? ['🥇', '🥈', '🥉'][poz] || '✓' : (h.nie || {})[id] ? '✗' + h.nie[id] : ''}</small></div>`;
+      }).join('');
+      return `<div class="card">${hlavicka(h)}${hore}<p class="eye" style="margin-top:14px">Kto je kto</p><div class="clist">${riadky}</div>
+        ${kap && h.spat && h.faza !== 'celo-koniec' ? '<button class="ghost" type="button" id="celoSpat">↩️ Vrátiť posledný krok (omyl)</button>' : ''}</div>`;
+    }
     case 'panto-vyber':
       if (j.herec && j.ponuka) return `<div class="card">${hlavicka(h)}<h2>🎭 Vyber si, čo budeš ukazovať</h2><div class="opts">${j.ponuka.map((w, u) => `<button type="button" class="opt" data-slovo="${u}">
           <span style="font-size:28px">${['😊', '🤔', '🔥'][u]}</span><span style="flex:1">${esc(w)}<br><small>${['ľahké · body ×1', 'stredné · body ×1,5', 'ťažké · body ×2'][u]}</small></span></button>`).join('')}</div>
@@ -385,6 +412,13 @@ function pripoj(h, j) {
   sc.querySelectorAll('[data-uhadol]').forEach(b => b.onclick = () => { sc.querySelectorAll('[data-uhadol]').forEach(x => { x.disabled = true; }); b.classList.add('on'); posli('panto', {a: 'uhadol', za: b.dataset.uhadol}).then(() => poll(true)).catch(e => { sc.querySelectorAll('[data-uhadol]').forEach(x => { x.disabled = false; }); chyba(); }); });
   const pv = $('#pantoVzdat'); if (pv) pv.onclick = () => { pv.disabled = true; posli('panto', {a: 'vzdat'}).then(() => poll(true)).catch(chyba); };
   const ps = $('#pantoSpat'); if (ps) ps.onclick = () => { ps.disabled = true; posli('panto', {a: 'spat'}).then(() => poll(true)).catch(chyba); };
+  const cn = $('#celoNah'); if (cn) cn.onclick = () => { edit.ktoUprav = false; edit.ktoText = null; posli('celo', {nahodne: true}).then(() => poll(true)).catch(chyba); };
+  const cnie = $('#celoNie'); if (cnie) cnie.onclick = () => { cnie.disabled = true; posli('celoNie', {n: h.celoN}).then(() => poll(true)).catch(e => { cnie.disabled = false; chyba(); }); };
+  const cuh = $('#celoUh'); if (cuh) cuh.onclick = () => {   // dvojité potvrdenie, aby sa neťuklo omylom
+    if (!cuh.dataset.ist) { cuh.dataset.ist = 1; cuh.textContent = 'Naozaj? Ťukni ešte raz ✓'; setTimeout(() => { if (cuh.isConnected && !cuh.disabled) { delete cuh.dataset.ist; cuh.textContent = '🎉 Uhádol som!'; } }, 3000); return; }
+    cuh.disabled = true; posli('celoUhadol', {n: h.celoN}).then(() => poll(true)).catch(e => { cuh.disabled = false; chyba(); });
+  };
+  const csp = $('#celoSpat'); if (csp) csp.onclick = () => { csp.disabled = true; posli('celoSpat').then(() => poll(true)).catch(chyba); };
   sc.querySelectorAll('[data-mmb]').forEach(b => b.onclick = () => {
     const [za, kat, bod] = b.dataset.mmb.split('|');
     (edit.mm = edit.mm || {})[za + ':' + kat] = +bod; obnov(hra(), ja());
@@ -426,8 +460,8 @@ function obnov(h, j) {
     const t = $('#lobbyTxt'); if (t) t.textContent = h.kapitan === me.id ? (on.length < 2 ? 'Čakáme aspoň na jedného ďalšieho hráča.' : 'Keď sú všetci, spusti hru.') : h.kapitan ? `Čakáme, kým ${meno(h.kapitan)} spustí hru.` : 'Čakáme, kým sa hra spustí na TV.';
     const l = $('#lobbyHraci'); if (l) { const html = on.map(p => `<span class="chip" style="border-color:${farba(p.id)}">${esc(p.name)}</span>`).join(''); if (l.innerHTML !== html) l.innerHTML = html; }
   }
-  if (h.faza === 'kto-pis' || h.faza === 'klam-pis') {
-    const druh = h.faza === 'kto-pis' ? 'kto' : 'klam';
+  if ((h.faza === 'kto-pis' || h.faza === 'klam-pis' || h.faza === 'celo-zadaj') && $('#ktoBox')) {
+    const druh = {'kto-pis': 'kto', 'klam-pis': 'klam', 'celo-zadaj': 'celo'}[h.faza];
     const box = $('#ktoBox'), poslane = j.moja && !edit.ktoUprav;
     const stav = poslane ? 'sent:' + j.moja : 'form';
     if (box.dataset.s !== stav) {
@@ -436,7 +470,7 @@ function obnov(h, j) {
         box.innerHTML = `<div class="quote" style="margin-top:6px">${esc(j.moja)}</div><p class="ok center" style="font-weight:800">Odoslané ✓</p><button class="ghost" type="button" id="uprav">Upraviť odpoveď</button>`;
         $('#uprav').onclick = () => { edit.ktoUprav = true; obnov(hra(), ja()); };
       } else {
-        box.innerHTML = `<textarea id="ktoT" maxlength="120" placeholder="Tvoja odpoveď…">${esc(edit.ktoText != null ? edit.ktoText : j.moja || '')}</textarea><button class="go" type="button" id="ktoSend">Odoslať</button>`;
+        box.innerHTML = `<textarea id="ktoT" maxlength="${druh === 'celo' ? 40 : 120}" placeholder="${druh === 'celo' ? 'napr. Shrek, Elvis, chladnička…' : 'Tvoja odpoveď…'}"${druh === 'celo' ? ' rows="2"' : ''}>${esc(edit.ktoText != null ? edit.ktoText : j.moja || '')}</textarea><button class="go" type="button" id="ktoSend">Odoslať</button>`;
         $('#ktoT').oninput = e => { edit.ktoText = e.target.value; };
         $('#ktoSend').onclick = () => { const t = $('#ktoT').value.trim(); if (!t) return; edit.ktoUprav = false; edit.ktoText = null; posli(druh, {t}).then(() => poll(true)).catch(chyba); };
       }

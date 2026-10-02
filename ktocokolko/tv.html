@@ -139,6 +139,10 @@ kbd{font:700 .8em system-ui;background:rgba(255,255,255,.14);border-radius:5px;p
 .mtab th{color:var(--muted);font-weight:800;text-align:left;padding:0 .6em}
 .mtab td{background:var(--card);border-radius:10px;padding:.4em .7em;font-weight:700;text-align:left}
 .mtab td.b100{background:rgba(61,220,132,.25)} .mtab td.b50{background:rgba(255,176,32,.25)} .mtab td.b0{color:var(--muted);text-decoration:line-through}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:1.4vmin;width:min(1500px,96%)}
+.ccard{display:flex;gap:1.2vmin;align-items:center;text-align:left;background:var(--card);border:2px solid var(--line);border-radius:16px;padding:1vmin 1.4vmin}
+.ccard b{color:var(--pc);font-size:clamp(14px,1.4vw,22px)} .ccard p{margin:.1em 0;font:800 clamp(16px,2vw,32px)/1.15 system-ui;overflow-wrap:anywhere} .ccard small{color:var(--muted);font-weight:700}
+.ccard.tah{border-color:var(--pc);box-shadow:0 0 30px var(--pc)} .ccard.ok{background:rgba(61,220,132,.16)}
 .mtab td.upr{outline:2px dashed rgba(255,255,255,.55)} .mtab td small{font-size:.6em;color:var(--muted);text-decoration:none;display:inline-block}
 .mtab td.sum{color:var(--ok);font-weight:900;background:none}
 .pl.bad{border-color:var(--bad);background:rgba(255,90,95,.15)}
@@ -424,11 +428,12 @@ const TYP = {
   zemiak: {nazov: 'Horúci zemiak',   ikona: '💣', farba: '#FF7A45',      popis: 'Kto má bombu, povie nahlas odpoveď na svoju otázku. Keď mu ju ostatní uznajú, posunie bombu ďalej (+20). Nevieš? Daj si inú otázku – ale bomba tiká! U koho vybuchne, stráca 100.'},
   vydrz:  {nazov: 'Kto vydrží',      ikona: '🏁', farba: '#3DDC84',      popis: 'Odpovedaj A, B alebo C. Kto sa pomýli alebo nestihne, vypadáva. Otázky postupne pritvrdzujú. Za každú správnu +30, posledný, kto vydrží, berie 200.'},
   panto:  {nazov: 'Pantomíma',       ikona: '🎭', farba: '#FF6EC7',      popis: 'Jeden dostane v mobile zadanie a bez slov ho ukazuje. Ostatní hádajú nahlas – kto uhádne, toho ukazujúci ťukne v mobile. Body dostane on aj ten, kto ukazoval (rýchlejšie = viac).'},
+  celo:   {nazov: 'Čelovka',         ikona: '🤪', farba: '#FFC93C',      popis: 'Každý vymyslí pre suseda, kto alebo čo je. V mobile uvidíš všetkých okrem seba. Na rade sa pýtaš otázky áno/nie – keď zaznie NIE, ide ďalší. Kto uhádne skôr, má viac bodov. Hrá sa, kým neuhádne aj posledný.'},
   mmzv:   {nazov: 'Meno, mesto, zviera, vec', kratko: 'Meno, mesto…', ikona: '📝', farba: '#A5B4FC', popis: 'Ukáže sa písmeno a každý v mobile napíše meno, mesto, zviera a vec na to písmeno. Vlastná odpoveď 100 bodov, keď má to isté aj niekto iný, polovica.'}
 };
-const CAS = {uvod: 7, ktoPis: 60, ktoHadaj: 20, ktoOdhal: 7, kresliVyber: 12, kresli: 80, kresliOdhal: 6, pantoVyber: 12, panto: 90, pantoOdhal: 8, odhadTip: 25, odhadOdhal: 9,
+const CAS = {uvod: 7, ktoPis: 60, ktoHadaj: 20, ktoOdhal: 7, kresliVyber: 12, kresli: 80, kresliOdhal: 6, pantoVyber: 12, panto: 90, pantoOdhal: 8, celoZadaj: 90, celoUhadol: 6, celoKoniec: 12, odhadTip: 25, odhadOdhal: 9,
   kznHlas: 20, kznOdhal: 8, klamPis: 60, klamObhajoba: 90, klamHlas: 25, klamOdhal: 12, skore: 12};
-const DRUHY = ['kto', 'reflex', 'kresli', 'pamat', 'odhad', 'panto', 'zemiak', 'kzn', 'mmzv', 'klamar', 'vydrz'];   // minihry sú medzi väčšími kolami
+const DRUHY = ['kto', 'reflex', 'kresli', 'pamat', 'odhad', 'panto', 'zemiak', 'kzn', 'mmzv', 'klamar', 'vydrz', 'celo'];   // minihry sú medzi väčšími kolami
 const REFLEX_POKUSOV = 5, PAMAT_OBRAZKOV = 3, ZEMIAK_BOMB = 3, VYDRZ_MAX = 20, MMZV_PISMEN = 2;
 const PAMAT_VECI = ['🍎', '🐱', '🚗', '⚽', '🌻', '🐶', '🍌', '🎈', '⭐', '🐟', '🍕', '🎸', '🌙', '🦋', '🍦', '🚲', '🐸', '🎁', '☂️', '🔑', '🐝', '🍓', '🏠', '🐢', '🎩', '🥕', '🐞', '🍩', '🦆', '🌵'];
 // Horúci zemiak: každý, ku komu bomba príde, dostane inú úlohu; {P} sa nahradí náhodným písmenom
@@ -587,6 +592,13 @@ const PANTO = [
    'bábätko a plienka', 'zabudnutý text na koncerte', 'Mona Lisa', 'Socha slobody', 'Eiffelova veža', 'Michael Jackson', 'Elvis Presley', 'Mr. Bean', 'Charlie Chaplin', 'Tarzan', 'Popoluška', 'Snehulienka', 'Pinocchio',
    'Červená čiapočka', 'Janko Hraško']
 ];
+// 🤪 Čelovka: návrhy, keď niekto nič nevymyslí (alebo ťukne „Vymysli za mňa“)
+const CELO_NAHODNE = ['Shrek', 'Harry Potter', 'Batman', 'Spider-Man', 'Superman', 'Elvis Presley', 'Mona Lisa', 'Albert Einstein', 'Lionel Messi', 'Cristiano Ronaldo', 'Taylor Swift', 'Mickey Mouse',
+  'Pikachu', 'Popoluška', 'Jánošík', 'Peter Sagan', 'Zdeno Chára', 'Kleopatra', 'Napoleon', 'Mozart', 'Darth Vader', 'Yoda', 'Homer Simpson', 'SpongeBob', 'Mr. Bean', 'James Bond', 'Sherlock Holmes',
+  'Pinocchio', 'Santa Claus', 'Drakula', 'Tarzan', 'King Kong', 'Garfield', 'Krtko', 'Rumcajs', 'Červená čiapočka', 'Snehulienka', 'Mimoň', 'Elsa z Ľadového kráľovstva', 'Simba', 'Nemo', 'Gandalf',
+  'Jack Sparrow', 'Indiana Jones', 'Rocky Balboa', 'Michael Jackson', 'Freddie Mercury', 'Leonardo da Vinci', 'Kryštof Kolumbus', 'Neil Armstrong', 'Usain Bolt', 'Roger Federer', 'Michael Jordan',
+  'chladnička', 'banán', 'mobil', 'pizza', 'ponorka', 'Eiffelova veža', 'Mesiac', 'tučniak', 'žirafa', 'kaktus', 'dáždnik', 'sopka', 'hrad Bojnice', 'Tatry', 'gitara', 'lietadlo', 'snehuliak',
+  'hamburger', 'zubná kefka', 'semafor', 'mrakodrap', 'Titanic', 'jednorožec', 'drak', 'robot', 'mravec', 'chobotnica', 'pyramída', 'bicykel', 'futbalová lopta', 'kocka cukru', 'zmrzlina', 'vianočný stromček'];
 const novaUloha = (bez) => { let u; do { u = nahodne(ZEMIAK_ULOHY).replace('{P}', nahodne(ZEMIAK_PISMENA)); } while (u === bez); return u; };
 const UROVNE = [{n: 'ľahké', ik: '😊', x: 1}, {n: 'stredné', ik: '🤔', x: 1.5}, {n: 'ťažké', ik: '🔥', x: 2}];
 const NAST_KEY = 'kck-nastavenia', HRA_KEY = 'kck-hra', POUZ_KEY = 'kck-pouzite', ZVUK_KEY = 'kck-zvuk';
@@ -600,7 +612,7 @@ try { const u = JSON.parse(localStorage.getItem(HRA_KEY)); if (u && u.faza && u.
 
 function nast() {
   let n = {}; try { n = JSON.parse(localStorage.getItem(NAST_KEY)) || {}; } catch (e) {}
-  return Object.assign({kto: 1, kresli: 2, odhad: 1, kzn: 1, klamar: 1, reflex: 1, pamat: 1, zemiak: 1, vydrz: 1, mmzv: 1, panto: 1, pantoUkazok: 3, kresieb: 3, otazok: 4, kznOtazok: 4}, n);
+  return Object.assign({kto: 1, kresli: 2, odhad: 1, kzn: 1, klamar: 1, reflex: 1, pamat: 1, zemiak: 1, vydrz: 1, mmzv: 1, panto: 1, pantoUkazok: 3, celo: 1, kresieb: 3, otazok: 4, kznOtazok: 4}, n);
 }
 function ulozNast(n) { try { localStorage.setItem(NAST_KEY, JSON.stringify(n)); } catch (e) {} }
 
@@ -733,7 +745,7 @@ function dalsieKolo() {
   if (G.k >= G.plan.length) { prejdi('koniec', 0); konfety(); return; }
   const typ = G.plan[G.k];
   if (['kto', 'kzn', 'klamar'].includes(typ) && aktivni().length < 3) { toast(`Kolo „${TYP[typ].nazov}“ potrebuje aspoň troch hráčov – preskakujem`); return dalsieKolo(); }
-  if ((typ === 'kresli' || typ === 'panto') && aktivni().length < 2) return dalsieKolo();
+  if (['kresli', 'panto', 'celo'].includes(typ) && aktivni().length < 2) return dalsieKolo();
   G.typ = typ; G.ziskKolo = {};
   prejdi('uvod', CAS.uvod);
 }
@@ -763,6 +775,12 @@ function zacniTyp() {
     }
     G.panto = {kolo, i: -1, akt: null};
     pantoDalsia();
+  } else if (G.typ === 'celo') {
+    // každý vymýšľa pre ďalšieho v poradí (dokola), takže nikto nevymýšľa sám pre seba
+    const poradie = shuffle(aktivni()), pre = {};
+    poradie.forEach((id, i) => { pre[id] = poradie[(i + 1) % poradie.length]; });
+    G.celo = {poradie, pre, zadania: {}, uhadli: [], nie: {}, tah: null, n: 0, hist: [], posledny: null};
+    G.zisk = {}; prejdi('celo-zadaj', CAS.celoZadaj);
   } else if (G.typ === 'vydrz') {
     // otázky od ľahkých po ťažké
     const otazky = [...vyber(VYDRZ.filter(q => q[2] === 1), 'vydrz1', 6), ...vyber(VYDRZ.filter(q => q[2] === 2), 'vydrz2', 7), ...vyber(VYDRZ.filter(q => q[2] === 3), 'vydrz3', 7)];
@@ -1034,6 +1052,47 @@ function pantoSpat() {   // ťukol omylom – body sa vrátia a pantomíma pokra
   prejdi('panto', Math.round(A.zostatok / 1000));
 }
 
+/* ----- 🤪 Čelovka ----- */
+function celoStart() {
+  const C = G.celo;
+  C.poradie.forEach(id => { const k = C.pre[id]; if (!C.zadania[k]) C.zadania[k] = nahodne(CELO_NAHODNE.filter(x => !Object.values(C.zadania).includes(x))); });
+  C.tah = null; C.tah = celoDalsi(C.poradie[C.poradie.length - 1]);
+  G.zisk = {}; prejdi('celo-hra', 0);
+}
+function celoDalsi(od) {   // ďalší hráč, ktorý ešte neuhádol (najprv tí, čo sú pripojení)
+  const C = G.celo, P = C.poradie, i0 = Math.max(0, P.indexOf(od));
+  for (const len of [true, false]) for (let k = 1; k <= P.length; k++) {
+    const id = P[(i0 + k) % P.length];
+    if (!C.uhadli.includes(id) && (!len || online(id))) return id;
+  }
+  return null;
+}
+function celoZaloha() { const C = G.celo; C.hist.push(JSON.stringify({tah: C.tah, uhadli: C.uhadli, nie: C.nie, posledny: C.posledny})); if (C.hist.length > 30) C.hist.shift(); }
+function celoNie() {
+  const C = G.celo; celoZaloha();
+  C.nie[C.tah] = (C.nie[C.tah] || 0) + 1; C.tah = celoDalsi(C.tah); C.n++; C.posledny = null; C.cas = Date.now();
+  zahraj('faza'); zmena(true);
+}
+function celoUhadol() {
+  const C = G.celo, id = C.tah; celoZaloha();
+  const b = [300, 250, 200, 150, 100][C.uhadli.length] || 50;
+  C.uhadli.push(id); G.zisk = {}; pripis(id, b); C.posledny = {id, b}; C.n++;
+  prejdi('celo-uhadol', CAS.celoUhadol); konfety();
+}
+function celoPoUhadnuti() {
+  const C = G.celo;
+  if (C.poradie.every(id => C.uhadli.includes(id))) { G.zisk = {}; return prejdi('celo-koniec', CAS.celoKoniec); }
+  C.tah = celoDalsi(C.posledny ? C.posledny.id : C.tah); G.zisk = {}; C.cas = Date.now();
+  prejdi('celo-hra', 0);
+}
+function celoSpat() {   // prvý hráč vráti posledný krok (omylom ťuknuté „nie“ alebo „uhádol som“)
+  const C = G.celo; if (!C.hist.length) return;
+  const h = JSON.parse(C.hist.pop());
+  if (C.posledny && !h.uhadli.includes(C.posledny.id)) { const {id, b} = C.posledny; G.body[id] -= b; G.ziskKolo[id] = (G.ziskKolo[id] || 0) - b; }
+  Object.assign(C, h); C.n++;
+  if (G.faza !== 'celo-hra') prejdi('celo-hra', 0); else zmena(true);
+}
+
 /* ----- Odhadovačka ----- */
 function odhadDalsia() {
   const O = G.odhad; O.i++;
@@ -1086,6 +1145,10 @@ function koniecFazy() {
     case 'klam-odhal': skore(); break;
     case 'kresli-odhal': kresliDalsia(); break;
     case 'panto-vyber': pantoVyberSlovo(1); break;
+    case 'celo-zadaj': celoStart(); break;
+    case 'celo-hra': celoNie(); break;
+    case 'celo-uhadol': celoPoUhadnuti(); break;
+    case 'celo-koniec': skore(); break;
     case 'panto': pantoUhadol(null); break;
     case 'panto-odhal': pantoDalsia(); break;
     case 'odhad-tip': odhadOdhal(); break;
@@ -1106,6 +1169,7 @@ function vsetciHotovi() {
     case 'reflex': return akt.every(id => G.reflex.casy[id] != null || G.reflex.skoro[id]);
     case 'vydrz-otazka': { const z = G.vydrz.zivi.filter(online); return z.length > 0 && z.every(id => G.vydrz.odp[id] != null); }
     case 'mmzv-pis': return akt.every(id => G.mmzv.hotovi[id]);
+    case 'celo-zadaj': { const C = G.celo; return C.poradie.filter(online).every(id => C.zadania[C.pre[id]]); }
     case 'mmzv-kontrola': return akt.every(id => G.mmzv.ok[id]);
     case 'pamat-otazka': return akt.every(id => G.pamat.odpovede[id]);
     case 'klam-pis': return akt.every(id => G.klam.odpovede[id] != null);
@@ -1143,6 +1207,18 @@ function spracuj(v) {
     G.kto.hlasy[id] = d.za; zmena();
   } else if (G.faza === 'kresli-vyber' && d.k === 'slovo') {
     if (id === G.kresli.akt.kreslic) vyberSlovo(+d.u);
+  } else if (G.faza === 'celo-zadaj' && d.k === 'celo') {
+    const C = G.celo, komu = C.pre[id]; if (!komu) return;
+    const t = d.nahodne ? nahodne(CELO_NAHODNE.filter(x => !Object.values(C.zadania).includes(x))) : String(d.t || '').trim().slice(0, 40);
+    if (t) { if (!C.zadania[komu]) zahraj('hlas'); C.zadania[komu] = t; zmena(); }
+  } else if (G.faza === 'celo-hra' && (d.k === 'celoNie' || d.k === 'celoUhadol') && G.pauza == null) {
+    // n = poradové číslo ťahu – dvojité ťuknutie alebo starý klik nič nepreskočí
+    const C = G.celo; if (+d.n !== C.n || !C.tah) return;
+    // kapitán posúva za iných – ale nie hneď po predošlom kroku (dvojité ťuknutie by preskočilo ďalšieho hráča)
+    if (d.k === 'celoNie' && (id === C.tah || id === kapitan() && Date.now() - (C.cas || 0) > 1500)) celoNie();
+    if (d.k === 'celoUhadol' && id === C.tah) celoUhadol();
+  } else if ((G.faza === 'celo-hra' || G.faza === 'celo-uhadol') && d.k === 'celoSpat' && id === kapitan()) {
+    celoSpat();
   } else if (G.faza === 'panto-vyber' && d.k === 'slovo') {
     if (id === G.panto.akt.herec) pantoVyberSlovo(+d.u);
   } else if (G.faza === 'panto' && d.k === 'panto') {
@@ -1257,6 +1333,13 @@ function verejne() {
     v.tazkost = A.tazkost;
     if (G.faza === 'kresli-odhal') v.slovo = hlavne(A.slovo);
   }
+  if (/^celo-/.test(G.faza)) {
+    const C = G.celo;
+    Object.assign(v, {celoN: C.n, uhadli: C.uhadli, nie: C.nie, tah: C.tah, poradie: C.poradie, spat: C.hist.length > 0});
+    if (G.faza === 'celo-zadaj') Object.assign(v, {pre: C.pre, hotovi: C.poradie.filter(id => C.zadania[C.pre[id]])});
+    else { const odh = {}; C.uhadli.forEach(id => { odh[id] = C.zadania[id]; }); v.odhalene = G.faza === 'celo-koniec' ? C.zadania : odh; }
+    if (G.faza === 'celo-uhadol') Object.assign(v, {posledny: C.posledny});
+  }
   if (/^panto/.test(G.faza)) {
     const A = G.panto.akt;
     Object.assign(v, {herec: A.herec, tazkost: A.tazkost, poradove: G.panto.i + 1, spolu: G.panto.kolo.length});
@@ -1326,6 +1409,11 @@ function pre(id) {
   if (/^pamat-/.test(G.faza)) p.odp = G.pamat.odpovede[id] || '';
   if (/^vydrz-/.test(G.faza)) { const V = G.vydrz; p.odp = V.odp ? (V.odp[id] == null ? null : V.odp[id]) : null; p.zivy = V.zivi.includes(id) || (V.teraz || []).includes(id) && G.faza === 'vydrz-otazka'; p.vypadol = V.vypadli.includes(id); }
   if (/^panto/.test(G.faza) && G.panto.akt.herec === id) { p.herec = true; if (G.faza === 'panto-vyber') p.ponuka = G.panto.akt.ponuka; if (G.faza === 'panto') { p.slovo = G.panto.akt.slovo; p.ine = !G.panto.akt.ine; } }
+  if (/^celo-/.test(G.faza)) {
+    const C = G.celo;
+    if (G.faza === 'celo-zadaj') { p.komu = C.pre[id] || null; p.moja = C.pre[id] ? C.zadania[C.pre[id]] || '' : ''; }
+    else { p.ostatni = {}; C.poradie.forEach(x => { if (x !== id) p.ostatni[x] = C.zadania[x]; }); }   // svoje zadanie hráč nevidí
+  }
   if (/^mmzv-/.test(G.faza)) { p.moje = G.mmzv.odp[id] || null; p.hotovo = !!G.mmzv.hotovi[id]; }
   if (G.faza === 'zemiak') p.drzim = G.zemiak.drzi === id;
   if (/^klam-/.test(G.faza)) {
@@ -1391,6 +1479,8 @@ function stavHraca() {
   if (/^vydrz-/.test(G.faza)) return id => G.vydrz.vypadli.includes(id) ? 'out' : G.faza === 'vydrz-otazka' && G.vydrz.odp[id] != null ? 'done' : '';
   if (G.faza === 'mmzv-pis') return id => G.mmzv.hotovi[id] ? 'done' : '';
   if (G.faza === 'mmzv-kontrola') return id => G.mmzv.ok[id] ? 'done' : '';
+  if (G.faza === 'celo-zadaj') return id => G.celo.zadania[G.celo.pre[id]] ? 'done' : '';
+  if (/^celo-/.test(G.faza)) return id => G.celo.uhadli.includes(id) ? 'done' : id === G.celo.tah ? 'me' : '';
   if (/^panto/.test(G.faza)) return id => id === G.panto.akt.herec ? 'me' : G.faza === 'panto-odhal' && id === G.panto.akt.uhadol ? 'done' : '';
   if (G.faza === 'pamat-otazka') return id => G.pamat.odpovede[id] ? 'done' : '';
   if (G.faza === 'zemiak') return id => G.zemiak.drzi === id ? 'me' : '';
@@ -1417,7 +1507,7 @@ function vLobby() {
         ${serverOk ? '' : '<p class="lead" style="color:var(--bad)">Server nebeží – spusti start.bat alebo online.bat.</p>'}
       </section>
       <section class="panel"><h3>🎲 Kolá v hre</h3>
-        <div class="modes dva">${mode('kto', 'počet kôl · v každom jedna otázka pre všetkých (od 3 hráčov)')}${mode('kresli', `počet kôl · v každom ${n.kresieb} ${n.kresieb === 1 ? 'kresba' : n.kresieb < 5 ? 'kresby' : 'kresieb'}`)}${mode('odhad', `počet kôl · v každom ${n.otazok} ${n.otazok === 1 ? 'otázka' : n.otazok < 5 ? 'otázky' : 'otázok'}`)}${mode('kzn', `počet kôl · v každom ${n.kznOtazok} ${n.kznOtazok < 5 ? 'otázky' : 'otázok'} (od 3 hráčov)`)}${mode('klamar', 'počet kôl · v každom jedna otázka a jeden klamár (od 3 hráčov)')}${mode('reflex', '5 pokusov')}${mode('pamat', '3 obrázky')}${mode('zemiak', '3 bomby')}${mode('panto', `počet kôl · v každom ${n.pantoUkazok} ${n.pantoUkazok === 1 ? 'pantomíma' : n.pantoUkazok < 5 ? 'pantomímy' : 'pantomím'}`)}${mode('mmzv', '2 písmená')}${mode('vydrz', 'vyraďovačka')}</div>
+        <div class="modes dva">${mode('kto', 'počet kôl · v každom jedna otázka pre všetkých (od 3 hráčov)')}${mode('kresli', `počet kôl · v každom ${n.kresieb} ${n.kresieb === 1 ? 'kresba' : n.kresieb < 5 ? 'kresby' : 'kresieb'}`)}${mode('odhad', `počet kôl · v každom ${n.otazok} ${n.otazok === 1 ? 'otázka' : n.otazok < 5 ? 'otázky' : 'otázok'}`)}${mode('kzn', `počet kôl · v každom ${n.kznOtazok} ${n.kznOtazok < 5 ? 'otázky' : 'otázok'} (od 3 hráčov)`)}${mode('klamar', 'počet kôl · v každom jedna otázka a jeden klamár (od 3 hráčov)')}${mode('reflex', '5 pokusov')}${mode('pamat', '3 obrázky')}${mode('zemiak', '3 bomby')}${mode('panto', `počet kôl · v každom ${n.pantoUkazok} ${n.pantoUkazok === 1 ? 'pantomíma' : n.pantoUkazok < 5 ? 'pantomímy' : 'pantomím'}`)}${mode('mmzv', '2 písmená')}${mode('celo', 'hrá sa, kým neuhádnu všetci')}${mode('vydrz', 'vyraďovačka')}</div>
         <div class="mini">${[['kresieb', '🖌️ Kresieb'], ['otazok', '🔢 Odhadov'], ['kznOtazok', '🗳️ Kto z nás'], ['pantoUkazok', '🎭 Pantomím']].map(([k, l]) => `<div class="mode"><b style="color:#fff">${l}</b><div class="n"><button data-act="nast" data-k="${k}" data-d="-1">−</button>${n[k]}<button data-act="nast" data-k="${k}" data-d="1">+</button></div></div>`).join('')}</div>
         <p class="lead" style="margin-top:1.4vmin;font-size:clamp(13px,1.2vw,19px)">Spolu ${planKol(n).length} kôl. Kolá sa striedajú a hra beží sama – netreba moderátora.</p>
       </section>
@@ -1498,6 +1588,23 @@ function vPanto() {
     <h2 class="q" style="font-size:clamp(40px,7vw,120px);color:#FF6EC7">${esc(A.slovo)}</h2>
     ${A.uhadol ? `<div style="--pc:${farba(A.uhadol)}">${avBig(A.uhadol, 'clamp(70px,12vmin,150px)')}</div><h2 class="big">🎉 Uhádol(a) <span style="color:${farba(A.uhadol)}">${esc(meno(A.uhadol))}</span> +${b[A.uhadol]}</h2><p class="lead">${esc(meno(A.herec))} za ukazovanie +${b[A.herec]}</p>`
       : '<h2 class="big">😅 Nikto neuhádol</h2>'}</div>`;
+}
+function vCelo() {
+  const C = G.celo, f = G.faza;
+  if (f === 'celo-zadaj') return `<div class="main" style="--tc:#FFC93C;gap:2vmin"><span class="eyebrow">Vymýšľajte v mobile</span>
+    <h2 class="q">Každý vymyslí, kto alebo čo bude jeho sused 🤫</h2><p class="lead">Známa osoba, postava z rozprávky či filmu, zviera alebo vec. Nikomu to neprezrádzajte!</p>
+    <div class="players">${C.poradie.map(id => `<span class="chip">${esc(meno(id))} ✍️ → ${esc(meno(C.pre[id]))}${C.zadania[C.pre[id]] ? ' ✓' : ''}</span>`).join('')}</div></div>`;
+  if (f === 'celo-uhadol') { const {id, b} = C.posledny;
+    return `<div class="main" style="--tc:#FFC93C;gap:2vmin"><div style="--pc:${farba(id)}">${avBig(id, 'clamp(90px,16vmin,200px)')}</div>
+      <h2 class="big">🎉 ${esc(meno(id))} uhádol(a)!</h2><h2 class="q" style="font-size:clamp(36px,6vw,100px);color:#FFC93C">${esc(C.zadania[id])}</h2><p class="lead">${C.uhadli.length}. v poradí · +${b} bodov</p></div>`; }
+  const karta = id => { const u = C.uhadli.indexOf(id), ukaz = f === 'celo-koniec' || u >= 0;
+    return `<div class="ccard${id === C.tah && f === 'celo-hra' ? ' tah' : ''}${u >= 0 ? ' ok' : ''}" style="--pc:${farba(id)}">${avBig(id, 'clamp(44px,6vmin,80px)')}<div><b>${esc(meno(id))}</b>
+      <p>${ukaz ? esc(C.zadania[id]) : '❓'}</p><small>${u >= 0 ? `${['🥇', '🥈', '🥉'][u] || (u + 1) + '.'} uhádol(a) · ` : ''}${C.nie[id] ? `✗ ${C.nie[id]}× nie` : ''}</small></div></div>`; };
+  if (f === 'celo-koniec') return `<div class="main" style="--tc:#FFC93C;gap:2vmin"><span class="eyebrow">Čelovka · všetci uhádli 🎉</span><div class="cgrid">${C.uhadli.map(karta).join('')}</div></div>`;
+  return `<div class="main" style="--tc:#FFC93C;gap:1.6vmin"><span class="eyebrow">Na rade · ${C.uhadli.length} z ${C.poradie.length} uhádli</span>
+    ${C.tah ? `<div style="--pc:${farba(C.tah)};display:flex;align-items:center;gap:2vmin">${avBig(C.tah, 'clamp(70px,12vmin,150px)')}<h2 class="big" style="margin:0">🎤 ${esc(meno(C.tah))}</h2></div>` : ''}
+    <p class="lead">Pýtaj sa otázky, na ktoré sa dá odpovedať <b>áno / nie</b>. Keď zaznie <b>NIE</b>, ide ďalší. Uhádol si? Ťukni v mobile „Uhádol som“.</p>
+    <div class="cgrid">${C.poradie.map(karta).join('')}</div></div>`;
 }
 function vMmzv() {
   const M = G.mmzv;
@@ -1613,7 +1720,7 @@ function vSkore(konecne) {
 
 function render() {
   const app = $('#app');
-  const key = G ? G.faza + '|' + G.krok + (G.faza === 'zemiak' ? '|' + G.zemiak.drzi + G.zemiak.historia.length + G.zemiak.otazka : '') + (G.faza === 'mmzv-kontrola' ? '|' + JSON.stringify(G.mmzv.body) : '') : 'lobby|' + JSON.stringify(hraci) + publicUrl + lanUrl + serverOk + JSON.stringify(nast()) + !!ulozena + zvuk;
+  const key = G ? G.faza + '|' + G.krok + (G.faza === 'zemiak' ? '|' + G.zemiak.drzi + G.zemiak.historia.length + G.zemiak.otazka : '') + (G.faza === 'mmzv-kontrola' ? '|' + JSON.stringify(G.mmzv.body) : '') + (/^celo-/.test(G.faza) ? '|' + G.celo.n : '') : 'lobby|' + JSON.stringify(hraci) + publicUrl + lanUrl + serverOk + JSON.stringify(nast()) + !!ulozena + zvuk;
   if (key !== lastKey) {
     lastKey = key;
     if (!G) { app.innerHTML = vLobby(); kresliQR(); return; }
@@ -1629,6 +1736,7 @@ function render() {
       case 'vydrz-otazka': case 'vydrz-odhal': case 'vydrz-koniec': body = vVydrz(); break;
       case 'mmzv-pis': case 'mmzv-kontrola': case 'mmzv-vys': body = vMmzv(); break;
       case 'panto-vyber': case 'panto': case 'panto-odhal': body = vPanto(); break;
+      case 'celo-zadaj': case 'celo-hra': case 'celo-uhadol': case 'celo-koniec': body = vCelo(); break;
       case 'reflex-vysledok': body = vReflex(true); break;
       case 'pamat-pozri': case 'pamat-otazka': case 'pamat-odhal': body = vPamat(); break;
       case 'zemiak': body = vZemiak(false); break;
@@ -1662,7 +1770,7 @@ function casomer() {
   const t = $('#timer'); if (!t || !G) return;
   const ms = G.pauza != null ? G.pauza : Math.max(0, G.deadline - Date.now());
   const s = Math.ceil(ms / 1000);
-  t.hidden = !(G.deadline || G.pauza) || G.faza === 'zemiak' || G.faza === 'reflex';   // čas bomby je tajný, reflex má vlastný signál
+  t.hidden = !(G.deadline || G.pauza) || G.faza === 'zemiak' || G.faza === 'reflex' || G.faza === 'celo-hra';   // čas bomby je tajný, reflex má vlastný signál
   const rb = $('#reflexBox');
   if (rb && G.faza === 'reflex') { const go = !G.pauza && Date.now() >= G.reflex.start + G.reflex.za; if (rb.classList.contains('go') !== go) { rb.classList.toggle('go', go); rb.textContent = go ? 'ŤUKNI!' : 'Čakaj…'; } }
   t.style.setProperty('--p', G.dlzka ? Math.min(1, ms / G.dlzka) : 0);
@@ -1736,7 +1844,7 @@ document.addEventListener('click', e => {
   ac();
   const a = b.dataset.act;
   if (a === 'start') zacniHru();
-  else if (a === 'nast') { const n = nast(), k = b.dataset.k, lim = {kto: [0, 4], kresli: [0, 4], odhad: [0, 4], kzn: [0, 4], klamar: [0, 4], reflex: [0, 4], pamat: [0, 4], zemiak: [0, 4], vydrz: [0, 4], mmzv: [0, 4], panto: [0, 4], pantoUkazok: [1, 8], kresieb: [1, 8], otazok: [2, 8], kznOtazok: [2, 8]}[k]; n[k] = Math.max(lim[0], Math.min(lim[1], n[k] + (+b.dataset.d))); ulozNast(n); render(); }
+  else if (a === 'nast') { const n = nast(), k = b.dataset.k, lim = {kto: [0, 4], kresli: [0, 4], odhad: [0, 4], kzn: [0, 4], klamar: [0, 4], reflex: [0, 4], pamat: [0, 4], zemiak: [0, 4], vydrz: [0, 4], mmzv: [0, 4], panto: [0, 4], pantoUkazok: [1, 8], celo: [0, 4], kresieb: [1, 8], otazok: [2, 8], kznOtazok: [2, 8]}[k]; n[k] = Math.max(lim[0], Math.min(lim[1], n[k] + (+b.dataset.d))); ulozNast(n); render(); }
   else if (a === 'vyhod') api('vyhod?id=' + encodeURIComponent(b.dataset.id), {}).then(nacitajHracov).catch(() => {});
   else if (a === 'odpoj') { if (confirm('Naozaj odpojiť všetky mobily? Hráči sa budú musieť pripojiť znova.')) api('reset', {}).then(nacitajHracov).catch(() => {}); }
   else if (a === 'zvuk') { zvuk = !zvuk; try { localStorage.setItem(ZVUK_KEY, zvuk ? '1' : '0'); } catch (e) {} lastKey = ''; render(); }
@@ -1758,8 +1866,9 @@ document.addEventListener('keydown', e => {
   if (e.code === 'KeyN' && G && G.faza !== 'koniec') { if (G.pauza != null) pauza(); koniecFazy(); }
 });
 function pauza() {
-  if (!G || !G.deadline && G.pauza == null) return;
-  if (G.pauza != null) { G.deadline = Date.now() + G.pauza; G.pauza = null; }
+  if (!G) return;
+  if (!G.deadline && G.pauza == null) { if (G.faza === 'celo-hra') { G.pauza = -1; zmena(); } return; }   // čelovka nemá časomieru, pauza len zastaví hru
+  if (G.pauza != null) { G.deadline = G.pauza < 0 ? 0 : Date.now() + G.pauza; G.pauza = null; }
   else { G.pauza = Math.max(0, G.deadline - Date.now()); G.deadline = 0; }
   zmena();
 }
@@ -1830,6 +1939,12 @@ function botiHraju() {
       P.hotovo = true; const pis = bezDiakritiky(G.mmzv.pismeno), v = {};
       MMZV_KAT.forEach(([k]) => { const z = MMZV_BOT[k].filter(w => bezDiakritiky(w)[0] === pis); v[k] = z.length && Math.random() < .8 ? nahodne(z) : ''; });
       posli({k: 'mmzv', v, hotovo: true});
+    }
+    else if (G.faza === 'celo-zadaj') { P.hotovo = true; if (G.celo.pre[id]) posli({k: 'celo', nahodne: true}); }
+    else if (G.faza === 'celo-hra') {   // robot na rade: chvíľu sa „pýta“, potom buď nie, alebo uhádne
+      if (G.celo.tah !== id) continue;
+      if (P.n !== G.celo.n) { P.n = G.celo.n; P.at = now + 2500 + Math.random() * 3000; continue; }
+      P.at = now + 4000; posli({k: Math.random() < .3 ? 'celoUhadol' : 'celoNie', n: G.celo.n});
     }
     else if (G.faza === 'mmzv-kontrola') { P.at = now + 2500; if (!G.mmzv.ok[id]) posli({k: 'mmzvOk'}); }
     else if (G.faza === 'pamat-otazka') { P.hotovo = true; posli({k: 'pamat', v: Math.random() < .6 ? G.pamat.q.odp : nahodne(G.pamat.q.moznosti)}); }
