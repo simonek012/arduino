@@ -76,6 +76,17 @@ body.kreslim .tbtn{padding:10px 12px;font-size:15px}
 .opt small{font-weight:600;color:var(--muted);font-size:14px}
 .av{width:28px;height:28px;border-radius:50%;background:#fff center/cover;flex:0 0 auto}
 .klam{background:rgba(79,195,247,.18);border:2px solid #4FC3F7;border-radius:14px;padding:12px;font-weight:800;margin-bottom:12px}
+.rfx{height:58vh;border-radius:28px;display:grid;place-items:center;text-align:center;background:#C0392B;color:#fff;font:900 40px/1.1 'Arial Black',Impact,system-ui;touch-action:manipulation;user-select:none;-webkit-user-select:none;padding:20px}
+.rfx.go{background:#2ECC71;color:#062814}
+.rfx.done{background:#3a3550;font-size:34px}
+.mriezka{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:6px 0 12px}
+.mriezka span{aspect-ratio:1;border-radius:12px;background:rgba(255,255,255,.08);display:grid;place-items:center;font-size:34px}
+.pam{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pam .opt{justify-content:center;font-size:26px}
+.bomba{font-size:90px;line-height:1;text-align:center;animation:tras .35s ease-in-out infinite alternate}
+@keyframes tras{from{transform:rotate(-8deg)}to{transform:rotate(8deg) scale(1.06)}}
+.chain{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chain span{padding:5px 10px;border-radius:99px;background:var(--card);font-size:14px;font-weight:700}
 .avcv{display:block;margin:0 auto;width:min(100%,320px);aspect-ratio:1;background:#fff;border-radius:50%;touch-action:none}
 </style>
 </head>
@@ -102,7 +113,7 @@ body.kreslim .tbtn{padding:10px 12px;font-size:15px}
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const PCOL = ['#FF4D8D', '#22C3A6', '#FFB020', '#8B6CFF', '#4FC3F7', '#FF7A45', '#B5E61D', '#F06EF0', '#FFD93D', '#5EEAD4', '#F87171', '#A5B4FC'];
-const TC = {kto: 'var(--kto)', kresli: 'var(--co)', odhad: 'var(--kolko)', kzn: '#9B7BFF', klamar: '#4FC3F7'};
+const TC = {kto: 'var(--kto)', kresli: 'var(--co)', odhad: 'var(--kolko)', kzn: '#9B7BFF', klamar: '#4FC3F7', reflex: '#FFD93D', pamat: '#F06EF0', zemiak: '#FF7A45'};
 let me = null, S = null, lastKey = '', failCount = 0, edit = {};
 // na skúšku na jednom počítači: /m?hrac=2, /m?hrac=3… sú samostatní hráči
 const SLOT = new URLSearchParams(location.search).get('hrac'), ME_KEY = 'kck-mobil' + (SLOT ? '-' + SLOT : '');
@@ -149,7 +160,7 @@ function screenKey() {
   const h = hra(), j = ja();
   // súkromné údaje môžu prísť o chvíľu neskôr ako nová fáza – obrazovku postavíme znova, keď dorazia
   if (avEdit) return 'avatar';
-  return [h.faza, h.krok, j.krok === h.krok, j.kreslim ? 'k' : '', j.moj ? 'm' : '', j.klamar ? 'K' : '', h.faza === 'lobby' ? (h.kapitan === me.id) : ''].join('|');
+  return [h.faza, h.krok, j.krok === h.krok, j.kreslim ? 'k' : '', j.moj ? 'm' : '', j.klamar ? 'K' : '', j.drzim ? 'Z' : '', h.faza === 'lobby' ? (h.kapitan === me.id) : ''].join('|');
 }
 function render() {
   if (!S || !me || $('#game').hidden) return;
@@ -183,6 +194,33 @@ function postav(h, j) {
           <span style="font-size:28px">${['😊', '🤔', '🔥'][u]}</span><span style="flex:1">${esc(w)}<br><small>${['ľahké · body ×1', 'stredné · body ×1,5', 'ťažké · body ×2'][u]}</small></span></button>`).join('')}</div>
           <p class="status">Za ťažšie slovo dostaneš viac bodov ty aj tí, čo ho uhádnu.</p></div>`;
       return `<div class="card center">${hlavicka(h)}<div class="icon">🎨</div><h2><span style="color:${farba(h.kreslic)}">${esc(meno(h.kreslic))}</span> si vyberá slovo…</h2><p class="muted">Priprav sa hádať!</p></div>`;
+    case 'reflex':
+      return `<div class="card">${hlavicka(h)}<div class="rfx" id="rfx">Čakaj…</div><p class="status">Keď zozelenie, ťukni čo najrýchlejšie. Neťukaj skôr!</p></div>`;
+    case 'reflex-vysledok': {
+      const zoz = Object.entries(h.casy || {}).sort((a, b) => a[1] - b[1]), r = zoz.findIndex(x => x[0] === me.id);
+      return `<div class="card center">${hlavicka(h)}<div class="icon">${j.skoro ? '❌' : r === 0 ? '🥇' : r === 1 ? '🥈' : r === 2 ? '🥉' : '⚡'}</div>
+        <div class="big">${j.skoro ? 'Priskoro!' : j.cas != null ? j.cas + ' ms' : 'Neťukol si'}</div><div class="res ${j.zisk > 0 ? 'ok' : j.zisk < 0 ? 'bad' : ''}">${j.zisk ? (j.zisk > 0 ? '+' : '') + j.zisk : ''}</div>
+        <p class="muted">${zoz.slice(0, 3).map(([id, ms], k) => `${k + 1}. ${esc(meno(id))} – ${ms} ms`).join('<br>')}</p></div>`;
+    }
+    case 'pamat-pozri':
+      return `<div class="card center">${hlavicka(h)}<h2>🧠 Zapamätaj si!</h2><div class="mriezka">${(h.mriezka || []).map(e => `<span>${e}</span>`).join('')}</div></div>`;
+    case 'pamat-otazka':
+      return `<div class="card center">${hlavicka(h)}<h2 style="font-size:28px">${esc(h.otazka)}</h2><div class="pam">${(h.moznosti || []).map(v => `<button type="button" class="opt" data-pamat="${esc(v)}">${esc(v)}</button>`).join('')}</div><p class="status" id="hlasInfo"></p></div>`;
+    case 'pamat-odhal':
+      return `<div class="card center">${hlavicka(h)}<p class="muted">${esc(h.otazka)}</p><div class="big" style="color:#F06EF0">${esc(h.odp)}</div>
+        <div class="res ${j.zisk ? 'ok' : 'bad'}">${j.zisk ? '✓ Správne · +100' : j.odp ? '✗ Tvoja odpoveď: ' + esc(j.odp) : 'Neodpovedal si'}</div>
+        <div class="mriezka">${(h.mriezka || []).map(e => `<span style="opacity:${e === h.vec ? 1 : .25}">${e}</span>`).join('')}</div></div>`;
+    case 'zemiak': {
+      const chain = `<div class="chain">${(h.odpovede || []).map(o => `<span>${esc(o.t)}</span>`).join('')}</div>`;
+      if (j.drzim) return `<div class="card center">${hlavicka(h)}<div class="bomba">💣</div><h2>Rýchlo! ${esc(h.tema)} na písmeno <span style="color:#FF7A45;font-size:34px">${esc(h.pismeno)}</span></h2>
+        <form class="row" id="zemF"><input id="zemI" maxlength="30" autocomplete="off" autocapitalize="none" enterkeyhint="send" placeholder="${esc(h.pismeno)}…"><button class="go" type="submit">Posunúť 💣</button></form>
+        <p class="status err" id="zemChyba"></p>${chain}</div>`;
+      return `<div class="card center">${hlavicka(h)}<p class="eye">${esc(h.tema)} na písmeno ${esc(h.pismeno)}</p><div class="bomba" style="font-size:60px">💣</div>
+        <h2>Bombu má <span style="color:${farba(h.drzi)}">${esc(meno(h.drzi))}</span></h2><p class="muted">Priprav si slovo – môže prísť k tebe!</p>${chain}</div>`;
+    }
+    case 'zemiak-bum':
+      return `<div class="card center">${hlavicka(h)}<div class="icon">💥</div><div class="big">BUM!</div><p>Bomba vybuchla: <b style="color:${farba(h.drzi)}">${esc(meno(h.drzi))}</b></p>
+        <div class="res ${j.zisk > 0 ? 'ok' : j.zisk < 0 ? 'bad' : ''}">${j.zisk ? (j.zisk > 0 ? '+' : '') + j.zisk : ''}</div></div>`;
     case 'kzn-hlas':
       return `<div class="card">${hlavicka(h)}<h2>${esc(h.otazka)}</h2><div class="opts">${Object.keys(h.body || {}).map(id => `<button type="button" class="opt" data-hlas="${id}" style="--pc:${farba(id)}">${kart(id)}${esc(meno(id))}${id === me.id ? ' <small>(ja)</small>' : ''}</button>`).join('')}</div>
         <p class="status" id="hlasInfo"></p></div>`;
@@ -193,20 +231,20 @@ function postav(h, j) {
         <p class="muted">Za teba hlasovali: ${moje}×</p></div>`;
     }
     case 'klam-pis':
-      return `<div class="card">${hlavicka(h)}${j.klamar ? '<div class="klam">🕵️ Si KLAMÁR! Ostatní majú inú otázku. Napíš odpoveď tak, aby ťa neodhalili.</div>' : ''}
+      return `<div class="card">${hlavicka(h)}
         <p class="eye">Tvoja otázka (nečítaj ju nahlas!)</p><h2>${esc(j.otazka || '…')}</h2><div id="ktoBox"></div></div>`;
     case 'klam-obhajoba':
-      return `<div class="card">${hlavicka(h)}<p class="eye">🗣️ Obhajoba</p>${j.klamar ? '<div class="klam">🕵️ Si klamár – blafuj! Z odpovedí ostatných skús vytušiť ich otázku.</div>' : ''}
+      return `<div class="card">${hlavicka(h)}<p class="eye">🗣️ Obhajoba</p><div class="klam">🤔 Odpovedali ostatní na niečo iné ako ty? Možno si klamár práve ty… alebo blafuje niekto iný.</div>
         <p class="muted" style="margin:0">Tvoja otázka:</p><h2>${esc(j.otazka || '')}</h2><div class="quote">${esc(j.moja || '(neodpovedal si)')}</div>
         <p>Vysvetli ostatným, prečo si to napísal – <b>ale otázku neprezraď!</b></p><div id="kapBox"></div></div>`;
     case 'klam-hlas': {
       const odp = h.odpovede || {};
-      return `<div class="card">${hlavicka(h)}<h2>🕵️ Kto je klamár?</h2>${j.klamar ? '<p class="muted">Si klamár – hlasuj tiež, nech sa neprezradíš.</p>' : ''}
+      return `<div class="card">${hlavicka(h)}<h2>🕵️ Kto je klamár?</h2>
         <div class="opts">${Object.keys(odp).filter(id => id !== me.id).map(id => `<button type="button" class="opt" data-hlas="${id}" style="--pc:${farba(id)}">${kart(id)}<span style="flex:1">${esc(meno(id))}<br><small>„${esc(odp[id])}“</small></span></button>`).join('')}</div>
         <p class="status" id="hlasInfo"></p></div>`;
     }
     case 'klam-odhal': {
-      const res = j.klamar ? (h.chyteny ? '<div class="res bad">Odhalili ťa 😅</div>' : '<div class="res ok">Unikol si! 😈</div>')
+      const res = j.klamar ? (h.chyteny ? '<div class="res bad">😱 Klamár si bol ty – a odhalili ťa!</div>' : '<div class="res ok">😈 Klamár si bol ty – a unikol si!</div>')
         : j.hlas === h.klamar ? '<div class="res ok">✓ Odhalil si klamára</div>' : j.hlas ? '<div class="res bad">✗ Vedľa</div>' : '<div class="res muted">Nehlasoval si</div>';
       return `<div class="card center">${hlavicka(h)}<p class="muted">Klamár bol</p><div class="big" style="color:${farba(h.klamar)}">🕵️ ${esc(meno(h.klamar))}</div>
         ${res}${j.zisk ? `<p class="ok" style="font-weight:900;font-size:22px">+${j.zisk}</p>` : ''}
@@ -252,6 +290,10 @@ function postav(h, j) {
 function pripoj(h, j) {
   const sc = $('#screen');
   if (avEdit) { avatar.start(); return; }
+  if (h.faza === 'reflex') reflex.start(h);
+  sc.querySelectorAll('[data-pamat]').forEach(b => b.onclick = () => { edit.pamat = b.dataset.pamat; obnov(hra(), ja()); posli('pamat', {v: b.dataset.pamat}).catch(chyba); });
+  const zf = $('#zemF'); if (zf) { const zi = $('#zemI'); setTimeout(() => zi.focus(), 50);
+    zf.onsubmit = e => { e.preventDefault(); const t = zi.value.trim(); if (!t) return; zi.value = ''; posli('zemiak', {t}).then(() => poll(true)).catch(chyba); }; }
   const az = $('#avZnova'); if (az) az.onclick = () => { avEdit = true; render(); };
   sc.querySelectorAll('[data-slovo]').forEach(b => b.onclick = () => { sc.querySelectorAll('[data-slovo]').forEach(x => { x.disabled = true; }); b.classList.add('on'); posli('slovo', {u: +b.dataset.slovo}).then(() => poll(true)).catch(chyba); });
   sc.querySelectorAll('[data-hlas]').forEach(b => b.onclick = () => { edit.hlas = b.dataset.hlas; obnov(hra(), ja()); posli('hlas', {za: b.dataset.hlas}).catch(() => chyba()); });
@@ -291,6 +333,12 @@ function obnov(h, j) {
       }
     }
   }
+  if (h.faza === 'pamat-otazka') {
+    const v = edit.pamat || j.odp;
+    document.querySelectorAll('[data-pamat]').forEach(b => b.classList.toggle('on', b.dataset.pamat === v));
+    const inf = $('#hlasInfo'); if (inf) inf.textContent = v ? 'Odpoveď je odoslaná – do konca času ju môžeš zmeniť.' : '';
+  }
+  if (h.faza === 'zemiak') { const c = $('#zemChyba'); if (c && c.textContent !== (j.chyba || '')) c.textContent = j.chyba || ''; }
   if (['kto-hadaj', 'kzn-hlas', 'klam-hlas'].includes(h.faza)) {
     const vybrany = edit.hlas || j.hlas;
     document.querySelectorAll('[data-hlas]').forEach(b => b.classList.toggle('on', b.dataset.hlas === vybrany));
@@ -423,6 +471,34 @@ const kresba = {
       else if (b.dataset.t === 'ine') { posli('ine').then(() => poll(true)).catch(chyba); }
       this.toolsKey = ''; this.tools(ja());
     };
+  }
+};
+
+/* ---------- bleskový reflex: čas sa meria tu v mobile, od chvíle, keď sa plocha rozsvieti ---------- */
+const reflex = {
+  krok: -1, t0: 0, za: 0, greenT: 0, hotovo: false, raf: 0,
+  start(h) {
+    if (this.krok !== h.krok) { this.krok = h.krok; this.t0 = performance.now(); this.za = h.za || 3000; this.greenT = 0; this.hotovo = false; }
+    const el = $('#rfx'); if (!el) return;
+    cancelAnimationFrame(this.raf);
+    const krok = h.krok;
+    const tick = () => {
+      if (this.krok !== krok || !el.isConnected) return;
+      if (this.hotovo) return;
+      if (!hra().pauza && !this.greenT && performance.now() - this.t0 >= this.za) { this.greenT = performance.now(); el.classList.add('go'); el.textContent = 'ŤUKNI!'; if (navigator.vibrate) navigator.vibrate(60); }
+      this.raf = requestAnimationFrame(tick);
+    };
+    tick();
+    el.onpointerdown = e => {
+      e.preventDefault();
+      if (this.hotovo || this.krok !== krok) return;
+      this.hotovo = true;
+      const skoro = !this.greenT, ms = Math.round(performance.now() - this.greenT);
+      el.classList.remove('go'); el.classList.add('done');
+      el.textContent = skoro ? '❌ Priskoro!' : ms + ' ms';
+      posli('reflex', skoro ? {skoro: true} : {ms}).then(() => poll(true)).catch(chyba);
+    };
+    const j = ja(); if (j.cas != null || j.skoro) { this.hotovo = true; el.classList.add('done'); el.textContent = j.skoro ? '❌ Priskoro!' : j.cas + ' ms'; }
   }
 };
 
