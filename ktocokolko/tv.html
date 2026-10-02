@@ -437,7 +437,7 @@ const online = id => { const h = hraci.find(p => p.id === id); return !!(h && h.
 // avatar = obrázok, ktorý si hráč nakreslil v mobile (ak nemá, ostane farebná bodka)
 function avatarUrl(id) { const h = hraci.find(p => p.id === id); return h && h.av ? `/api/avatar?id=${encodeURIComponent(id)}&v=${h.av}` : ''; }
 function dot(id, znak) { const a = avatarUrl(id); return a ? `<span class="dot av" style="background-image:url('${a}')">${znak ? `<i>${znak}</i>` : ''}</span>` : `<span class="dot">${znak || ''}</span>`; }
-function avBig(id, px) { const a = avatarUrl(id); return a ? `<img class="avbig" src="${a}" style="width:${px};height:${px};--pc:${farba(id)}" alt="">` : `<span class="avbig" style="width:${px};height:${px};background:${farba(id)};--pc:${farba(id)}">${esc(meno(id).replace(/^\W+/, '').slice(0, 1))}</span>`; }
+function avBig(id, px) { const a = avatarUrl(id); return a ? `<img class="avbig" src="${a}" style="width:${px};height:${px};--pc:${farba(id)}" alt="">` : `<span class="avbig" style="width:${px};height:${px};background:${farba(id)};--pc:${farba(id)}">${esc(([...meno(id).replace(/^[^\p{L}\d]+/u, '')][0] || '?'))}</span>`; }
 const aktivni = () => (G ? G.hraci : hraci.map(p => p.id)).filter(online);
 const kapitan = () => (G ? G.hraci : hraci.map(p => p.id)).find(id => online(id) && !jeBot(id)) || null;   // robot hru nespúšťa
 
