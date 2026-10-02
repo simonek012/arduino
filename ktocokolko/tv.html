@@ -1,0 +1,947 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kto? Čo? Koľko?</title>
+<style>
+:root{--bg:#140B33;--bg2:#2B1470;--card:rgba(255,255,255,.08);--card2:rgba(255,255,255,.14);--line:rgba(255,255,255,.18);--text:#fff;--muted:rgba(255,255,255,.72);
+  --kto:#FF4D8D;--co:#22C3A6;--kolko:#FFB020;--ok:#3DDC84;--bad:#FF5A5F;--disp:'Arial Black','Segoe UI Black',Impact,system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:radial-gradient(1200px 700px at 15% -10%,var(--bg2),transparent 60%),radial-gradient(900px 600px at 110% 110%,#3A0F4F,transparent 60%),var(--bg);
+  color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;overflow:hidden}
+button{font:inherit;cursor:pointer}
+#app{height:100%;display:flex;flex-direction:column;padding:2.2vmin 3vmin;gap:2vmin}
+.logo{font:900 clamp(30px,5.4vw,96px)/1 var(--disp);letter-spacing:-.01em;margin:0;white-space:nowrap}
+.logo .a{color:var(--kto)} .logo .b{color:var(--co)} .logo .c{color:var(--kolko)}
+.logo.small{font-size:clamp(18px,2.2vw,38px)}
+.top{display:flex;align-items:center;gap:2vmin;justify-content:space-between}
+.chip{display:inline-flex;align-items:center;gap:.5em;padding:.45em .9em;border-radius:99px;background:var(--card);border:1px solid var(--line);font-weight:700;font-size:clamp(13px,1.3vw,22px)}
+.chip.typ{background:var(--tc);color:#120826;border:0}
+.timer{width:clamp(56px,7vmin,110px);height:clamp(56px,7vmin,110px);border-radius:50%;display:grid;place-items:center;font:900 clamp(22px,3.2vmin,50px)/1 var(--disp);
+  background:conic-gradient(var(--tc,#fff) calc(var(--p,1)*360deg),rgba(255,255,255,.12) 0);position:relative}
+.timer::before{content:'';position:absolute;inset:12%;border-radius:50%;background:var(--bg)}
+.timer span{position:relative}
+.timer.low span{color:var(--bad)}
+.main{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.4vmin;text-align:center}
+.big{font:900 clamp(26px,4.4vw,80px)/1.1 var(--disp);margin:0;max-width:24ch;text-wrap:balance}
+.q{font:800 clamp(24px,3.6vw,64px)/1.2 system-ui;margin:0;max-width:30ch;text-wrap:balance}
+.lead{font-size:clamp(16px,1.9vw,32px);color:var(--muted);margin:0;max-width:60ch;text-wrap:balance}
+.eyebrow{font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:clamp(12px,1.2vw,20px);color:var(--tc,var(--muted))}
+.players{display:flex;flex-wrap:wrap;gap:1.2vmin;justify-content:center}
+.pl{display:flex;align-items:center;gap:.6em;padding:.5em .9em .5em .5em;border-radius:14px;background:var(--card);border:2px solid transparent;font-weight:800;font-size:clamp(14px,1.5vw,26px);transition:all .2s}
+.pl .dot{width:1.6em;height:1.6em;border-radius:50%;background:var(--pc);display:grid;place-items:center;color:#120826;font-size:.8em}
+.pl .pts{color:var(--muted);font-weight:700}
+.pl.done{border-color:var(--ok);background:rgba(61,220,132,.14)}
+.pl.off{opacity:.4}
+.pl.me{border-color:var(--pc)}
+.pl button{background:none;border:0;color:var(--muted);font-size:1em;padding:0 .2em}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:2vmin}
+.ctrl{display:flex;gap:1vmin}
+.ctrl button{background:var(--card);border:1px solid var(--line);color:var(--muted);border-radius:12px;padding:.5em .8em;font-weight:700;font-size:clamp(12px,1.1vw,18px)}
+.ctrl button:hover{color:#fff;background:var(--card2)}
+kbd{font:700 .8em system-ui;background:rgba(255,255,255,.14);border-radius:5px;padding:.05em .4em;margin-left:.3em}
+.btn{background:linear-gradient(90deg,var(--kto),var(--kolko));border:0;color:#140826;font:900 clamp(18px,2.2vw,36px)/1 var(--disp);padding:.7em 1.4em;border-radius:16px;box-shadow:0 8px 30px rgba(255,77,141,.35)}
+.btn:disabled{opacity:.4;box-shadow:none}
+.btn.ghost{background:var(--card);color:#fff;box-shadow:none;border:1px solid var(--line);font-size:clamp(14px,1.4vw,22px);font-family:system-ui;font-weight:800}
+/* lobby */
+.lobby{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:3vmin;width:100%;max-width:1500px;align-items:start;text-align:left}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:2.4vmin}
+.panel h3{margin:0 0 1.2vmin;font-size:clamp(16px,1.6vw,26px)}
+.join{display:flex;gap:2.4vmin;align-items:center}
+.qr{background:#fff;padding:10px;border-radius:14px;width:clamp(150px,19vmin,280px);height:clamp(150px,19vmin,280px);display:grid;place-items:center;flex:0 0 auto}
+.qr img,.qr canvas{width:100%!important;height:auto!important}
+.url{font:800 clamp(16px,2vw,34px)/1.2 system-ui;word-break:break-all;color:var(--kolko)}
+.modes{display:flex;flex-direction:column;gap:1vmin}
+.mode{display:flex;align-items:center;gap:1.4vmin;padding:1vmin 1.4vmin;border-radius:14px;background:rgba(0,0,0,.18)}
+.mode .ic{font-size:clamp(20px,2.4vw,40px)}
+.mode b{font-size:clamp(15px,1.5vw,24px);color:var(--tc)}
+.mode small{display:block;color:var(--muted);font-size:clamp(11px,1vw,16px)}
+.mode .n{margin-left:auto;display:flex;align-items:center;gap:.6em;font-weight:900;font-size:clamp(16px,1.6vw,26px)}
+.mode .n button{width:1.8em;height:1.8em;border-radius:50%;border:1px solid var(--line);background:var(--card);color:#fff;font-weight:900}
+/* úvod kola */
+.intro .ic{font-size:clamp(70px,13vmin,200px);line-height:1;animation:pop .6s cubic-bezier(.2,.8,.2,1)}
+.intro .big{color:var(--tc)}
+@keyframes pop{0%{transform:scale(.2) rotate(-20deg);opacity:0}100%{transform:none;opacity:1}}
+/* kto */
+.quote{background:#fff;color:#1A0E3D;border-radius:26px;padding:3vmin 4vmin;font:800 clamp(24px,3.6vw,64px)/1.25 system-ui;max-width:28ch;position:relative;box-shadow:0 18px 60px rgba(0,0,0,.4);text-wrap:balance;animation:pop .45s ease}
+.quote::after{content:'';position:absolute;left:12%;bottom:-24px;border:14px solid transparent;border-top:14px solid #fff;border-right:14px solid #fff}
+.author{font:900 clamp(26px,4vw,70px)/1 var(--disp);color:var(--pc);animation:pop .5s ease}
+.votes{display:flex;flex-wrap:wrap;gap:1.2vmin;justify-content:center;max-width:1300px}
+.vote{padding:.5em .9em;border-radius:12px;background:var(--card);font-weight:800;font-size:clamp(14px,1.5vw,24px)}
+.vote.ok{background:rgba(61,220,132,.2);border:2px solid var(--ok)} .vote.bad{background:rgba(255,90,95,.14);border:2px solid rgba(255,90,95,.5)}
+/* kreslenie */
+.drawwrap{display:grid;grid-template-columns:minmax(0,1fr) clamp(220px,24vw,420px);gap:2.4vmin;width:100%;height:100%;min-height:0}
+.board{position:relative;background:#fff;border-radius:22px;overflow:hidden;align-self:center;justify-self:center;width:100%;max-height:100%;aspect-ratio:4/3;box-shadow:0 18px 60px rgba(0,0,0,.4)}
+.board canvas{width:100%;height:100%;display:block}
+.side{display:flex;flex-direction:column;gap:1.6vmin;min-height:0;text-align:left}
+.mask{font:900 clamp(20px,2.5vw,46px)/1.3 ui-monospace,Consolas,monospace;letter-spacing:.02em;overflow-wrap:anywhere}
+.feed{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;gap:.6vmin}
+.feed div{padding:.4em .7em;border-radius:10px;background:var(--card);font-size:clamp(13px,1.3vw,22px);font-weight:600;animation:slide .25s ease}
+.feed div.ok{background:rgba(61,220,132,.2);font-weight:800}
+.feed div.close{background:rgba(255,176,32,.18)}
+.feed b{color:var(--pc)}
+@keyframes slide{from{transform:translateY(10px);opacity:0}}
+/* odhad */
+.ans{font:900 clamp(44px,8vw,150px)/1 var(--disp);color:var(--kolko);animation:pop .5s ease}
+.guesses{display:flex;flex-direction:column;gap:.8vmin;width:min(1100px,92%)}
+.g{display:grid;grid-template-columns:3em minmax(0,1fr) auto auto;align-items:center;gap:1.4vmin;padding:.5em .9em;border-radius:12px;background:var(--card);font-weight:800;font-size:clamp(14px,1.6vw,26px);text-align:left}
+.g .r{color:var(--muted)} .g .d{color:var(--muted);font-weight:600}
+.g.r1{background:rgba(255,176,32,.25)} .g .plus{color:var(--ok)}
+/* skóre */
+.board-sc{display:flex;flex-direction:column;gap:1vmin;width:min(1100px,94%)}
+.sc{display:grid;grid-template-columns:2.4em minmax(0,1fr) auto;align-items:center;gap:1.4vmin;font-weight:900;font-size:clamp(16px,2vw,34px)}
+.sc .bar{height:clamp(30px,4.6vmin,64px);border-radius:12px;background:var(--pc);display:flex;align-items:center;padding:0 .7em;color:#140826;min-width:max-content;transition:width 1s cubic-bezier(.2,.8,.2,1);white-space:nowrap}
+.sc .plus{color:var(--ok);font-size:.8em}
+.podium{display:flex;align-items:flex-end;gap:2vmin;justify-content:center}
+.pod{display:flex;flex-direction:column;align-items:center;gap:1vmin;font-weight:900}
+.pod .blk{width:clamp(110px,14vw,240px);border-radius:16px 16px 0 0;background:var(--pc);display:grid;place-items:center;color:#140826;font:900 clamp(30px,5vw,90px)/1 var(--disp)}
+.pod .nm{font-size:clamp(18px,2.4vw,40px)} .pod .pt{color:var(--muted);font-size:clamp(14px,1.6vw,26px)}
+.toast{position:fixed;left:50%;bottom:3vmin;transform:translateX(-50%) translateY(40px);opacity:0;visibility:hidden;background:#fff;color:#1A0E3D;padding:.8em 1.4em;border-radius:14px;font-weight:800;transition:all .3s;z-index:20;font-size:clamp(14px,1.4vw,22px)}
+.toast.show{transform:translateX(-50%);opacity:1;visibility:visible}
+.pause{position:fixed;inset:0;background:rgba(10,5,30,.7);display:grid;place-items:center;z-index:15;font:900 clamp(40px,8vw,140px)/1 var(--disp)}
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:12;overflow:hidden}
+.confetti i{position:absolute;top:-20px;width:12px;height:18px;border-radius:3px;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+@media (max-width:900px){.lobby,.drawwrap{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+/* ================= OBSAH HRY ================= */
+/* Kto to napísal? – otázky, na ktoré každý odpovie po svojom */
+const KTO_OTAZKY = [
+  "Čo by si si zobral na pustý ostrov (okrem jedla a vody)?",
+  "Akú supervelmoc by si chcel mať a prečo?",
+  "Čo by si urobil ako prvé, keby si vyhral milión eur?",
+  "Najhoršie jedlo, aké si kedy jedol?",
+  "Aká je tvoja najtrápnejšia spomienka zo školy?",
+  "Keby si bol zviera, aké by si bol?",
+  "Čo by si robil, keby si bol na jeden deň neviditeľný?",
+  "Aké je najdivnejšie miesto, kde si kedy zaspal?",
+  "Akú vec si naposledy stratil?",
+  "Čo by si povedal sebe, keď si mal desať rokov?",
+  "Aký je tvoj tajný talent?",
+  "S ktorou slávnou osobnosťou by si chcel ísť na večeru?",
+  "Aký film by si si vedel pozrieť aj desaťkrát?",
+  "Čo ťa dokáže spoľahlivo naštvať?",
+  "Aké jedlo by si jedol každý deň do konca života?",
+  "Najlepší darček, aký si kedy dostal?",
+  "Čím si chcel byť, keď si bol malý?",
+  "Aký je tvoj najhorší zlozvyk?",
+  "Kam by si okamžite odcestoval, keby si mohol?",
+  "Aká pieseň ti nejde z hlavy?",
+  "Čo by bolo na tvojom tričku, keby si si ho navrhol sám?",
+  "Akú najodvážnejšiu vec si kedy urobil?",
+  "Čoho sa najviac bojíš?",
+  "Aké je tvoje obľúbené slovo?",
+  "Ako by sa volala tvoja autobiografia?",
+  "Čo by si vymyslel, keby si bol vynálezca?",
+  "Aká je najlepšia výhovorka, prečo meškáš?",
+  "Čo by si zakázal, keby si bol prezident?",
+  "Aký je tvoj obľúbený zvuk?",
+  "Čo robíš, keď si sám doma?",
+  "Akú hlúposť si urobil ako dieťa?",
+  "Čo by si si objednal ako poslednú večeru?",
+  "Aký je najdivnejší sen, ktorý si mal?",
+  "Čo je tvoja najväčšia slabosť pri jedle?",
+  "Akú vec by si zachránil z horiaceho domu (okrem ľudí a zvierat)?",
+  "Ako by vyzeral tvoj dokonalý deň?",
+  "Aké je tvoje skryté hobby?",
+  "Akú vlastnosť obdivuješ na ľuďoch?",
+  "Čo by si vymenil na svojej práci alebo škole?",
+  "Akú najhoršiu radu si kedy dostal?",
+  "Čo by si robil v zombie apokalypse?",
+  "S akou postavou z rozprávky by si sa chcel vymeniť?",
+  "Akú hru si najradšej hral ako dieťa?",
+  "Na čo míňaš najviac peňazí?",
+  "Aké je tvoje najobľúbenejšie miesto na Slovensku?",
+  "Akú zbytočnú vec máš doma, ale nevieš ju vyhodiť?",
+  "Ktorú aplikáciu v mobile používaš najviac?",
+  "Akú prezývku si mal alebo máš?",
+  "Čo by si naučil celý svet, keby si mohol?",
+  "Čo je na dovolenke najlepšie?",
+  "Ktorá vec ťa vždy rozosmeje?",
+  "Aké by bolo tvoje meno, keby si bol superhrdina?",
+  "Akú vec vieš, ktorú by o tebe nikto nečakal?",
+  "Čo si myslíš, že robia mačky, keď nie sme doma?",
+  "Aký je tvoj najobľúbenejší sviatok a prečo?",
+  "Čo by si napísal na billboard pri diaľnici?",
+  "Čo ti najviac chýba z detstva?",
+  "Aký je tvoj obľúbený vtip (stačí pointa)?",
+  "Koho by si si vzal so sebou do vesmíru?",
+  "Akú vec by si vrátil z minulosti, ak by si mohol?",
+  "Čo by si robil, keby internet na týždeň zmizol?",
+  "Aký je najdrahší omyl, ktorý si urobil?",
+  "Čo si najradšej robíš v nedeľu ráno?",
+  "Aké zviera by si mal ako domáce, keby nič nebolo nemožné?",
+  "Čo by si zmenil na Vianociach?",
+  "Aký je tvoj obľúbený zápach?",
+  "Čo by si robil, keby si sa zobudil ako mačka?",
+  "Ktorý predmet v škole by si zrušil?",
+  "Aké heslo by malo byť na vlajke tvojej krajiny?",
+  "Čo by si si kúpil za posledných 10 eur?",
+  "Aký je najväčší mýtus o tebe?",
+  "Čo by si robil ako kráľ na jeden deň?",
+  "Aké je najlepšie jedlo na grile?",
+  "Čo ťa naposledy prekvapilo?",
+  "Ako by si nazval svoju kapelu?",
+  "Akú otázku by si položil mimozemšťanovi?",
+  "Ktorú vec robíš inak ako všetci ostatní?",
+  "Aká je najhoršia vec, ktorú môže niekto urobiť v kine?",
+  "Akú radu by si dal novomanželom?",
+  "Čo by si si nechal vytetovať, keby si musel?"
+];
+
+/* Kresli a hádaj – slová (varianty oddelené znakom |) */
+const SLOVA = [
+  // ľahšie
+  "mačka|mačička", "pes|psík", "dom|domček", "slnko", "auto", "strom", "ryba", "jablko", "loď", "kvet|kvetina",
+  "bicykel", "lopta", "okuliare", "klobúk", "hruška", "mesiac", "hviezda", "dúha", "dáždnik", "kľúč",
+  "hrad", "kôň|koník", "had", "slon", "žirafa", "zmrzlina", "torta", "pizza", "banán", "hodinky",
+  "lietadlo", "vlak", "raketa", "ponožka", "topánka", "tričko", "ceruzka", "kniha", "stolička", "posteľ",
+  "lampa", "telefón|mobil", "gitara", "bubon", "srdce", "oko", "ruka", "noha", "zub", "nos",
+  "snehuliak", "vianočný stromček|stromček", "darček", "balón", "šarkan", "pavúk", "motýľ", "včela", "slimák", "žaba",
+  "korytnačka", "tučniak", "sova", "kačica", "prasa|prasiatko", "krava", "ovca", "zajac", "myš", "medveď",
+  // stredné
+  "hasič", "pirát", "kráľ", "princezná", "rytier", "kuchár", "lekár|doktor", "policajt", "astronaut|kozmonaut", "čarodejník",
+  "maják", "most", "pyramída", "sopka", "ostrov", "vodopád", "jaskyňa", "púšť", "kaktus", "palma",
+  "kolotoč", "hojdačka", "šmykľavka", "stan", "táborák|oheň", "rybár", "kotva", "ponorka", "helikoptéra|vrtuľník", "traktor",
+  "bager", "sanitka", "kamión", "skateboard", "korčule", "lyže", "futbal", "basketbal", "tenis", "bowling",
+  "kreslo", "chladnička", "práčka", "vysávač", "žehlička", "hrnček", "vidlička", "lyžica", "nožnice", "kladivo",
+  "rebrík", "plot", "studňa", "komín", "kostol", "mrakodrap", "semafor", "dopravná značka|značka", "lavička", "fontána",
+  "upír", "duch", "drak", "jednorožec", "robot", "mimozemšťan|ufo", "múmia", "kostra", "zombie", "víla",
+  "hamburger", "hranolky", "palacinka", "vajíčko|vajce", "chlieb", "syr", "klobása", "melón", "jahoda", "čerešne",
+  "dinosaurus", "chobotnica", "žralok", "veľryba", "krokodíl", "papagáj", "plameniak", "klokan", "ťava", "lev",
+  // ťažšie
+  "zubná kefka|kefka", "mikrovlnka|mikrovlnná rúra", "bludisko", "zemetrasenie", "padajúca hviezda", "tieň", "ozvena", "chrápanie", "kýchanie", "selfie",
+  "Eiffelova veža", "socha slobody", "snežná guľa", "skok do vody", "rande", "svadba", "narodeniny", "pláž", "kemping", "záhrada",
+  "dopravná zápcha|zápcha", "ohňostroj", "cirkus", "kúzelník", "akvárium", "zoologická záhrada|zoo", "nákupný vozík|vozík", "pokladňa", "výťah", "eskalátor",
+  "tatranský štít|štít", "bryndzové halušky|halušky", "Jánošík", "fujara", "valaška", "kroj", "kraslica", "šibačka", "betlehem", "adventný veniec|veniec",
+  "spiaci človek|spánok", "budík", "piknik", "horolezec", "potápač", "parašutista", "surfovanie", "rybolov", "žonglér", "mím"
+];
+
+/* Odhadovačka – [otázka, správne číslo, jednotka, zaujímavosť] */
+const ODHADY = [
+  ["Koľko metrov meria Eiffelova veža aj s anténami?", 330, "m", "Pôvodne mala 300 metrov a bola najvyššou stavbou sveta až do roku 1930."],
+  ["Koľko kostí má dospelý človek?", 206, "kostí", "Bábätko ich má pri narodení okolo 300, mnohé s vekom zrastú."],
+  ["Koľko krajín je v Európskej únii?", 27, "krajín", "Posledná vstúpila Chorvátsko v roku 2013, Spojené kráľovstvo odišlo v roku 2020."],
+  ["V ktorom roku pristál prvý človek na Mesiaci?", 1969, "", "Neil Armstrong vystúpil na Mesiac 21. júla 1969 a prenos sledovalo asi 600 miliónov ľudí."],
+  ["Koľko metrov meria Gerlachovský štít?", 2655, "m", "Je to najvyšší vrch celých Karpát, ktoré sa tiahnu cez sedem krajín."],
+  ["Koľko tisíc obyvateľov má Bratislava?", 475, "tisíc", "Bratislava je jediné hlavné mesto, ktoré hraničí s dvoma štátmi."],
+  ["Koľko kilometrov je vzdušnou čiarou z Bratislavy do Košíc?", 313, "km", "Po diaľnici a cestách je to okolo 400 kilometrov."],
+  ["Koľko schodov vedie na vrchol Eiffelovej veže?", 1665, "schodov", "Turisti môžu po schodoch vyjsť len na druhé poschodie, ďalej sa ide výťahom."],
+  ["Koľko stupňov Celzia má povrch Slnka?", 5500, "°C", "Jadro Slnka je však oveľa horúcejšie – okolo 15 miliónov stupňov."],
+  ["Koľko metrov je vysoký mrakodrap Burdž Chalífa v Dubaji?", 828, "m", "Má vyše 160 poschodí a z vrcholu vidno aj 95 kilometrov ďaleko."],
+  ["V ktorom roku vznikla firma Google?", 1998, "", "Zakladatelia ju začínali v garáži a pôvodne sa mala volať BackRub."],
+  ["Koľko krajín je v Afrike?", 54, "krajín", "Najmladšia je Južný Sudán, ktorý vznikol v roku 2011."],
+  ["Koľko kilometrov meria Veľký čínsky múr so všetkými vetvami?", 21196, "km", "Z vesmíru voľným okom neviditeľný – je síce dlhý, ale úzky."],
+  ["Koľko kilometrov meria obvod Zeme na rovníku?", 40075, "km", "Lietadlom by si okolo Zeme letel asi dva dni bez prestávky."],
+  ["Koľko metrov je hlboká Mariánska priekopa?", 10935, "m", "Keby si na jej dno postavil Mount Everest, jeho vrchol by bol stále viac ako dva kilometre pod hladinou."],
+  ["Koľko percent povrchu Zeme pokrýva voda?", 71, "%", "Z toho je len asi 2,5 percenta sladkej vody, väčšina je zamrznutá v ľadovcoch."],
+  ["Koľko metrov meria Socha slobody aj s podstavcom?", 93, "m", "Socha bola darom Francúzska a jej vnútornú konštrukciu navrhol Gustave Eiffel."],
+  ["V ktorom roku sa potopil Titanic?", 1912, "", "Vrak našli až v roku 1985 v hĺbke takmer štyroch kilometrov."],
+  ["Koľko metrov meria Lomnický štít?", 2634, "m", "Na vrchol vedie kabínková lanovka a stojí tam aj astronomické observatórium."],
+  ["Koľko tisíc obyvateľov majú Košice?", 229, "tisíc", "Košice majú najväčšiu pamiatkovú rezerváciu na Slovensku a Dóm sv. Alžbety."],
+  ["Koľko kilometrov meria Váh?", 403, "km", "Je to najdlhšia rieka, ktorá tečie len na území Slovenska."],
+  ["Koľko metrov je svetový rekord v skoku do výšky (muži)?", 2.45, "m", "Kubánec Javier Sotomayor ho skočil v roku 1993 a dodnes ho nikto neprekonal."],
+  ["Za koľko sekúnd zabehol Usain Bolt 100 metrov (svetový rekord)?", 9.58, "s", "Na trati dosiahol najvyššiu rýchlosť asi 44 km/h."],
+  ["Koľko kilometrov meria maratón?", 42.195, "km", "Dĺžku určili na olympiáde v Londýne 1908, aby trať končila pred kráľovskou lóžou."],
+  ["V ktorom roku vynašiel Gutenberg kníhtlač (približne)?", 1450, "", "Jeho Biblia patrí k najcennejším knihám sveta – zachovalo sa jej len okolo 49 výtlačkov."],
+  ["Koľko miliárd rokov je starý vesmír?", 13.8, "mld. rokov", "Zem je asi trikrát mladšia – má okolo 4,5 miliardy rokov."],
+  ["Akú najvyššiu teplotu namerali na Zemi?", 56.7, "°C", "Namerali ju v roku 1913 v Údolí smrti v Kalifornii."],
+  ["Koľko metrov meria Kriváň?", 2494, "m", "Kriváň je symbolom Slovenska a je aj na našich euro minciach."],
+  ["Koľko štvorcových kilometrov má Slovensko?", 49035, "km²", "Rozlohou je Slovensko asi na 130. mieste na svete."],
+  ["Koľko rokov vládla britská kráľovná Viktória?", 63, "rokov", "Po nej je pomenované celé obdobie – viktoriánska doba."],
+  ["V ktorom roku padol Berlínsky múr?", 1989, "", "Múr stál 28 rokov a rozdeľoval Berlín na dve časti."],
+  ["Akou najvyššou rýchlosťou letel Concorde?", 2180, "km/h", "Z Londýna do New Yorku letel asi za tri a pol hodiny."],
+  ["Koľko izieb má Buckinghamský palác?", 775, "izieb", "Je v ňom aj vlastná pošta, kino a bazén."],
+  ["Koľko metrov meria vodopád Salto Ángel?", 979, "m", "Je takmer 16-krát vyšší ako Niagarské vodopády."],
+  ["Koľko kilometrov je zo Zeme na Mesiac?", 384400, "km", "Mesiac sa od Zeme každý rok vzďaľuje asi o 3,8 centimetra."],
+  ["V ktorom roku si Alexander Graham Bell patentoval telefón?", 1876, "", "Prvá veta do telefónu vraj bola: Pán Watson, poďte sem, potrebujem vás."],
+  ["Koľko metrov je hlboké jazero Bajkal?", 1642, "m", "Je to najhlbšie a najstaršie jazero sveta – má asi 25 miliónov rokov."],
+  ["Koľko percent ľudí sú ľaváci?", 10, "%", "Ľaváci sú častejšie medzi mužmi a medzi výbornými tenistami či šermiarmi."],
+  ["Koľko kariet sa používa v mariáši?", 32, "kariet", "Mariáš je na Slovensku a v Česku jednou z najobľúbenejších kartových hier."],
+  ["Koľko štátov majú Spojené štáty americké?", 50, "štátov", "Posledné dva, Aljaška a Havaj, pribudli v roku 1959."],
+  ["Koľko kalórií má jeden stredný banán?", 105, "kcal", "Banány sú mierne rádioaktívne – kvôli draslíku, no úplne neškodne."],
+  ["Koľko kilogramov váži dospelý samec slona afrického?", 6000, "kg", "Denne zje okolo 150 kilogramov rastlín."],
+  ["Koľko zubov má naraz dospelý žralok biely?", 300, "zubov", "Zuby mu stále dorastajú a za život ich vymení tisíce."],
+  ["Koľko hodín denne spí koala?", 20, "hodín", "Eukalyptové listy majú málo energie, preto koala väčšinu dňa prespí."],
+  ["Koľko obrazov (olejomalieb) namaľoval Vincent van Gogh?", 860, "obrazov", "Väčšinu z nich namaľoval za posledných desať rokov svojho života."],
+  ["Koľko miliárd ľudí žije na Zemi?", 8.2, "mld.", "Ešte v roku 1950 nás bolo len asi 2,5 miliardy."],
+  ["Koľko kilometrov za hodinu dokáže bežať gepard?", 110, "km/h", "Takú rýchlosť však vydrží len pár stoviek metrov."],
+  ["Koľko kláves má klavír?", 88, "kláves", "52 bielych a 36 čiernych."],
+  ["Koľko rokov žila najstaršia overená žena Jeanne Calment?", 122, "rokov", "V detstve vraj stretla Vincenta van Gogha v obchode svojho strýka."],
+  ["Koľko litrov krvi má dospelý človek?", 5, "litrov", "Srdce ju celú prečerpá zhruba za minútu."],
+  ["V ktorom roku vznikla samostatná Slovenská republika?", 1993, "", "Vznikla 1. januára 1993 rozdelením Česko-Slovenska bez jediného výstrelu."],
+  ["Koľko gramov váži futbalová lopta?", 430, "g", "Pravidlá povoľujú 410 až 450 gramov."],
+  ["Koľko metrov meria olympijský bazén?", 50, "m", "Krátky bazén na súťažiach meria 25 metrov."],
+  ["Koľko kilometrov meria Níl?", 6650, "km", "O to, či je dlhší Níl alebo Amazonka, sa geografi stále sporia."],
+  ["Koľko dní majú dokopy roky 2011 až 2020?", 3653, "dní", "Priestupné boli tri: 2012, 2016 a 2020."],
+  ["Koľko percent DNA máme spoločných so šimpanzom?", 98, "%", "Rozdiel v pár percentách však stačí na to, že si šimpanz knihu nenapíše."]
+];
+
+</script>
+<script>
+/* ================= KTO? ČO? KOĽKO? – TV riadi celú hru, moderátor netreba ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const PCOL = ['#FF4D8D', '#22C3A6', '#FFB020', '#8B6CFF', '#4FC3F7', '#FF7A45', '#B5E61D', '#F06EF0', '#FFD93D', '#5EEAD4', '#F87171', '#A5B4FC'];
+const TYP = {
+  kto:    {nazov: 'Kto to napísal?', ikona: '✍️', farba: 'var(--kto)',   popis: 'Každý napíše do mobilu odpoveď. Potom hádate, kto čo napísal. Za správny tip 100 bodov, za každého, koho oklameš, 50.'},
+  kresli: {nazov: 'Kresli a hádaj',  ikona: '🎨', farba: 'var(--co)',    popis: 'Jeden kreslí prstom v mobile, ostatní píšu tipy. Čím skôr uhádneš, tým viac bodov. Kto kreslí, dostane body za každého, kto uhádne.'},
+  odhad:  {nazov: 'Odhadovačka',     ikona: '🔢', farba: 'var(--kolko)', popis: 'Napíš do mobilu číslo. Najbližší tip 150 bodov, druhý 100, tretí 50. Presný zásah +100 navyše.'}
+};
+const CAS = {uvod: 7, ktoPis: 60, ktoHadaj: 20, ktoOdhal: 7, kresli: 80, kresliOdhal: 6, odhadTip: 25, odhadOdhal: 9, skore: 12};
+const NAST_KEY = 'kck-nastavenia', HRA_KEY = 'kck-hra', POUZ_KEY = 'kck-pouzite', ZVUK_KEY = 'kck-zvuk';
+
+let G = null;                 // rozohratá hra
+let hraci = [];               // zo servera: [{id, name, online}]
+let publicUrl = '', lanUrl = '', serverOk = true;
+let lastN = -1, ulozena = null, zvuk = true;
+try { zvuk = localStorage.getItem(ZVUK_KEY) !== '0'; } catch (e) {}
+try { const u = JSON.parse(localStorage.getItem(HRA_KEY)); if (u && u.faza && u.faza !== 'koniec' && Date.now() - (u.ulozene || 0) < 3 * 3600e3) ulozena = u; } catch (e) {}
+
+function nast() {
+  let n = {}; try { n = JSON.parse(localStorage.getItem(NAST_KEY)) || {}; } catch (e) {}
+  return Object.assign({kto: 2, kresli: 2, odhad: 2, kresieb: 3, otazok: 4}, n);
+}
+function ulozNast(n) { try { localStorage.setItem(NAST_KEY, JSON.stringify(n)); } catch (e) {} }
+
+let toastT;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); }
+
+/* ---------- spojenie so serverom ---------- */
+const api = (path, body, raw) => {
+  const ctl = window.AbortController ? new AbortController() : null;
+  const tm = ctl && setTimeout(() => ctl.abort(), 5000);
+  return fetch('/api/' + path, Object.assign(body !== undefined
+    ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: raw ? body : JSON.stringify(body)}
+    : {cache: 'no-store'}, ctl ? {signal: ctl.signal} : {}))
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .finally(() => { if (tm) clearTimeout(tm); });
+};
+// časovač vo Web Workeri – prehliadač ho nespomalí, ani keď okno nie je navrchu
+function tikac(ms, fn) {
+  try { const w = new Worker(URL.createObjectURL(new Blob([`setInterval(() => postMessage(0), ${ms});`], {type: 'text/javascript'}))); w.onmessage = fn; return; } catch (e) {}
+  setInterval(fn, ms);
+}
+const meno = id => { const h = hraci.find(p => p.id === id); return h ? h.name : (G && G.mena && G.mena[id]) || '?'; };
+const farba = id => PCOL[((G && G.hraci ? G.hraci.indexOf(id) : hraci.findIndex(p => p.id === id)) + PCOL.length) % PCOL.length];
+const online = id => { const h = hraci.find(p => p.id === id); return !!(h && h.online); };
+const aktivni = () => (G ? G.hraci : hraci.map(p => p.id)).filter(online);
+const kapitan = () => (G ? G.hraci : hraci.map(p => p.id)).find(online) || null;
+
+/* ---------- zvuky (vyrábajú sa priamo v prehliadači) ---------- */
+let AC = null;
+function ac() { try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); } catch (e) {} return AC; }
+function ton(f, kedy, dlzka, hl, typ) {
+  const a = ac(); if (!a || !zvuk) return;
+  const t = a.currentTime + (kedy || 0), o = a.createOscillator(), g = a.createGain();
+  o.type = typ || 'sine'; o.frequency.value = f;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(hl || 0.15, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dlzka);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t + dlzka + 0.05);
+}
+const ZVUKY = {
+  faza: () => { ton(523, 0, .18, .12, 'triangle'); ton(784, .09, .25, .12, 'triangle'); },
+  tik: () => ton(1200, 0, .06, .08, 'square'),
+  hlas: () => ton(880, 0, .1, .08, 'triangle'),
+  dobre: () => [659, 880, 1319].forEach((f, i) => ton(f, i * .07, .25, .14, 'triangle')),
+  zle: () => { ton(220, 0, .25, .12, 'sawtooth'); },
+  odhal: () => { ton(392, 0, .3, .14, 'triangle'); ton(523, .12, .3, .14, 'triangle'); ton(659, .24, .5, .16, 'triangle'); },
+  fanfara: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => ton(f, i * .13, .45, .15, 'triangle'))
+};
+const zahraj = k => { try { ZVUKY[k](); } catch (e) {} };
+function konfety() {
+  const box = document.createElement('div'); box.className = 'confetti';
+  for (let i = 0; i < 120; i++) {
+    const c = document.createElement('i');
+    c.style.left = Math.random() * 100 + 'vw'; c.style.background = PCOL[i % PCOL.length];
+    c.style.animationDuration = (2.5 + Math.random() * 2.5) + 's'; c.style.animationDelay = (Math.random() * 1.2) + 's';
+    box.appendChild(c);
+  }
+  document.body.appendChild(box); setTimeout(() => box.remove(), 6500);
+}
+
+/* ---------- výber obsahu, aby sa neopakoval ---------- */
+function pouzite() { try { return JSON.parse(localStorage.getItem(POUZ_KEY)) || {}; } catch (e) { return {}; } }
+function vyber(zoznam, druh, kolko) {
+  const p = pouzite(); let uz = new Set(p[druh] || []);
+  let volne = zoznam.map((_, i) => i).filter(i => !uz.has(i));
+  if (volne.length < kolko) { uz = new Set(); volne = zoznam.map((_, i) => i); }
+  const out = shuffle(volne).slice(0, kolko);
+  p[druh] = [...uz, ...out];
+  try { localStorage.setItem(POUZ_KEY, JSON.stringify(p)); } catch (e) {}
+  return out.map(i => zoznam[i]);
+}
+const bezDiakritiky = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+function lev(a, b) {
+  const m = a.length, n = b.length; if (Math.abs(m - n) > 3) return 9;
+  let prev = Array.from({length: n + 1}, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[n];
+}
+function porovnajTip(tip, slovo) {   // 'ok' | 'blizko' | ''
+  const t = bezDiakritiky(tip); if (!t) return '';
+  let best = 9;
+  for (const v of slovo.split('|')) {
+    const s = bezDiakritiky(v);
+    if (t === s || t.replace(/ /g, '') === s.replace(/ /g, '')) return 'ok';
+    const d = lev(t, s);
+    if (d <= 1 && s.length >= 5) return 'ok';            // drobný preklep pri dlhšom slove sa odpustí
+    best = Math.min(best, d);
+    if (s.length >= 5 && t.length >= 4 && (s.includes(t) || t.includes(s))) best = Math.min(best, 2);
+  }
+  return best <= 2 ? 'blizko' : '';
+}
+const hlavne = slovo => slovo.split('|')[0];
+const cislo = v => { const x = parseFloat(String(v).replace(/\s/g, '').replace(',', '.')); return isFinite(x) ? x : null; };
+const fmt = x => x == null ? '–' : Number(x).toLocaleString('sk-SK', {maximumFractionDigits: 3});
+
+/* ================= PRIEBEH HRY ================= */
+function planKol(n) {
+  const out = [], max = Math.max(n.kto, n.kresli, n.odhad);
+  for (let r = 0; r < max; r++) ['kto', 'kresli', 'odhad'].forEach(t => { if (r < n[t]) out.push(t); });
+  return out;
+}
+function zacniHru() {
+  const n = nast(), plan = planKol(n);
+  const ids = hraci.filter(p => p.online).map(p => p.id);
+  if (ids.length < 2) { toast('Pripoj aspoň dvoch hráčov'); return; }
+  if (!plan.length) { toast('Zapni aspoň jeden druh kola'); return; }
+  ac();
+  G = {faza: 'lobby', krok: 0, plan, k: -1, n, hraci: hraci.map(p => p.id), mena: {}, body: {}, ziskKolo: {}, kresliFronta: [], deadline: 0, pauza: null};
+  G.hraci.forEach(id => { G.body[id] = 0; G.mena[id] = meno(id); });
+  ulozena = null;
+  dalsieKolo();
+}
+function prejdi(faza, sek) {
+  G.faza = faza; G.krok++;
+  G.deadline = sek ? Date.now() + sek * 1000 : 0; G.dlzka = sek * 1000; G.pauza = null;
+  zahraj(faza === 'koniec' ? 'fanfara' : /odhal/.test(faza) ? 'odhal' : 'faza');
+  zmena(true);
+}
+function dalsieKolo() {
+  G.k++;
+  if (G.k >= G.plan.length) { prejdi('koniec', 0); konfety(); return; }
+  const typ = G.plan[G.k];
+  if (typ === 'kto' && aktivni().length < 3) { toast('Kolo „Kto to napísal?“ potrebuje aspoň troch hráčov – preskakujem'); return dalsieKolo(); }
+  if (typ === 'kresli' && aktivni().length < 2) return dalsieKolo();
+  G.typ = typ; G.ziskKolo = {};
+  prejdi('uvod', CAS.uvod);
+}
+function pripis(id, b) { if (!b) return; G.body[id] = (G.body[id] || 0) + b; G.ziskKolo[id] = (G.ziskKolo[id] || 0) + b; G.zisk[id] = (G.zisk[id] || 0) + b; }
+function zacniTyp() {
+  if (G.typ === 'kto') {
+    G.kto = {otazka: vyber(KTO_OTAZKY, 'kto', 1)[0], odpovede: {}, poradie: [], i: -1, hlasy: {}};
+    G.zisk = {}; prejdi('kto-pis', CAS.ktoPis);
+  } else if (G.typ === 'kresli') {
+    const kolko = Math.min(G.n.kresieb, aktivni().length), kolo = [];
+    while (kolo.length < kolko) {
+      if (!G.kresliFronta.length) G.kresliFronta = shuffle(aktivni());
+      const id = G.kresliFronta.shift();
+      if (online(id) && !kolo.includes(id)) kolo.push(id);
+      if (!aktivni().some(x => !kolo.includes(x))) break;
+    }
+    G.kresli = {kolo, i: -1, akt: null};
+    kresliDalsia();
+  } else {
+    G.odhad = {otazky: vyber(ODHADY, 'odhad', G.n.otazok), i: -1, tipy: {}};
+    odhadDalsia();
+  }
+}
+function skore() { prejdi('skore', CAS.skore); }
+
+/* ----- Kto to napísal? ----- */
+function ktoPoPisani() {
+  const K = G.kto;
+  K.poradie = shuffle(Object.keys(K.odpovede));
+  if (K.poradie.length < 2) { toast('Prišlo primálo odpovedí'); return skore(); }
+  ktoDalsia();
+}
+function ktoDalsia() {
+  const K = G.kto; K.i++;
+  if (K.i >= K.poradie.length) return skore();
+  K.hlasy = {}; G.zisk = {};
+  prejdi('kto-hadaj', CAS.ktoHadaj);
+}
+const ktoVolici = () => aktivni().filter(id => id !== G.kto.poradie[G.kto.i]);
+function ktoOdhal() {
+  const K = G.kto, autor = K.poradie[K.i];
+  G.zisk = {};
+  Object.entries(K.hlasy).forEach(([id, za]) => { if (za === autor) pripis(id, 100); else pripis(autor, 50); });
+  prejdi('kto-odhal', CAS.ktoOdhal);
+}
+
+/* ----- Kresli a hádaj ----- */
+function noveSlovo() { return vyber(SLOVA, 'slova', 1)[0]; }
+function kresliDalsia() {
+  const R = G.kresli;
+  do { R.i++; } while (R.i < R.kolo.length && !online(R.kolo[R.i]));
+  if (R.i >= R.kolo.length) return skore();
+  R.akt = {kreslic: R.kolo[R.i], slovo: noveSlovo(), tahy: [], feed: [], uhadli: [], odkryte: [], ine: false, blizko: {}, mojeTipy: {}};
+  G.zisk = {};
+  prejdi('kresli', CAS.kresli);
+}
+function kresliOdhal() { prejdi('kresli-odhal', CAS.kresliOdhal); }
+function maska(A, vsetko) {
+  const w = hlavne(A.slovo).toUpperCase();
+  return [...w].map((ch, i) => /[\p{L}\d]/u.test(ch) ? (vsetko || A.odkryte.includes(i) ? ch : '_') : ch === ' ' ? '  ' : ch).join(' ');
+}
+function odkryPismeno(A) {
+  const w = hlavne(A.slovo), idx = [...w].map((ch, i) => i).filter(i => /[\p{L}\d]/u.test(w[i]) && !A.odkryte.includes(i));
+  if (idx.length > 2) { A.odkryte.push(idx[Math.floor(Math.random() * idx.length)]); zmena(); }
+}
+
+/* ----- Odhadovačka ----- */
+function odhadDalsia() {
+  const O = G.odhad; O.i++;
+  if (O.i >= O.otazky.length) return skore();
+  O.tipy = {}; G.zisk = {};
+  prejdi('odhad-tip', CAS.odhadTip);
+}
+function odhadOdhal() {
+  const O = G.odhad, spr = O.otazky[O.i][1];
+  const zoz = Object.entries(O.tipy).map(([id, v]) => ({id, v, d: Math.abs(v - spr)})).sort((a, b) => a.d - b.d);
+  G.zisk = {}; let rank = 0, last = null;
+  zoz.forEach((x, k) => { if (x.d !== last) { rank = k; last = x.d; } x.r = rank; });
+  const q = O.otazky[O.i], tol = q[2] === '' ? 0 : Math.abs(spr) * 0.005;   // roky musia sedieť presne, inak stačí do pol percenta
+  zoz.forEach(x => {
+    pripis(x.id, [150, 100, 50][x.r] || 0);
+    if (x.d <= tol + 1e-9) { pripis(x.id, 100); x.presne = true; }
+  });
+  O.vysledky = zoz;
+  prejdi('odhad-odhal', CAS.odhadOdhal);
+}
+
+/* ----- koniec fázy (čas vypršal alebo všetci hotoví) ----- */
+function koniecFazy() {
+  if (!G) return;
+  switch (G.faza) {
+    case 'uvod': zacniTyp(); break;
+    case 'kto-pis': ktoPoPisani(); break;
+    case 'kto-hadaj': ktoOdhal(); break;
+    case 'kto-odhal': ktoDalsia(); break;
+    case 'kresli': kresliOdhal(); break;
+    case 'kresli-odhal': kresliDalsia(); break;
+    case 'odhad-tip': odhadOdhal(); break;
+    case 'odhad-odhal': odhadDalsia(); break;
+    case 'skore': dalsieKolo(); break;
+  }
+}
+function vsetciHotovi() {
+  if (!G) return false;
+  const akt = aktivni();
+  if (!akt.length) return false;
+  switch (G.faza) {
+    case 'kto-pis': return akt.every(id => G.kto.odpovede[id] != null);
+    case 'kto-hadaj': { const v = ktoVolici(); return v.length > 0 && v.every(id => G.kto.hlasy[id]); }
+    case 'kresli': { const A = G.kresli.akt, h = akt.filter(id => id !== A.kreslic); return h.length > 0 && h.every(id => A.uhadli.includes(id)); }
+    case 'odhad-tip': return akt.every(id => G.odhad.tipy[id] != null);
+  }
+  return false;
+}
+let skoroKoniec = 0;
+function skontroluj() {   // keď sú všetci hotoví, nečakáme na koniec času
+  if (!G || G.pauza || !G.deadline) return;
+  if (vsetciHotovi() && G.deadline - Date.now() > 1500 && skoroKoniec !== G.krok) {
+    skoroKoniec = G.krok; G.deadline = Date.now() + 1200; zmena();
+  }
+}
+
+/* ----- vstupy z mobilov ----- */
+function spracuj(v) {
+  const id = v.id, d = v.d || {};
+  if (!G) {   // ešte sa nehrá: kapitán môže spustiť hru
+    if (d.k === 'start' && id === kapitan()) zacniHru();
+    return;
+  }
+  if (!G.hraci.includes(id)) { G.hraci.push(id); G.body[id] = 0; G.mena[id] = meno(id); zmena(); }
+  if (d.k === 'start' && id === kapitan()) { if (G.faza === 'skore' || G.faza === 'uvod') koniecFazy(); else if (G.faza === 'koniec') { G = null; zacniHru(); } return; }
+  if (d.f !== G.krok) return;   // odpoveď na už skončenú otázku
+  if (G.faza === 'kto-pis' && d.k === 'kto') {
+    const t = String(d.t || '').trim().slice(0, 120); if (!t) return;
+    if (G.kto.odpovede[id] == null) zahraj('hlas');
+    G.kto.odpovede[id] = t; zmena();
+  } else if (G.faza === 'kto-hadaj' && d.k === 'hlas') {
+    const autor = G.kto.poradie[G.kto.i];
+    if (id === autor || d.za === id || !G.kto.poradie.includes(d.za)) return;
+    if (!G.kto.hlasy[id]) zahraj('hlas');
+    G.kto.hlasy[id] = d.za; zmena();
+  } else if (G.faza === 'kresli') {
+    const A = G.kresli.akt;
+    if (d.k === 'kresba' && id === A.kreslic) { kresbaOps(A, d.ops || []); }
+    else if (d.k === 'ine' && id === A.kreslic && !A.ine) { A.ine = true; A.slovo = noveSlovo(); A.tahy = []; A.odkryte = []; prekresli(); zmena(); }
+    else if (d.k === 'tip' && id !== A.kreslic && !A.uhadli.includes(id)) {
+      const t = String(d.t || '').trim().slice(0, 40); if (!t) return;
+      const r = porovnajTip(t, A.slovo);
+      (A.mojeTipy[id] = A.mojeTipy[id] || []).push(t); if (A.mojeTipy[id].length > 6) A.mojeTipy[id].shift();
+      if (r === 'ok') {
+        const zost = Math.max(0, G.deadline - Date.now()) / G.dlzka;
+        A.uhadli.push(id);
+        pripis(id, 50 + Math.round(150 * zost)); pripis(A.kreslic, 40);
+        A.feed.push({id, ok: true}); zahraj('dobre');
+      } else {
+        A.feed.push({id, t, close: r === 'blizko'});
+        if (r === 'blizko') A.blizko[id] = t;
+      }
+      if (A.feed.length > 30) A.feed.splice(0, A.feed.length - 30);
+      zmena();
+    }
+  } else if (G.faza === 'odhad-tip' && d.k === 'odhad') {
+    const x = cislo(d.v); if (x == null) return;
+    if (G.odhad.tipy[id] == null) zahraj('hlas');
+    G.odhad.tipy[id] = x; zmena();
+  }
+}
+function kresbaOps(A, ops) {
+  for (const op of ops) {
+    if (!Array.isArray(op)) continue;
+    if (op[0] === 's') A.tahy.push({id: op[1], c: String(op[2]).slice(0, 9), w: +op[3] || 6, p: [+op[4] || 0, +op[5] || 0]});
+    else if (op[0] === 'p') { const t = A.tahy.find(x => x.id === op[1]); if (t) for (let i = 2; i + 1 < op.length; i += 2) t.p.push(+op[i] || 0, +op[i + 1] || 0); }
+    else if (op[0] === 'u') A.tahy.pop();
+    else if (op[0] === 'c') A.tahy = [];
+  }
+  if (A.tahy.length > 600) A.tahy.splice(0, A.tahy.length - 600);
+  prekresli(); ulozCoskoro();
+}
+
+/* ----- čo vidia mobily ----- */
+let lastVerejne = '', lastPre = {};
+function verejne() {
+  if (!G) return {faza: 'lobby', kapitan: kapitan()};
+  const v = {krok: G.krok, faza: G.faza, typ: G.typ, kolo: G.k + 1, kol: G.plan.length, deadline: G.deadline, pauza: !!G.pauza, kapitan: kapitan(), body: G.body};
+  const T = TYP[G.typ] || {};
+  if (G.faza === 'uvod') Object.assign(v, {nazov: T.nazov, ikona: T.ikona, popis: T.popis});
+  if (G.faza === 'kto-pis') Object.assign(v, {otazka: G.kto.otazka, odoslali: Object.keys(G.kto.odpovede)});
+  if (G.faza === 'kto-hadaj' || G.faza === 'kto-odhal') {
+    const K = G.kto;
+    Object.assign(v, {otazka: K.otazka, odpoved: K.odpovede[K.poradie[K.i]], moznosti: K.poradie, hlasovali: Object.keys(K.hlasy), poradove: K.i + 1, spolu: K.poradie.length});
+    if (G.faza === 'kto-odhal') Object.assign(v, {autor: K.poradie[K.i], hlasy: K.hlasy});
+  }
+  if (G.faza === 'kresli' || G.faza === 'kresli-odhal') {
+    const A = G.kresli.akt;
+    Object.assign(v, {kreslic: A.kreslic, maska: maska(A, G.faza === 'kresli-odhal'), uhadli: A.uhadli, poradove: G.kresli.i + 1, spolu: G.kresli.kolo.length});
+    if (G.faza === 'kresli-odhal') v.slovo = hlavne(A.slovo);
+  }
+  if (G.faza === 'odhad-tip' || G.faza === 'odhad-odhal') {
+    const O = G.odhad, q = O.otazky[O.i];
+    Object.assign(v, {otazka: q[0], jednotka: q[2], odoslali: Object.keys(O.tipy), poradove: O.i + 1, spolu: O.otazky.length});
+    if (G.faza === 'odhad-odhal') Object.assign(v, {spravne: q[1], fakt: q[3]});
+  }
+  return v;
+}
+function pre(id) {
+  if (!G) return null;
+  const p = {krok: G.krok, zisk: G.zisk ? G.zisk[id] || 0 : 0, ziskKolo: G.ziskKolo[id] || 0};
+  if (G.faza === 'kto-pis') p.moja = G.kto.odpovede[id] || '';
+  if (G.faza === 'kto-hadaj' || G.faza === 'kto-odhal') { p.moj = G.kto.poradie[G.kto.i] === id; p.hlas = G.kto.hlasy[id] || ''; }
+  if (G.faza === 'kresli' || G.faza === 'kresli-odhal') {
+    const A = G.kresli.akt;
+    if (A.kreslic === id) { p.kreslim = true; if (G.faza === 'kresli') { p.slovo = hlavne(A.slovo); p.ine = !A.ine; } }
+    else { p.uhadol = A.uhadli.includes(id); p.blizko = A.blizko[id] || ''; p.tipy = A.mojeTipy[id] || []; }
+  }
+  if (G.faza === 'odhad-tip' || G.faza === 'odhad-odhal') p.tip = G.odhad.tipy[id] == null ? null : G.odhad.tipy[id];
+  return p;
+}
+let pubBusy = false;
+function publikuj() {
+  if (pubBusy) return;
+  const v = JSON.stringify(verejne());
+  const zmeny = [];
+  if (v !== lastVerejne) zmeny.push(() => api('verejne', v, true).then(() => { lastVerejne = v; }));
+  const ids = G ? G.hraci : hraci.map(p => p.id);
+  ids.forEach(id => {
+    const s = JSON.stringify(pre(id));
+    if (s !== lastPre[id]) zmeny.push(() => api('pre?id=' + encodeURIComponent(id), s, true).then(() => { lastPre[id] = s; }));
+  });
+  if (!zmeny.length) return;
+  pubBusy = true;
+  zmeny.reduce((pr, f) => pr.then(f), Promise.resolve()).catch(() => {}).finally(() => { pubBusy = false; });
+}
+
+/* ----- ukladanie (aby sa dalo pokračovať po obnovení stránky) ----- */
+let ulozT = null;
+function uloz() { if (!G) return; try { G.ulozene = Date.now(); localStorage.setItem(HRA_KEY, JSON.stringify(G)); } catch (e) {} }
+function ulozCoskoro() { if (!ulozT) ulozT = setTimeout(() => { ulozT = null; uloz(); }, 1500); }
+function zmena(prerob) { if (prerob) lastKey = ''; render(); publikuj(); ulozCoskoro(); }
+
+/* ================= OBRAZOVKA ================= */
+let lastKey = '';
+function hlavicka() {
+  const T = TYP[G.typ] || {};
+  return `<header class="top" style="--tc:${T.farba}">
+    <div style="display:flex;align-items:center;gap:2vmin"><h1 class="logo small"><span class="a">Kto?</span> <span class="b">Čo?</span> <span class="c">Koľko?</span></h1>
+      ${G.faza !== 'koniec' ? `<span class="chip">Kolo ${Math.min(G.k + 1, G.plan.length)} z ${G.plan.length}</span>${T.nazov ? `<span class="chip typ">${T.ikona} ${T.nazov}</span>` : ''}` : ''}</div>
+    <div class="timer" id="timer" ${G.deadline || G.pauza ? '' : 'hidden'}><span id="tsec"></span></div>
+  </header>`;
+}
+function hraciHtml(stav) {
+  return `<div class="players" id="hraci">${G.hraci.map(id => {
+    const s = stav ? stav(id) : '';
+    return `<div class="pl ${s}${online(id) ? '' : ' off'}" style="--pc:${farba(id)}"><span class="dot">${s === 'done' ? '✓' : ''}</span>${esc(meno(id))} <span class="pts">${G.body[id] || 0}</span></div>`;
+  }).join('')}</div>`;
+}
+function pata() {
+  return `<footer class="foot">${hraciHtml(stavHraca())}<div class="ctrl">
+    <button data-act="pauza">${G.pauza ? '▶ Pokračovať' : '⏸ Pauza'}<kbd>medzera</kbd></button>
+    <button data-act="dalej">⏭ Ďalej<kbd>N</kbd></button>
+    <button data-act="zvuk">${zvuk ? '🔊' : '🔇'}</button>
+    <button data-act="koniec">✖ Koniec</button></div></footer>`;
+}
+function stavHraca() {
+  if (!G) return null;
+  if (G.faza === 'kto-pis') return id => G.kto.odpovede[id] != null ? 'done' : '';
+  if (G.faza === 'kto-hadaj') return id => G.kto.poradie[G.kto.i] === id ? '' : G.kto.hlasy[id] ? 'done' : '';
+  if (G.faza === 'odhad-tip') return id => G.odhad.tipy[id] != null ? 'done' : '';
+  if (G.faza === 'kresli') return id => G.kresli.akt.uhadli.includes(id) ? 'done' : id === G.kresli.akt.kreslic ? 'me' : '';
+  return null;
+}
+
+function vLobby() {
+  const n = nast(), url = publicUrl || lanUrl;
+  const mode = (t, label) => `<div class="mode" style="--tc:${TYP[t].farba}"><span class="ic">${TYP[t].ikona}</span><div><b>${TYP[t].nazov}</b><small>${label}</small></div>
+      <div class="n"><button data-act="nast" data-k="${t}" data-d="-1">−</button>${n[t]}<button data-act="nast" data-k="${t}" data-d="1">+</button></div></div>`;
+  return `<div class="main" style="justify-content:flex-start;gap:3vmin;padding-top:2vmin">
+    <h1 class="logo"><span class="a">Kto?</span> <span class="b">Čo?</span> <span class="c">Koľko?</span></h1>
+    <div class="lobby">
+      <section class="panel"><h3>📱 Pripoj sa mobilom</h3>
+        <div class="join"><div class="qr" id="qr">${url ? '' : '…'}</div><div><p class="lead" style="margin-bottom:1vmin">Naskenuj QR kód alebo otvor v mobile:</p><div class="url">${esc(url || 'čakám na server…')}</div>
+        ${publicUrl ? '<p class="lead" style="margin-top:1vmin;font-size:clamp(13px,1.2vw,18px)">🌍 Hra beží cez internet – odkaz môžeš poslať kamarátom kamkoľvek.</p>' : ''}</div></div>
+        <h3 style="margin-top:2.4vmin">Hráči (${hraci.length})</h3>
+        <div class="players" style="justify-content:flex-start">${hraci.length ? hraci.map((p, i) => `<div class="pl${p.online ? '' : ' off'}" style="--pc:${PCOL[i % PCOL.length]}"><span class="dot">${i === hraci.findIndex(x => x.online) ? '👑' : ''}</span>${esc(p.name)}<button data-act="vyhod" data-id="${p.id}" title="Odstrániť">✕</button></div>`).join('') : '<p class="lead">Zatiaľ nikto. Hráči sa pripájajú cez mobil.</p>'}</div>
+        ${hraci.length ? '<p class="lead" style="margin-top:1vmin;font-size:clamp(12px,1.1vw,17px)">👑 Prvý hráč môže hru spustiť aj zo svojho mobilu.</p>' : ''}
+        ${serverOk ? '' : '<p class="lead" style="color:var(--bad)">Server nebeží – spusti start.bat alebo online.bat.</p>'}
+      </section>
+      <section class="panel"><h3>🎲 Kolá v hre</h3>
+        <div class="modes">${mode('kto', 'počet kôl · v každom jedna otázka pre všetkých (od 3 hráčov)')}${mode('kresli', `počet kôl · v každom ${n.kresieb} ${n.kresieb === 1 ? 'kresba' : n.kresieb < 5 ? 'kresby' : 'kresieb'}`)}${mode('odhad', `počet kôl · v každom ${n.otazok} ${n.otazok === 1 ? 'otázka' : n.otazok < 5 ? 'otázky' : 'otázok'}`)}</div>
+        <div class="modes" style="margin-top:1vmin">
+          <div class="mode"><span class="ic">🖌️</span><div><b style="color:#fff">Kresieb v kole</b></div><div class="n"><button data-act="nast" data-k="kresieb" data-d="-1">−</button>${n.kresieb}<button data-act="nast" data-k="kresieb" data-d="1">+</button></div></div>
+          <div class="mode"><span class="ic">❓</span><div><b style="color:#fff">Otázok v odhadovačke</b></div><div class="n"><button data-act="nast" data-k="otazok" data-d="-1">−</button>${n.otazok}<button data-act="nast" data-k="otazok" data-d="1">+</button></div></div>
+        </div>
+        <p class="lead" style="margin-top:1.4vmin;font-size:clamp(13px,1.2vw,19px)">Spolu ${planKol(n).length} kôl. Kolá sa striedajú a hra beží sama – netreba moderátora.</p>
+      </section>
+    </div>
+    <div style="display:flex;gap:2vmin;flex-wrap:wrap;justify-content:center">
+      <button class="btn" data-act="start"${hraci.filter(p => p.online).length >= 2 ? '' : ' disabled'}>▶ Spustiť hru<kbd>Enter</kbd></button>
+      ${ulozena ? `<button class="btn ghost" data-act="pokracuj">↻ Pokračovať v rozohratej hre (kolo ${ulozena.k + 1} z ${ulozena.plan.length})</button>` : ''}
+      <button class="btn ghost" data-act="odpoj">Odpojiť všetky mobily</button>
+      <button class="btn ghost" data-act="zvuk">${zvuk ? '🔊 Zvuk' : '🔇 Ticho'}</button>
+    </div>
+  </div>`;
+}
+function vUvod() {
+  const T = TYP[G.typ];
+  return `<div class="main intro" style="--tc:${T.farba}"><span class="eyebrow">Kolo ${G.k + 1} z ${G.plan.length}</span><div class="ic">${T.ikona}</div><h2 class="big">${T.nazov}</h2><p class="lead">${T.popis}</p></div>`;
+}
+function vKtoPis() {
+  return `<div class="main" style="--tc:var(--kto)"><span class="eyebrow">Napíšte odpoveď do mobilu</span><h2 class="q">${esc(G.kto.otazka)}</h2>
+    <p class="lead">Píšte tak, aby vás nikto neprezradil… alebo naopak, aby všetci tipli niekoho iného 😉</p></div>`;
+}
+function vKtoHadaj(odhal) {
+  const K = G.kto, autor = K.poradie[K.i];
+  let spodok = '';
+  if (odhal) {
+    const h = Object.entries(K.hlasy);
+    spodok = `<div class="author" style="--pc:${farba(autor)}">✍️ ${esc(meno(autor))}</div>
+      <div class="votes">${h.length ? h.map(([id, za]) => `<span class="vote ${za === autor ? 'ok' : 'bad'}">${esc(meno(id))} → ${esc(meno(za))} ${za === autor ? '+100' : ''}</span>`).join('') : '<span class="lead">Nikto nehlasoval.</span>'}</div>
+      ${G.zisk[autor] ? `<p class="lead">${esc(meno(autor))} oklamal(a) ${G.zisk[autor] / 50}× a získava +${G.zisk[autor]}</p>` : ''}`;
+  } else spodok = `<p class="lead">Kto to napísal? Hlasujte v mobile.</p>`;
+  return `<div class="main" style="--tc:var(--kto)"><span class="eyebrow">${esc(K.otazka)} · odpoveď ${K.i + 1} z ${K.poradie.length}</span>
+    <div class="quote">${esc(K.odpovede[autor])}</div><div style="height:2vmin"></div>${spodok}</div>`;
+}
+function vKresli(odhal) {
+  const A = G.kresli.akt;
+  return `<div class="drawwrap" style="--tc:var(--co)">
+    <div class="board"><canvas id="platno" width="1200" height="900"></canvas></div>
+    <aside class="side">
+      <span class="eyebrow">Kreslí ${G.kresli.i + 1}/${G.kresli.kolo.length}</span>
+      <div class="pl me" style="--pc:${farba(A.kreslic)};align-self:flex-start"><span class="dot">🎨</span>${esc(meno(A.kreslic))}</div>
+      <div class="mask" id="maska">${esc(maska(A, odhal))}</div>
+      ${odhal ? `<p class="lead">${A.uhadli.length ? `Uhádli: ${A.uhadli.map(id => `<b style="color:${farba(id)}">${esc(meno(id))}</b>`).join(', ')}` : 'Nikto neuhádol 😅'}</p>` : '<p class="lead" style="font-size:clamp(13px,1.2vw,19px)">Tipy píšte do mobilu.</p>'}
+      <div class="feed" id="feed"></div>
+    </aside></div>`;
+}
+function feedHtml(A) {
+  return A.feed.slice(-14).map(f => f.ok ? `<div class="ok" style="--pc:${farba(f.id)}">✓ <b>${esc(meno(f.id))}</b> uhádol(a)!</div>`
+    : f.close ? `<div class="close" style="--pc:${farba(f.id)}"><b>${esc(meno(f.id))}</b> je veľmi blízko 🔥</div>`   // blízky tip by prezradil slovo
+    : `<div style="--pc:${farba(f.id)}"><b>${esc(meno(f.id))}:</b> ${esc(f.t)}</div>`).join('');
+}
+function vOdhad(odhal) {
+  const O = G.odhad, q = O.otazky[O.i];
+  if (!odhal) return `<div class="main" style="--tc:var(--kolko)"><span class="eyebrow">Otázka ${O.i + 1} z ${O.otazky.length} · napíšte číslo do mobilu</span><h2 class="q">${esc(q[0])}</h2>${q[2] ? `<p class="lead">v jednotkách: <b>${esc(q[2])}</b></p>` : ''}</div>`;
+  const z = O.vysledky || [];
+  return `<div class="main" style="--tc:var(--kolko);gap:1.6vmin"><span class="eyebrow">${esc(q[0])}</span>
+    <div class="ans">${fmt(q[1])} ${esc(q[2])}</div><p class="lead">${esc(q[3])}</p>
+    <div class="guesses">${z.length ? z.map(x => `<div class="g ${x.r === 0 ? 'r1' : ''}" style="--pc:${farba(x.id)}"><span class="r">${x.r + 1}.</span><span style="color:${farba(x.id)}">${esc(meno(x.id))}</span>
+      <span>${fmt(x.v)} <span class="d">(${x.d === 0 ? 'presne!' : `o ${fmt(Math.round(x.d * 1000) / 1000)} ${x.v > q[1] ? 'viac' : 'menej'}`})</span></span><span class="plus">${x.presne ? '🎯 ' : ''}${G.zisk[x.id] ? '+' + G.zisk[x.id] : ''}</span></div>`).join('') : '<p class="lead">Nikto netipoval.</p>'}</div></div>`;
+}
+function vSkore(konecne) {
+  const zoz = G.hraci.slice().sort((a, b) => (G.body[b] || 0) - (G.body[a] || 0));
+  const max = Math.max(1, ...zoz.map(id => G.body[id] || 0));
+  if (konecne) {
+    const top = zoz.slice(0, 3), ord = [top[1], top[0], top[2]].filter(Boolean), h = {0: '26vmin', 1: '19vmin', 2: '13vmin'};
+    return `<div class="main" style="gap:3vmin"><span class="eyebrow" style="color:var(--kolko)">Koniec hry</span><h2 class="big">🏆 ${esc(meno(zoz[0]))} vyhráva!</h2>
+      <div class="podium">${ord.map(id => { const r = zoz.indexOf(id); return `<div class="pod" style="--pc:${farba(id)}"><span class="nm">${esc(meno(id))}</span><span class="pt">${G.body[id] || 0} b.</span><div class="blk" style="height:${h[r]}">${r + 1}</div></div>`; }).join('')}</div>
+      ${zoz.length > 3 ? `<p class="lead">${zoz.slice(3).map((id, i) => `${i + 4}. ${esc(meno(id))} (${G.body[id] || 0})`).join(' · ')}</p>` : ''}
+      <div style="display:flex;gap:2vmin"><button class="btn" data-act="znova">↻ Hrať znova<kbd>Enter</kbd></button><button class="btn ghost" data-act="dolobby">Späť na úvod</button></div></div>`;
+  }
+  return `<div class="main"><span class="eyebrow" style="color:var(--kolko)">Priebežné poradie po ${G.k + 1}. kole</span>
+    <div class="board-sc">${zoz.map((id, i) => `<div class="sc" style="--pc:${farba(id)}"><span>${i + 1}.</span><div><div class="bar" style="width:${Math.max(8, (G.body[id] || 0) / max * 100)}%">${esc(meno(id))}</div></div><span>${G.body[id] || 0} ${G.ziskKolo[id] ? `<span class="plus">+${G.ziskKolo[id]}</span>` : ''}</span></div>`).join('')}</div>
+    <p class="lead">${G.k + 1 < G.plan.length ? `Ďalej: ${TYP[G.plan[G.k + 1]].ikona} ${TYP[G.plan[G.k + 1]].nazov}` : 'Ďalej: vyhlásenie víťaza'}</p></div>`;
+}
+
+function render() {
+  const app = $('#app');
+  const key = G ? G.faza + '|' + G.krok : 'lobby|' + JSON.stringify(hraci) + publicUrl + lanUrl + serverOk + JSON.stringify(nast()) + !!ulozena + zvuk;
+  if (key !== lastKey) {
+    lastKey = key;
+    if (!G) { app.innerHTML = vLobby(); kresliQR(); return; }
+    let body = '';
+    switch (G.faza) {
+      case 'uvod': body = vUvod(); break;
+      case 'kto-pis': body = vKtoPis(); break;
+      case 'kto-hadaj': body = vKtoHadaj(false); break;
+      case 'kto-odhal': body = vKtoHadaj(true); break;
+      case 'kresli': body = vKresli(false); break;
+      case 'kresli-odhal': body = vKresli(true); break;
+      case 'odhad-tip': body = vOdhad(false); break;
+      case 'odhad-odhal': body = vOdhad(true); break;
+      case 'skore': body = vSkore(false); break;
+      case 'koniec': body = vSkore(true); break;
+    }
+    app.innerHTML = hlavicka() + body + (G.faza === 'koniec' ? '' : pata());
+    if (G.faza === 'kresli' || G.faza === 'kresli-odhal') prekresli();
+  }
+  if (!G) return;
+  // časti, ktoré sa menia často
+  const h = $('#hraci'); if (h) { const nh = hraciHtml(stavHraca()); if (h.outerHTML !== nh) h.outerHTML = nh; }
+  const f = $('#feed'); if (f && G.kresli && G.kresli.akt) { const nf = feedHtml(G.kresli.akt); if (f.innerHTML !== nf) f.innerHTML = nf; }
+  const m = $('#maska'); if (m && G.kresli && G.kresli.akt) { const t = maska(G.kresli.akt, G.faza === 'kresli-odhal'); if (m.textContent !== t) m.textContent = t; }
+  const pb = document.querySelector('[data-act="pauza"]'); if (pb) pb.innerHTML = (G.pauza ? '▶ Pokračovať' : '⏸ Pauza') + '<kbd>medzera</kbd>';
+  let pz = document.querySelector('.pause');
+  if (G.pauza && !pz) { pz = document.createElement('div'); pz.className = 'pause'; pz.textContent = '⏸ Pauza'; document.body.appendChild(pz); }
+  if (!G.pauza && pz) pz.remove();
+  casomer();
+}
+let lastSec = -1;
+function casomer() {
+  const t = $('#timer'); if (!t || !G) return;
+  const ms = G.pauza != null ? G.pauza : Math.max(0, G.deadline - Date.now());
+  const s = Math.ceil(ms / 1000);
+  t.hidden = !(G.deadline || G.pauza);
+  t.style.setProperty('--p', G.dlzka ? Math.min(1, ms / G.dlzka) : 0);
+  t.classList.toggle('low', s <= 5);
+  $('#tsec').textContent = s;
+  if (s !== lastSec) { if (s <= 5 && s > 0 && !G.pauza && /pis|hadaj|kresli$|tip/.test(G.faza)) zahraj('tik'); lastSec = s; }
+}
+function prekresli() {
+  const cv = $('#platno'); if (!cv || !G || !G.kresli || !G.kresli.akt) return;
+  if (prekresli.raf) return;
+  prekresli.raf = requestAnimationFrame(() => {
+    prekresli.raf = 0;
+    const g = cv.getContext('2d'), k = cv.width / 1000;
+    g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    for (const t of G.kresli.akt.tahy) {
+      g.strokeStyle = t.c; g.fillStyle = t.c; g.lineWidth = t.w * k;
+      const p = t.p;
+      if (p.length <= 2) { g.beginPath(); g.arc(p[0] * k, p[1] * k, t.w * k / 2, 0, Math.PI * 2); g.fill(); continue; }
+      g.beginPath(); g.moveTo(p[0] * k, p[1] * k);
+      for (let i = 2; i + 1 < p.length; i += 2) g.lineTo(p[i] * k, p[i + 1] * k);
+      g.stroke();
+    }
+  });
+}
+function kresliQR() {
+  const box = $('#qr'), url = publicUrl || lanUrl;
+  if (!box || !url) return;
+  if (window.QRCode) { box.innerHTML = ''; try { new QRCode(box, {text: url, width: 260, height: 260, correctLevel: QRCode.CorrectLevel.M}); } catch (e) {} }
+  else box.innerHTML = '<span style="color:#140826;font-weight:800;text-align:center">QR kód sa nenačítal – použi odkaz</span>';
+}
+
+/* ---------- ovládanie na TV ---------- */
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  ac();
+  const a = b.dataset.act;
+  if (a === 'start') zacniHru();
+  else if (a === 'nast') { const n = nast(), k = b.dataset.k, lim = {kto: [0, 4], kresli: [0, 4], odhad: [0, 4], kresieb: [1, 8], otazok: [2, 8]}[k]; n[k] = Math.max(lim[0], Math.min(lim[1], n[k] + (+b.dataset.d))); ulozNast(n); render(); }
+  else if (a === 'vyhod') api('vyhod?id=' + encodeURIComponent(b.dataset.id), {}).then(nacitajHracov).catch(() => {});
+  else if (a === 'odpoj') { if (confirm('Naozaj odpojiť všetky mobily? Hráči sa budú musieť pripojiť znova.')) api('reset', {}).then(nacitajHracov).catch(() => {}); }
+  else if (a === 'zvuk') { zvuk = !zvuk; try { localStorage.setItem(ZVUK_KEY, zvuk ? '1' : '0'); } catch (e) {} lastKey = ''; render(); }
+  else if (a === 'pokracuj') pokracuj();
+  else if (a === 'pauza') pauza();
+  else if (a === 'dalej') { if (G && G.faza !== 'koniec') { if (G.pauza != null) pauza(); koniecFazy(); } }
+  else if (a === 'koniec') { if (G && confirm('Ukončiť hru a vyhlásiť výsledky?')) { G.k = G.plan.length; prejdi('koniec', 0); konfety(); } }
+  else if (a === 'znova') { G = null; zacniHru(); }
+  else if (a === 'dolobby') { G = null; try { localStorage.removeItem(HRA_KEY); } catch (e) {} zmena(true); }
+});
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input,textarea')) return;
+  if (e.code === 'Enter') { if (!G) zacniHru(); else if (G.faza === 'koniec') { G = null; zacniHru(); } else if (G.faza === 'skore' || G.faza === 'uvod') koniecFazy(); }
+  if (e.code === 'Space' && G) { e.preventDefault(); pauza(); }
+  if (e.code === 'KeyN' && G && G.faza !== 'koniec') { if (G.pauza != null) pauza(); koniecFazy(); }
+});
+function pauza() {
+  if (!G || !G.deadline && G.pauza == null) return;
+  if (G.pauza != null) { G.deadline = Date.now() + G.pauza; G.pauza = null; }
+  else { G.pauza = Math.max(0, G.deadline - Date.now()); G.deadline = 0; }
+  zmena();
+}
+function pokracuj() {
+  if (!ulozena) return;
+  G = ulozena; ulozena = null;
+  if (G.deadline) { G.pauza = Math.max(3000, G.deadline - G.ulozene); G.deadline = 0; }   // po obnovení začne v pauze
+  lastPre = {}; lastVerejne = '';
+  zmena(true);
+  toast('Hra pokračuje – spusti ju medzerníkom');
+}
+
+/* ---------- slučky ---------- */
+function nacitajHracov() {
+  return api('hraci').then(r => {
+    serverOk = true;
+    const nove = JSON.stringify(r.hraci || []);
+    if (nove !== JSON.stringify(hraci) || (r.public || '') !== publicUrl) { hraci = r.hraci || []; publicUrl = r.public || ''; if (!G) lastKey = ''; render(); }
+    if (G) hraci.forEach(p => { if (!G.hraci.includes(p.id) && p.online) { G.hraci.push(p.id); G.body[p.id] = 0; G.mena[p.id] = p.name; zmena(); } });
+  }).catch(() => { if (serverOk) { serverOk = false; if (!G) { lastKey = ''; render(); } } });
+}
+api('info').then(r => { if (r.ips && r.ips.length) lanUrl = `http://${r.ips[0]}:${r.port}/m`; if (r.public) publicUrl = r.public; lastKey = ''; render(); }).catch(() => {});
+let vstupyBusy = false;
+function nacitajVstupy() {
+  if (vstupyBusy) return;
+  vstupyBusy = true;
+  api('vstupy?od=' + Math.max(0, lastN)).then(r => {
+    if (lastN < 0) { lastN = r.max || 0; return; }          // staré vstupy z minulosti preskočíme
+    if ((r.max || 0) < lastN) lastN = 0;                    // server sa reštartoval
+    for (const v of r.v || []) { if (v.n > lastN) { lastN = v.n; try { spracuj(v); } catch (e) { console.error(e); } } }
+  }).catch(() => {}).finally(() => { vstupyBusy = false; });
+}
+tikac(150, nacitajVstupy);
+tikac(1000, nacitajHracov);
+tikac(250, () => {
+  if (G && !G.pauza && G.deadline && Date.now() >= G.deadline) koniecFazy();
+  if (G && G.faza === 'kresli' && !G.pauza) {
+    const A = G.kresli.akt, uplynulo = 1 - Math.max(0, G.deadline - Date.now()) / G.dlzka;
+    if (uplynulo > .5 && A.odkryte.length < 1) odkryPismeno(A);
+    if (uplynulo > .75 && A.odkryte.length < 2) odkryPismeno(A);
+  }
+  skontroluj();
+  casomer();
+  publikuj();
+});
+nacitajHracov();
+render();
+</script>
+</body>
+</html>

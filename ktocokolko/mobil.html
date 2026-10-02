@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#140B33">
+<title>Kto? Čo? Koľko?</title>
+<style>
+:root{--bg:#140B33;--card:rgba(255,255,255,.09);--line:rgba(255,255,255,.2);--text:#fff;--muted:rgba(255,255,255,.72);--kto:#FF4D8D;--co:#22C3A6;--kolko:#FFB020;--ok:#3DDC84;--bad:#FF5A5F}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%}
+body{background:radial-gradient(700px 500px at 0 0,#2B1470,transparent 70%),var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  padding:max(14px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom));overscroll-behavior:none}
+[hidden]{display:none!important}
+.logo{font:900 34px/1 'Arial Black',Impact,system-ui;margin:4px 0 14px;letter-spacing:-.01em}
+.logo .a{color:var(--kto)} .logo .b{color:var(--co)} .logo .c{color:var(--kolko)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px}
+input,textarea{width:100%;font:700 20px system-ui;padding:14px;border-radius:14px;border:2px solid var(--line);background:rgba(0,0,0,.25);color:#fff;-webkit-user-select:text;user-select:text}
+input:focus,textarea:focus{outline:none;border-color:var(--kolko)}
+textarea{min-height:110px;resize:none}
+button{font:inherit;cursor:pointer}
+.go{width:100%;margin-top:10px;padding:16px;border:0;border-radius:14px;background:linear-gradient(90deg,var(--kto),var(--kolko));color:#140826;font:900 20px system-ui}
+.go:disabled{opacity:.45}
+.ghost{width:100%;margin-top:10px;padding:12px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:#fff;font:800 16px system-ui}
+.muted{color:var(--muted)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.me{font-weight:900;font-size:18px} .pts{font-weight:800;color:var(--kolko)}
+.bar{height:8px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden;margin-bottom:12px}
+.bar i{display:block;height:100%;background:var(--tc,#fff);width:100%;transition:width .25s linear}
+.eye{font-weight:800;letter-spacing:.12em;text-transform:uppercase;font-size:12px;color:var(--tc,var(--muted));margin:0 0 6px}
+h2{margin:0 0 12px;font-size:22px;line-height:1.25}
+.big{font:900 30px/1.1 'Arial Black',Impact,system-ui;margin:6px 0 10px}
+.center{text-align:center}
+.icon{font-size:64px;line-height:1;margin:10px 0}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:8px 12px;border-radius:99px;background:var(--card);border:1px solid var(--line);font-weight:800;font-size:15px}
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{width:100%;text-align:left;padding:15px;border-radius:14px;border:2px solid var(--line);background:var(--card);color:#fff;font:800 18px system-ui;display:flex;align-items:center;gap:10px}
+.opt .dot{width:14px;height:14px;border-radius:50%;background:var(--pc)}
+.opt.on{border-color:#fff;background:rgba(255,255,255,.22)}
+.quote{background:#fff;color:#1A0E3D;border-radius:18px;padding:16px;font:800 20px/1.3 system-ui;margin-bottom:14px}
+.ok{color:var(--ok)} .bad{color:var(--bad)}
+.res{font:900 28px/1.15 system-ui;margin:8px 0}
+/* kreslenie */
+.word{font:900 24px/1.1 'Arial Black',Impact,system-ui;color:var(--co);text-align:center;margin:0 0 8px;letter-spacing:.04em}
+.canvas{background:#fff;border-radius:14px;width:100%;aspect-ratio:4/3;touch-action:none;display:block}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+.col{width:36px;height:36px;border-radius:50%;border:3px solid rgba(255,255,255,.3);background:var(--c)}
+.col.on{border-color:#fff;transform:scale(1.12)}
+.size{width:40px;height:40px;border-radius:12px;border:2px solid var(--line);background:var(--card);display:grid;place-items:center}
+.size i{display:block;border-radius:50%;background:#fff}
+.size.on{border-color:#fff;background:rgba(255,255,255,.22)}
+.tbtn{padding:9px 12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:#fff;font-weight:800;font-size:15px}
+.mask{font:900 24px/1.3 ui-monospace,Consolas,monospace;letter-spacing:.14em;text-align:center;word-break:break-all;margin:6px 0 12px}
+.tips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tips span{padding:5px 10px;border-radius:99px;background:var(--card);font-size:14px;color:var(--muted)}
+.hot{background:rgba(255,176,32,.2);border:1px solid var(--kolko);border-radius:12px;padding:10px;margin-top:10px;font-weight:800}
+.row{display:flex;gap:8px} .row input{flex:1} .row button{flex:0 0 auto;width:auto;margin:0;padding:0 18px}
+.pause{position:fixed;inset:0;background:rgba(10,5,30,.8);display:grid;place-items:center;font:900 40px 'Arial Black',system-ui;z-index:9}
+.status{text-align:center;color:var(--muted);font-size:14px;min-height:1.2em;margin:6px 0 0}
+.status.err{color:var(--bad);font-weight:700}
+.foot{text-align:center;color:var(--muted);font-size:12px;padding-top:6px}
+</style>
+</head>
+<body>
+<h1 class="logo"><span class="a">Kto?</span> <span class="b">Čo?</span> <span class="c">Koľko?</span></h1>
+
+<form class="card" id="join">
+  <div id="back" hidden><p class="muted" style="margin:0 0 8px">Vypadol si? Klikni na svoje meno:</p><div class="chips" id="backList" style="margin-bottom:14px"></div></div>
+  <p class="muted" style="margin:0 0 8px">Ako sa voláš?</p>
+  <input id="name" maxlength="14" autocomplete="off" enterkeyhint="go" placeholder="Tvoje meno">
+  <button class="go" id="goBtn" type="submit">Pripojiť sa</button>
+  <p class="status" id="jstatus"></p>
+</form>
+
+<section id="game" hidden>
+  <div class="top"><span class="me" id="meName"></span><span><span class="pts" id="mePts"></span> <button class="tbtn" id="rename" type="button" style="padding:5px 9px;font-size:12px">Zmeniť meno</button></span></div>
+  <div class="bar" id="bar" hidden><i id="barI"></i></div>
+  <div id="screen"></div>
+  <p class="status" id="status"></p>
+  <p class="foot">Nechaj obrazovku zapnutú – hra beží na TV.</p>
+</section>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const PCOL = ['#FF4D8D', '#22C3A6', '#FFB020', '#8B6CFF', '#4FC3F7', '#FF7A45', '#B5E61D', '#F06EF0', '#FFD93D', '#5EEAD4', '#F87171', '#A5B4FC'];
+const TC = {kto: 'var(--kto)', kresli: 'var(--co)', odhad: 'var(--kolko)'};
+let me = null, S = null, lastKey = '', failCount = 0, edit = {};
+try { me = JSON.parse(localStorage.getItem('kck-mobil')); } catch (e) {}
+
+function api(path, body) {
+  const ctl = window.AbortController ? new AbortController() : null;
+  const tm = ctl && setTimeout(() => ctl.abort(), 8000);
+  return fetch('/api/' + path, Object.assign(body !== undefined ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {cache: 'no-store'}, ctl ? {signal: ctl.signal} : {}))
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .finally(() => { if (tm) clearTimeout(tm); });
+}
+const saveMe = () => { try { localStorage.setItem('kck-mobil', JSON.stringify(me)); } catch (e) {} };
+const hra = () => (S && S.hra) || {faza: 'lobby'};
+const ja = () => (S && S.ja) || {};
+const meno = id => { const p = S && S.hraci.find(x => x.id === id); return p ? p.name : '?'; };
+const farba = id => PCOL[Math.max(0, S ? S.hraci.findIndex(x => x.id === id) : 0) % PCOL.length];
+const posli = (k, data) => api('vstup?id=' + encodeURIComponent(me.id), Object.assign({k, f: hra().krok}, data || {}));
+
+/* ---------- pripojenie ---------- */
+function showJoin() { $('#join').hidden = false; $('#game').hidden = true; if (me && me.name) $('#name').value = me.name; paintBack(); }
+function showGame() { $('#join').hidden = true; $('#game').hidden = false; $('#meName').textContent = me.name; lastKey = ''; }
+function paintBack() {
+  const off = S ? S.hraci.filter(p => !p.online) : [];
+  $('#back').hidden = !off.length;
+  $('#backList').innerHTML = off.map(p => `<button type="button" class="chip" data-back="${p.id}">${esc(p.name)}</button>`).join('');
+}
+async function doJoin(name, id) {
+  if (!name) { $('#jstatus').textContent = 'Najprv napíš meno.'; return; }
+  $('#goBtn').disabled = true;
+  try {
+    const r = await api('join', {name, id: id || (me && me.id)});
+    if (r.error) $('#jstatus').textContent = r.error;
+    else { me = {id: r.id, name: r.name}; saveMe(); showGame(); poll(true); }
+  } catch (e) { $('#jstatus').textContent = 'Nepodarilo sa pripojiť. Skontroluj internet alebo Wi-Fi a skús znova.'; }
+  $('#goBtn').disabled = false;
+}
+$('#join').addEventListener('submit', e => { e.preventDefault(); doJoin($('#name').value.trim()); });
+$('#backList').addEventListener('click', e => { const b = e.target.closest('[data-back]'); if (b) doJoin(b.textContent, b.dataset.back); });
+$('#rename').addEventListener('click', showJoin);
+
+/* ---------- obrazovky ---------- */
+function screenKey() {
+  const h = hra(), j = ja();
+  // súkromné údaje môžu prísť o chvíľu neskôr ako nová fáza – obrazovku postavíme znova, keď dorazia
+  return [h.faza, h.krok, j.krok === h.krok, j.kreslim ? 'k' : '', j.moj ? 'm' : '', h.faza === 'lobby' ? (h.kapitan === me.id) : ''].join('|');
+}
+function render() {
+  if (!S || !me || $('#game').hidden) return;
+  const h = hra(), j = ja(), sc = $('#screen');
+  document.body.style.setProperty('--tc', TC[h.typ] || '#fff');
+  $('#mePts').textContent = h.body ? (h.body[me.id] || 0) + ' b.' : '';
+  $('#rename').hidden = h.faza !== 'lobby';
+  const key = screenKey();
+  if (key !== lastKey) { lastKey = key; edit = {}; sc.innerHTML = postav(h, j); pripoj(h, j); }
+  obnov(h, j);
+  let pz = document.querySelector('.pause');
+  if (h.pauza && !pz) { pz = document.createElement('div'); pz.className = 'pause'; pz.textContent = '⏸ Pauza'; document.body.appendChild(pz); }
+  if (!h.pauza && pz) pz.remove();
+}
+function hlavicka(h) { return `<p class="eye">Kolo ${h.kolo} z ${h.kol}${h.spolu ? ` · ${h.poradove}/${h.spolu}` : ''}</p>`; }
+function postav(h, j) {
+  switch (h.faza) {
+    case 'lobby': return `<div class="card center"><div class="icon">✅</div><h2>Si v hre!</h2><p class="muted" id="lobbyTxt"></p><div class="chips" id="lobbyHraci" style="justify-content:center;margin-top:12px"></div>
+        <div id="kapBox"></div></div>`;
+    case 'uvod': return `<div class="card center">${hlavicka(h)}<div class="icon">${h.ikona}</div><div class="big" style="color:var(--tc)">${esc(h.nazov)}</div><p class="muted">${esc(h.popis)}</p><div id="kapBox"></div></div>`;
+    case 'kto-pis': return `<div class="card">${hlavicka(h)}<h2>${esc(h.otazka)}</h2><div id="ktoBox"></div></div>`;
+    case 'kto-hadaj':
+      if (j.moj) return `<div class="card center">${hlavicka(h)}<div class="quote">${esc(h.odpoved)}</div><div class="icon">🤫</div><h2>Toto je tvoja odpoveď!</h2><p class="muted">Tvár sa nenápadne, nech ťa neodhalia.</p></div>`;
+      return `<div class="card">${hlavicka(h)}<p class="eye">Kto to napísal?</p><div class="quote">${esc(h.odpoved)}</div>
+        <div class="opts">${(h.moznosti || []).filter(id => id !== me.id).map(id => `<button type="button" class="opt" data-hlas="${id}" style="--pc:${farba(id)}"><span class="dot"></span>${esc(meno(id))}</button>`).join('')}</div>
+        <p class="status" id="hlasInfo"></p></div>`;
+    case 'kto-odhal': {
+      const autor = h.autor;
+      const res = j.moj ? (j.zisk ? `<div class="res ok">Oklamal si ${j.zisk / 50}× · +${j.zisk}</div>` : '<div class="res">Všetci ťa prekukli 😅</div>')
+        : j.hlas === autor ? '<div class="res ok">✓ Správne! +100</div>' : j.hlas ? `<div class="res bad">✗ Vedľa</div>` : '<div class="res muted">Nehlasoval si</div>';
+      return `<div class="card center">${hlavicka(h)}<div class="quote">${esc(h.odpoved)}</div><p class="muted">Napísal(a):</p><div class="big" style="color:${farba(autor)}">${esc(meno(autor))}</div>${res}</div>`;
+    }
+    case 'kresli':
+      if (j.kreslim) return `<div class="card" style="padding:12px">${hlavicka(h)}<p class="word" id="slovo"></p>
+        <canvas class="canvas" id="cv"></canvas>
+        <div class="tools" id="tools"></div>
+        <p class="status">Kresli – nepíš písmená ani čísla 😉</p></div>`;
+      return `<div class="card">${hlavicka(h)}<h2>Hádaj, čo kreslí <span style="color:${farba(h.kreslic)}">${esc(meno(h.kreslic))}</span></h2>
+        <div class="mask" id="mask"></div><div id="tipBox"></div></div>`;
+    case 'kresli-odhal':
+      return `<div class="card center">${hlavicka(h)}<p class="muted">Bolo to:</p><div class="big" style="color:var(--co)">${esc(h.slovo)}</div>
+        ${j.kreslim ? `<div class="res ${j.zisk ? 'ok' : ''}">${j.zisk ? `Uhádli ${j.zisk / 40}× · +${j.zisk}` : 'Nikto neuhádol 😅'}</div>` : j.uhadol ? `<div class="res ok">✓ Uhádol si · +${j.zisk}</div>` : '<div class="res bad">Neuhádol si</div>'}</div>`;
+    case 'odhad-tip': return `<div class="card">${hlavicka(h)}<h2>${esc(h.otazka)}</h2><div id="odhadBox"></div></div>`;
+    case 'odhad-odhal':
+      return `<div class="card center">${hlavicka(h)}<p class="muted">${esc(h.otazka)}</p><div class="big" style="color:var(--kolko)">${fmt(h.spravne)} ${esc(h.jednotka)}</div>
+        <p>Tvoj tip: <b>${j.tip == null ? '–' : fmt(j.tip) + ' ' + esc(h.jednotka)}</b></p><div class="res ${j.zisk ? 'ok' : ''}">${j.zisk ? '+' + j.zisk : j.tip == null ? '' : 'Tentoraz bez bodov'}</div>
+        <p class="muted" style="font-size:14px">${esc(h.fakt)}</p></div>`;
+    case 'skore': case 'koniec': {
+      const zoz = Object.keys(h.body || {}).sort((a, b) => h.body[b] - h.body[a]), r = zoz.indexOf(me.id) + 1;
+      return `<div class="card center">${h.faza === 'koniec' ? '<p class="eye">Koniec hry</p>' : hlavicka(h)}<div class="icon">${h.faza === 'koniec' ? (r === 1 ? '🏆' : r === 2 ? '🥈' : r === 3 ? '🥉' : '🎉') : '📊'}</div>
+        <div class="big">${r}. miesto</div><p>${h.body[me.id] || 0} bodov${j.ziskKolo && h.faza === 'skore' ? ` <span class="ok">(+${j.ziskKolo} v tomto kole)</span>` : ''}</p>
+        <p class="muted">${zoz.slice(0, 3).map((id, i) => `${i + 1}. ${esc(meno(id))} – ${h.body[id]}`).join('<br>')}</p><div id="kapBox"></div></div>`;
+    }
+  }
+  return '<div class="card center"><p class="muted">Čakaj…</p></div>';
+}
+function pripoj(h, j) {
+  const sc = $('#screen');
+  sc.querySelectorAll('[data-hlas]').forEach(b => b.onclick = () => { edit.hlas = b.dataset.hlas; obnov(hra(), ja()); posli('hlas', {za: b.dataset.hlas}).catch(() => chyba()); });
+  if (h.faza === 'kresli' && j.kreslim) kresba.start();
+  else kresba.stop();
+}
+function chyba() { $('#status').textContent = 'Nepodarilo sa odoslať, skús znova.'; $('#status').className = 'status err'; }
+const fmt = x => x == null ? '–' : Number(x).toLocaleString('sk-SK', {maximumFractionDigits: 3});
+
+// časti obrazovky, ktoré sa menia bez prekreslenia (aby sa nevymazal rozpísaný text)
+function obnov(h, j) {
+  const kap = $('#kapBox');
+  if (kap) {
+    const som = h.kapitan === me.id;
+    const label = h.faza === 'lobby' ? '▶ Spustiť hru' : h.faza === 'koniec' ? '↻ Hrať znova' : '▶ Pokračovať';
+    const html = som ? `<button class="go" type="button" data-start>${label}</button>${h.faza === 'lobby' ? '<p class="muted" style="font-size:13px">👑 Si prvý hráč – hru môžeš spustiť ty alebo ten, kto ovláda TV.</p>' : ''}` : '';
+    if (kap.dataset.h !== html) { kap.dataset.h = html; kap.innerHTML = html; const b = kap.querySelector('[data-start]'); if (b) b.onclick = () => { b.disabled = true; posli('start').catch(chyba); }; }
+  }
+  if (h.faza === 'lobby') {
+    const on = S.hraci.filter(p => p.online);
+    const t = $('#lobbyTxt'); if (t) t.textContent = h.kapitan === me.id ? (on.length < 2 ? 'Čakáme aspoň na jedného ďalšieho hráča.' : 'Keď sú všetci, spusti hru.') : `Čakáme, kým ${meno(h.kapitan)} spustí hru.`;
+    const l = $('#lobbyHraci'); if (l) { const html = on.map(p => `<span class="chip" style="border-color:${farba(p.id)}">${esc(p.name)}</span>`).join(''); if (l.innerHTML !== html) l.innerHTML = html; }
+  }
+  if (h.faza === 'kto-pis') {
+    const box = $('#ktoBox'), poslane = j.moja && !edit.ktoUprav;
+    const stav = poslane ? 'sent:' + j.moja : 'form';
+    if (box.dataset.s !== stav) {
+      box.dataset.s = stav;
+      if (poslane) {
+        box.innerHTML = `<div class="quote" style="margin-top:6px">${esc(j.moja)}</div><p class="ok center" style="font-weight:800">Odoslané ✓</p><button class="ghost" type="button" id="uprav">Upraviť odpoveď</button>`;
+        $('#uprav').onclick = () => { edit.ktoUprav = true; obnov(hra(), ja()); };
+      } else {
+        box.innerHTML = `<textarea id="ktoT" maxlength="120" placeholder="Tvoja odpoveď…">${esc(edit.ktoText != null ? edit.ktoText : j.moja || '')}</textarea><button class="go" type="button" id="ktoSend">Odoslať</button>`;
+        $('#ktoT').oninput = e => { edit.ktoText = e.target.value; };
+        $('#ktoSend').onclick = () => { const t = $('#ktoT').value.trim(); if (!t) return; edit.ktoUprav = false; edit.ktoText = null; posli('kto', {t}).then(() => poll(true)).catch(chyba); };
+      }
+    }
+  }
+  if (h.faza === 'kto-hadaj') {
+    const vybrany = edit.hlas || j.hlas;
+    document.querySelectorAll('[data-hlas]').forEach(b => b.classList.toggle('on', b.dataset.hlas === vybrany));
+    const inf = $('#hlasInfo'); if (inf) inf.textContent = vybrany ? 'Hlas je odoslaný – do konca času ho môžeš zmeniť.' : '';
+  }
+  if (h.faza === 'kresli' && !j.kreslim) {
+    const m = $('#mask'); if (m && m.textContent !== h.maska) m.textContent = h.maska;
+    const box = $('#tipBox'), stav = j.uhadol ? 'ok' : 'form';
+    if (box.dataset.s !== stav) {
+      box.dataset.s = stav;
+      if (j.uhadol) box.innerHTML = `<div class="center"><div class="icon">🎉</div><div class="res ok">Uhádol si!</div><p class="muted">Počkaj, kým to uhádnu ostatní.</p></div>`;
+      else {
+        box.innerHTML = `<form class="row" id="tipF"><input id="tipI" maxlength="40" autocomplete="off" autocapitalize="none" enterkeyhint="send" placeholder="Tvoj tip…"><button class="go" type="submit">➤</button></form><div id="hot"></div><div class="tips" id="tips"></div>`;
+        $('#tipF').onsubmit = e => { e.preventDefault(); const i = $('#tipI'), t = i.value.trim(); if (!t) return; i.value = ''; i.focus(); posli('tip', {t}).then(() => poll(true)).catch(chyba); };
+      }
+    }
+    const tips = $('#tips'); if (tips) { const html = (j.tipy || []).slice().reverse().map(t => `<span>${esc(t)}</span>`).join(''); if (tips.innerHTML !== html) tips.innerHTML = html; }
+    const hot = $('#hot'); if (hot) { const html = j.blizko ? `<div class="hot">🔥 „${esc(j.blizko)}“ je veľmi blízko!</div>` : ''; if (hot.innerHTML !== html) hot.innerHTML = html; }
+    if (j.uhadol) { const r = box.querySelector('.res'); if (r && j.zisk) r.textContent = `Uhádol si! +${j.zisk}`; }
+  }
+  if (h.faza === 'kresli' && j.kreslim) {
+    const s = $('#slovo'); if (s) { const t = 'Kresli: ' + (j.slovo || ''); if (s.textContent !== t) { s.textContent = t; kresba.noveSlovo(j.slovo); } }
+    kresba.tools(j);
+  }
+  if (h.faza === 'odhad-tip') {
+    const box = $('#odhadBox'), poslane = j.tip != null && !edit.odhadUprav;
+    const stav = poslane ? 'sent:' + j.tip : 'form';
+    if (box.dataset.s !== stav) {
+      box.dataset.s = stav;
+      if (poslane) {
+        box.innerHTML = `<div class="big center" style="color:var(--kolko)">${fmt(j.tip)} ${esc(h.jednotka)}</div><p class="ok center" style="font-weight:800">Tip je odoslaný ✓</p><button class="ghost" type="button" id="oUprav">Zmeniť tip</button>`;
+        $('#oUprav').onclick = () => { edit.odhadUprav = true; obnov(hra(), ja()); };
+      } else {
+        box.innerHTML = `<form class="row" id="oF"><input id="oI" inputmode="decimal" autocomplete="off" enterkeyhint="send" placeholder="Tvoj odhad${h.jednotka ? ' (' + esc(h.jednotka) + ')' : ''}"><button class="go" type="submit">➤</button></form><p class="status" id="oInfo"></p>`;
+        $('#oF').onsubmit = e => {
+          e.preventDefault();
+          const v = $('#oI').value.replace(/\s/g, '').replace(',', '.');
+          if (!v || !isFinite(+v)) { $('#oInfo').textContent = 'Napíš číslo (desatinné s čiarkou alebo bodkou).'; return; }
+          edit.odhadUprav = false; posli('odhad', {v: +v}).then(() => poll(true)).catch(chyba);
+        };
+      }
+    }
+  }
+  // časomiera
+  const bar = $('#bar'), dl = h.deadline || 0;
+  bar.hidden = !dl || ['lobby', 'koniec'].includes(h.faza);
+  if (!bar.hidden) { const left = Math.max(0, dl - Date.now()); if (!obnov.max || obnov.krok !== h.krok) { obnov.max = left; obnov.krok = h.krok; } $('#barI').style.width = Math.min(100, left / Math.max(1, obnov.max) * 100) + '%'; }
+}
+
+/* ---------- kreslenie prstom ---------- */
+const FARBY = ['#111111', '#E53935', '#1E88E5', '#43A047', '#FDD835', '#FB8C00', '#8E24AA', '#6D4C41', '#F48FB1'];
+const HRUBKY = [5, 12, 26];
+const kresba = {
+  cv: null, g: null, tahy: [], akt: null, farba: FARBY[0], hrubka: HRUBKY[0], guma: false, ops: [], posiela: false, sid: 0, slovo: null, timer: null,
+  start() {
+    const cv = $('#cv'); if (!cv || cv === this.cv) return;
+    this.cv = cv; this.g = cv.getContext('2d'); this.tahy = []; this.ops = []; this.slovo = null;
+    this.resize();
+    cv.addEventListener('pointerdown', e => this.dole(e));
+    cv.addEventListener('pointermove', e => this.pohyb(e));
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => cv.addEventListener(t, () => { this.akt = null; }));
+    clearInterval(this.timer); this.timer = setInterval(() => this.odosli(), 110);
+    window.onresize = () => this.resize();
+    this.toolsKey = '';
+  },
+  stop() { if (this.cv) { clearInterval(this.timer); this.cv = null; window.onresize = null; } },
+  resize() {
+    if (!this.cv) return;
+    const r = this.cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    this.cv.width = Math.round(r.width * dpr); this.cv.height = Math.round(r.width * 0.75 * dpr);
+    this.prekresli();
+  },
+  noveSlovo(s) { if (this.slovo !== null && this.slovo !== s) { this.tahy = []; this.ops = []; this.prekresli(); } this.slovo = s; },
+  bod(e) { const r = this.cv.getBoundingClientRect(); return [Math.round((e.clientX - r.left) / r.width * 1000), Math.round((e.clientY - r.top) / r.height * 750)]; },
+  dole(e) {
+    e.preventDefault();
+    try { this.cv.setPointerCapture(e.pointerId); } catch (err) {}
+    const [x, y] = this.bod(e), c = this.guma ? '#FFFFFF' : this.farba, w = this.guma ? 40 : this.hrubka;
+    this.akt = {id: ++this.sid, c, w, p: [x, y]};
+    this.tahy.push(this.akt);
+    this.ops.push(['s', this.akt.id, c, w, x, y]);
+    this.prekresli();
+  },
+  pohyb(e) {
+    if (!this.akt) return;
+    const [x, y] = this.bod(e), p = this.akt.p;
+    if (Math.hypot(x - p[p.length - 2], y - p[p.length - 1]) < 3) return;
+    p.push(x, y);
+    const last = this.ops[this.ops.length - 1];
+    if (last && last[0] === 'p' && last[1] === this.akt.id) last.push(x, y); else this.ops.push(['p', this.akt.id, x, y]);
+    this.ciara(this.akt, p.length - 4);
+  },
+  ciara(t, od) {
+    const g = this.g, k = this.cv.width / 1000, p = t.p;
+    g.strokeStyle = t.c; g.lineWidth = t.w * k; g.lineCap = 'round'; g.lineJoin = 'round';
+    g.beginPath(); g.moveTo(p[od] * k, p[od + 1] * k); g.lineTo(p[od + 2] * k, p[od + 3] * k); g.stroke();
+  },
+  prekresli() {
+    if (!this.g) return;
+    const g = this.g, k = this.cv.width / 1000;
+    g.fillStyle = '#fff'; g.fillRect(0, 0, this.cv.width, this.cv.height);
+    for (const t of this.tahy) {
+      g.fillStyle = t.c; g.beginPath(); g.arc(t.p[0] * k, t.p[1] * k, t.w * k / 2, 0, Math.PI * 2); g.fill();
+      for (let i = 0; i + 3 < t.p.length; i += 2) this.ciara(t, i);
+    }
+  },
+  spat() { this.tahy.pop(); this.ops.push(['u']); this.prekresli(); },
+  zmaz() { this.tahy = []; this.ops.push(['c']); this.prekresli(); },
+  odosli() {
+    if (this.posiela || !this.ops.length) return;
+    const ops = this.ops; this.ops = []; this.posiela = true;
+    posli('kresba', {ops}).then(r => { if (!r.ok) throw new Error(); }).catch(() => { this.ops = ops.concat(this.ops); }).finally(() => { this.posiela = false; });
+  },
+  tools(j) {
+    const box = $('#tools'); if (!box) return;
+    const key = [this.farba, this.hrubka, this.guma, j.ine].join('|');
+    if (key === this.toolsKey) return;
+    this.toolsKey = key;
+    box.innerHTML = FARBY.map(c => `<button type="button" class="col${!this.guma && c === this.farba ? ' on' : ''}" style="--c:${c}" data-c="${c}" aria-label="farba"></button>`).join('') +
+      HRUBKY.map(w => `<button type="button" class="size${!this.guma && w === this.hrubka ? ' on' : ''}" data-w="${w}"><i style="width:${Math.max(5, w * .7)}px;height:${Math.max(5, w * .7)}px"></i></button>`).join('') +
+      `<button type="button" class="tbtn${this.guma ? ' on' : ''}" data-t="guma" style="${this.guma ? 'background:rgba(255,255,255,.3)' : ''}">🧽 Guma</button><button type="button" class="tbtn" data-t="spat">↶ Späť</button><button type="button" class="tbtn" data-t="zmaz">🗑️ Všetko</button>` +
+      (j.ine ? '<button type="button" class="tbtn" data-t="ine">🔄 Iné slovo</button>' : '');
+    box.onclick = e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.c) { this.farba = b.dataset.c; this.guma = false; }
+      else if (b.dataset.w) { this.hrubka = +b.dataset.w; this.guma = false; }
+      else if (b.dataset.t === 'guma') this.guma = !this.guma;
+      else if (b.dataset.t === 'spat') this.spat();
+      else if (b.dataset.t === 'zmaz') this.zmaz();
+      else if (b.dataset.t === 'ine') { posli('ine').then(() => poll(true)).catch(chyba); }
+      this.toolsKey = ''; this.tools(ja());
+    };
+  }
+};
+
+/* ---------- spojenie ---------- */
+let pollT = null, polling = false;
+async function poll(hned) {
+  if (hned) { clearTimeout(pollT); }
+  if (polling && !hned) return;
+  polling = true;
+  try {
+    const s = await api('state' + (me && me.id ? '?id=' + encodeURIComponent(me.id) : ''));
+    failCount = 0; $('#status').textContent = ''; $('#status').className = 'status';
+    S = s;
+    if (me && me.id && !$('#game').hidden && s.known === false) {     // server nás nepozná (reštart) – pripojíme sa znova
+      const r = await api('join', {name: me.name}); if (!r.error) { me = {id: r.id, name: r.name}; saveMe(); }
+    }
+    if (!$('#join').hidden) paintBack();
+    render();
+  } catch (e) {
+    failCount++;
+    if (failCount > 3) { $('#status').textContent = 'Spojenie sa stratilo. Skúšam znova…'; $('#status').className = 'status err'; }
+  }
+  polling = false;
+  clearTimeout(pollT); pollT = setTimeout(poll, failCount > 3 ? 1500 : 350);
+}
+setInterval(() => { if (S) obnov(hra(), ja()); }, 250);   // plynulá časomiera
+
+/* displej nech nezhasne */
+let wake = null;
+async function keepAwake() { try { if ('wakeLock' in navigator && (!wake || wake.released)) wake = await navigator.wakeLock.request('screen'); } catch (e) {} }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { keepAwake(); poll(true); } });
+document.addEventListener('pointerdown', keepAwake, {once: true});
+
+if (me && me.id) showGame(); else showJoin();
+poll();
+</script>
+</body>
+</html>
