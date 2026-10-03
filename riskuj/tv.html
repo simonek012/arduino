@@ -5059,7 +5059,9 @@ function vQuestion() {
     const stitHtml = S.stit === S.buzzed ? '<span class="stitb">🛡️ Štít</span>' : '';
     const prih = S.prihrane && S.prihrane.komu === S.buzzed ? ` <span class="dim">👉 prihral ${esc(S.players[S.prihrane.od].name)}</span>` : '';
     state = `Odpovedá <span class="who">${esc(S.players[S.buzzed].name)}</span>${stitHtml}${prih}${bar}${c.txt ? `<span class="atime">${c.txt}</span>` : ''}`;
-    btns = `${S.qShown === false ? '<button class="mbtn gold" data-act="showq">Ukázať otázku na TV <kbd>medzera</kbd></button>' : ''}<button class="mbtn ok" data-act="ok">Správne <kbd>→</kbd></button><button class="mbtn bad" data-act="bad">Nesprávne <kbd>←</kbd></button>${S.revealed ? '' : '<button class="mbtn" data-act="reveal">Ukázať odpoveď</button>'}${zetonBtns()}`;
+    const rl = T.risk && !S.revealed ? nahradne() : [];   // pri poli Riskuj! môže moderátor otázku vymeniť, kým neukáže odpoveď
+    const swap = rl.length > 1 ? `<button class="mbtn" data-act="swapqprev">◀</button><span class="dim" style="align-self:center">otázka ${poradieNahradnej() + 1} z ${rl.length}</span><button class="mbtn" data-act="swapq">Iná otázka ▶</button>` : '';
+    btns = `${S.qShown === false ? '<button class="mbtn gold" data-act="showq">Ukázať otázku na TV <kbd>medzera</kbd></button>' : ''}${swap}<button class="mbtn ok" data-act="ok">Správne <kbd>→</kbd></button><button class="mbtn bad" data-act="bad">Nesprávne <kbd>←</kbd></button>${S.revealed ? '' : '<button class="mbtn" data-act="reveal">Ukázať odpoveď</button>'}${zetonBtns()}`;
   } else {
     const can = S.players.map((_, i) => i).filter(i => !S.locked.includes(i));
     state = `<span class="dim">Kto sa hlási?</span> ${can.map(i => `<span style="color:${PCOL[i]}">${esc(S.players[i].name)}</span>`).join(' · ')}`;
@@ -5356,7 +5358,8 @@ function poradieNahradnej() {
   return list.findIndex(x => x[0] === T.q && x[1] === T.a);
 }
 function zmenOtazku(smer) {
-  if (S.phase !== 'q' || S.qShown !== false || S.resolved) return;
+  if (S.phase !== 'q' || S.resolved) return;
+  if (S.qShown !== false && !(tile().risk && !S.revealed)) return;   // pole Riskuj! sa dá vymeniť aj po ukázaní, kým nie je odpoveď
   const list = nahradne(), T = tile();
   if (list.length < 2) { toast('V tejto kategórii a hodnote iná otázka nie je'); return; }
   const inde = new Set();                                      // odpovede, ktoré sú už na tabuliach inde
@@ -5368,6 +5371,7 @@ function zmenOtazku(smer) {
     if (inde.has(normOdp(cand[1])) && k < list.length - 1) continue;
     save();
     T.q = cand[0]; T.a = cand[1]; T.m = cand[2] || null;
+    if (S.qShown !== false) Object.assign(S, {mediaStart: Date.now(), mediaPausedAt: null, mediaPausedTotal: 0, unveilAt: 0});   // nová otázka je už na TV – obrázok sa odkrýva odznova
     render(); return;
   }
 }
