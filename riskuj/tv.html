@@ -801,14 +801,15 @@ BANK["Zoraď správne"] = [
   [ord("Zoraď štáty a útvary na našom území od najstaršieho.", ["Veľká Morava", "Uhorské kráľovstvo", "Československo", "Slovenská republika"]),
    ord("Zoraď prezidentov Slovenskej republiky od prvého.", ["Michal Kováč", "Rudolf Schuster", "Ivan Gašparovič", "Andrej Kiska"])]
 ];
-const wrd = (hint, word) => [`Hádaj slovo. Nápoveda: ${hint}`, word, {word}];
+// hráči vidia len to, o čo asi ide (zviera, mesto…); pôvodný opis je nápoveda len pre moderátora
+const wrd = (hint, word, druh) => [`Hádaj slovo. Je to ${druh || 'slovo'}.`, word, {word, hint}];
 KIND["Hádaj slovo"] = 'fun';
 BANK["Hádaj slovo"] = [
-  [wrd("zviera, ktoré mňauká", "MAČKA"), wrd("žlté ovocie, ktoré milujú opice", "BANÁN")],
-  [wrd("hlavné mesto Francúzska", "PARÍŽ"), wrd("najväčšia planéta slnečnej sústavy", "JUPITER")],
-  [wrd("nástroj s čiernymi a bielymi klávesmi", "KLAVÍR"), wrd("zviera s najdlhším krkom", "ŽIRAFA")],
-  [wrd("zbojník z Terchovej", "JÁNOŠÍK"), wrd("najvyšší vrch Slovenska", "GERLACHOVSKÝ ŠTÍT")],
-  [wrd("ako rastliny vyrábajú zo svetla cukor", "FOTOSYNTÉZA"), wrd("hlavné mesto Austrálie", "CANBERRA")]
+  [wrd("zviera, ktoré mňauká", "MAČKA", "zviera"), wrd("žlté ovocie, ktoré milujú opice", "BANÁN", "ovocie")],
+  [wrd("hlavné mesto Francúzska", "PARÍŽ", "hlavné mesto"), wrd("najväčšia planéta slnečnej sústavy", "JUPITER", "planéta")],
+  [wrd("nástroj s čiernymi a bielymi klávesmi", "KLAVÍR", "hudobný nástroj"), wrd("zviera s najdlhším krkom", "ŽIRAFA", "zviera")],
+  [wrd("zbojník z Terchovej", "JÁNOŠÍK", "slávna postava zo Slovenska"), wrd("najvyšší vrch Slovenska", "GERLACHOVSKÝ ŠTÍT", "vrch")],
+  [wrd("ako rastliny vyrábajú zo svetla cukor", "FOTOSYNTÉZA", "dej v prírode"), wrd("hlavné mesto Austrálie", "CANBERRA", "hlavné mesto")]
 ];
 const zm = (emoji, answer) => ['Čo je na obrázku? Obrázok sa postupne odďaľuje.', answer, {zoom: emoji}];
 KIND["Čo je na obrázku?"] = 'fun';
@@ -1193,11 +1194,11 @@ BANK["Zoraď podľa poradia"] = [
 ];
 KIND["Hádaj zviera"] = 'fun';
 BANK["Hádaj zviera"] = [
-  [wrd("najväčšie suchozemské zviera", "SLON"), wrd("kráľ zvierat", "LEV")],
-  [wrd("zviera s pancierom, ktoré sa dožíva vysokého veku", "KORYTNAČKA"), wrd("vták z Antarktídy, ktorý nevie lietať", "TUČNIAK")],
-  [wrd("čiernobiely medveď z Číny", "PANDA"), wrd("najväčšia šelma na Slovensku", "MEDVEĎ")],
-  [wrd("cicavec, ktorý v noci lieta", "NETOPIER"), wrd("plaz, ktorý mení farbu", "CHAMELEÓN")],
-  [wrd("austrálsky cicavec so zobákom, ktorý kladie vajcia", "VTÁKOPYSK"), wrd("pomalé zviera, ktoré visí na stromoch", "LENIVEC")]
+  [wrd("najväčšie suchozemské zviera", "SLON", "zviera"), wrd("kráľ zvierat", "LEV", "zviera")],
+  [wrd("zviera s pancierom, ktoré sa dožíva vysokého veku", "KORYTNAČKA", "zviera"), wrd("vták z Antarktídy, ktorý nevie lietať", "TUČNIAK", "zviera")],
+  [wrd("čiernobiely medveď z Číny", "PANDA", "zviera"), wrd("najväčšia šelma na Slovensku", "MEDVEĎ", "zviera")],
+  [wrd("cicavec, ktorý v noci lieta", "NETOPIER", "zviera"), wrd("plaz, ktorý mení farbu", "CHAMELEÓN", "zviera")],
+  [wrd("austrálsky cicavec so zobákom, ktorý kladie vajcia", "VTÁKOPYSK", "zviera"), wrd("pomalé zviera, ktoré visí na stromoch", "LENIVEC", "zviera")]
 ];
 
 /* obrázky: ťažšie vlajky */
@@ -1799,18 +1800,18 @@ dopln("Zoraď podľa poradia", [
 ]);
 
 dopln("Hádaj slovo", [
-  [wrd("čo svieti na oblohe cez deň", "SLNKO"), wrd("domček pre auto", "GARÁŽ"), wrd("biele a studené, padá v zime z oblakov", "SNEH"), wrd("kvet s tŕňmi", "RUŽA"), wrd("má strany a číta sa", "KNIHA"), wrd("nosíme ich na nohách", "TOPÁNKY")],
-  [wrd("hlavné mesto Talianska", "RÍM"), wrd("ovocie, z ktorého sa robí víno", "HROZNO"), wrd("šport na bicykli", "CYKLISTIKA"), wrd("sviatky s darčekmi a stromčekom", "VIANOCE"), wrd("červená planéta", "MARS"), wrd("najväčšia horúca púšť sveta", "SAHARA")],
-  [wrd("prístroj, ktorý ukazuje sever", "KOMPAS"), wrd("hlavné mesto Nemecka", "BERLÍN"), wrd("priezvisko muža, ktorý v roku 1843 uzákonil slovenčinu", "ŠTÚR"), wrd("najvyššia hora sveta", "EVEREST"), wrd("čarodejnícka škola Harryho Pottera", "ROKFORT"), wrd("v ňom sa vidíš", "ZRKADLO")],
-  [wrd("sila, ktorá nás drží na Zemi", "GRAVITÁCIA"), wrd("veľký hrad na Spiši v zozname UNESCO", "SPIŠSKÝ HRAD"), wrd("priezvisko prvého človeka na Mesiaci", "ARMSTRONG"), wrd("hlavné mesto Kanady", "OTTAWA"), wrd("tatranský hlodavec, ktorý píska", "SVIŠŤ"), wrd("najdlhšia rieka Slovenska", "VÁH")],
-  [wrd("veda o hviezdach a vesmíre", "ASTRONÓMIA"), wrd("hlavné mesto Islandu", "REYKJAVÍK"), wrd("obdobie po stredoveku, znovuzrodenie umenia", "RENESANCIA"), wrd("národ, ktorý postavil Machu Picchu", "INKOVIA"), wrd("najmenšia kosť v ľudskom tele", "STRMIENOK"), wrd("priezvisko autora teórie relativity", "EINSTEIN")]
+  [wrd("čo svieti na oblohe cez deň", "SLNKO", "nebeské teleso"), wrd("domček pre auto", "GARÁŽ", "stavba"), wrd("biele a studené, padá v zime z oblakov", "SNEH", "niečo z počasia"), wrd("kvet s tŕňmi", "RUŽA", "kvet"), wrd("má strany a číta sa", "KNIHA", "vec"), wrd("nosíme ich na nohách", "TOPÁNKY", "niečo na oblečenie")],
+  [wrd("hlavné mesto Talianska", "RÍM", "hlavné mesto"), wrd("ovocie, z ktorého sa robí víno", "HROZNO", "ovocie"), wrd("šport na bicykli", "CYKLISTIKA", "šport"), wrd("sviatky s darčekmi a stromčekom", "VIANOCE", "sviatok"), wrd("červená planéta", "MARS", "planéta"), wrd("najväčšia horúca púšť sveta", "SAHARA", "púšť")],
+  [wrd("prístroj, ktorý ukazuje sever", "KOMPAS", "prístroj"), wrd("hlavné mesto Nemecka", "BERLÍN", "hlavné mesto"), wrd("priezvisko muža, ktorý v roku 1843 uzákonil slovenčinu", "ŠTÚR", "priezvisko slávneho človeka"), wrd("najvyššia hora sveta", "EVEREST", "vrch"), wrd("čarodejnícka škola Harryho Pottera", "ROKFORT", "miesto z knihy"), wrd("v ňom sa vidíš", "ZRKADLO", "vec")],
+  [wrd("sila, ktorá nás drží na Zemi", "GRAVITÁCIA", "pojem z fyziky"), wrd("veľký hrad na Spiši v zozname UNESCO", "SPIŠSKÝ HRAD", "hrad"), wrd("priezvisko prvého človeka na Mesiaci", "ARMSTRONG", "priezvisko slávneho človeka"), wrd("hlavné mesto Kanady", "OTTAWA", "hlavné mesto"), wrd("tatranský hlodavec, ktorý píska", "SVIŠŤ", "zviera"), wrd("najdlhšia rieka Slovenska", "VÁH", "rieka")],
+  [wrd("veda o hviezdach a vesmíre", "ASTRONÓMIA", "veda"), wrd("hlavné mesto Islandu", "REYKJAVÍK", "hlavné mesto"), wrd("obdobie po stredoveku, znovuzrodenie umenia", "RENESANCIA", "obdobie v dejinách"), wrd("národ, ktorý postavil Machu Picchu", "INKOVIA", "národ"), wrd("najmenšia kosť v ľudskom tele", "STRMIENOK", "časť ľudského tela"), wrd("priezvisko autora teórie relativity", "EINSTEIN", "priezvisko slávneho človeka")]
 ]);
 dopln("Hádaj zviera", [
-  [wrd("verný priateľ človeka, ktorý šteká", "PES"), wrd("zviera, ktoré nám dáva mlieko", "KRAVA"), wrd("zviera s dlhými ušami, ktoré rýchlo skáče", "ZAJAC"), wrd("vták, ktorý ráno kikiríka", "KOHÚT"), wrd("africké zviera s čiernymi a bielymi pruhmi", "ZEBRA"), wrd("hmyz, ktorý robí med", "VČELA")],
-  [wrd("pichľavé zviera, ktoré v zime spí", "JEŽKO"), wrd("najrýchlejšie suchozemské zviera", "GEPARD"), wrd("vták, ktorý v noci húka", "SOVA"), wrd("austrálske zviera, ktoré nosí mláďa vo vaku", "KLOKAN"), wrd("pomalé zviera s ulitou", "SLIMÁK"), wrd("veľká pruhovaná mačkovitá šelma", "TIGER")],
-  [wrd("veľké zviera, ktoré žije v afrických riekach", "HROCH"), wrd("zviera, ktoré stavia na potokoch hrádze", "BOBOR"), wrd("najväčšia ľudoopica", "GORILA"), wrd("morský živočích s ôsmimi ramenami", "CHOBOTNICA"), wrd("austrálske zviera, ktoré je eukalyptové listy", "KOALA"), wrd("had s hrkálkou na chvoste", "CHRĹKAVEC")],
-  [wrd("šelma so strapcami na ušiach", "RYS"), wrd("vták, ktorý klope zobákom do stromov", "ĎATEĽ"), wrd("najväčší žijúci vták", "PŠTROS"), wrd("púštne zviera s hrbmi", "ŤAVA"), wrd("tatranský skalolezec s rožkami", "KAMZÍK"), wrd("najväčší živočích na svete", "VRÁSKAVEC")],
-  [wrd("zviera, ktoré dlhým jazykom loví mravce", "MRAVČIAR"), wrd("najväčšia jašterica sveta z ostrova Komodo", "VARAN"), wrd("nelietavý vták z Nového Zélandu s dlhým zobákom", "KIVI"), wrd("ryba s dlhým mečom na hlave", "MEČÚŇ"), wrd("vták, ktorý kladie vajcia do cudzích hniezd", "KUKUČKA"), wrd("morský cicavec s dlhým točeným klom", "NARVAL")]
+  [wrd("verný priateľ človeka, ktorý šteká", "PES", "zviera"), wrd("zviera, ktoré nám dáva mlieko", "KRAVA", "zviera"), wrd("zviera s dlhými ušami, ktoré rýchlo skáče", "ZAJAC", "zviera"), wrd("vták, ktorý ráno kikiríka", "KOHÚT", "zviera"), wrd("africké zviera s čiernymi a bielymi pruhmi", "ZEBRA", "zviera"), wrd("hmyz, ktorý robí med", "VČELA", "zviera")],
+  [wrd("pichľavé zviera, ktoré v zime spí", "JEŽKO", "zviera"), wrd("najrýchlejšie suchozemské zviera", "GEPARD", "zviera"), wrd("vták, ktorý v noci húka", "SOVA", "zviera"), wrd("austrálske zviera, ktoré nosí mláďa vo vaku", "KLOKAN", "zviera"), wrd("pomalé zviera s ulitou", "SLIMÁK", "zviera"), wrd("veľká pruhovaná mačkovitá šelma", "TIGER", "zviera")],
+  [wrd("veľké zviera, ktoré žije v afrických riekach", "HROCH", "zviera"), wrd("zviera, ktoré stavia na potokoch hrádze", "BOBOR", "zviera"), wrd("najväčšia ľudoopica", "GORILA", "zviera"), wrd("morský živočích s ôsmimi ramenami", "CHOBOTNICA", "zviera"), wrd("austrálske zviera, ktoré je eukalyptové listy", "KOALA", "zviera"), wrd("had s hrkálkou na chvoste", "CHRĹKAVEC", "zviera")],
+  [wrd("šelma so strapcami na ušiach", "RYS", "zviera"), wrd("vták, ktorý klope zobákom do stromov", "ĎATEĽ", "zviera"), wrd("najväčší žijúci vták", "PŠTROS", "zviera"), wrd("púštne zviera s hrbmi", "ŤAVA", "zviera"), wrd("tatranský skalolezec s rožkami", "KAMZÍK", "zviera"), wrd("najväčší živočích na svete", "VRÁSKAVEC", "zviera")],
+  [wrd("zviera, ktoré dlhým jazykom loví mravce", "MRAVČIAR", "zviera"), wrd("najväčšia jašterica sveta z ostrova Komodo", "VARAN", "zviera"), wrd("nelietavý vták z Nového Zélandu s dlhým zobákom", "KIVI", "zviera"), wrd("ryba s dlhým mečom na hlave", "MEČÚŇ", "zviera"), wrd("vták, ktorý kladie vajcia do cudzích hniezd", "KUKUČKA", "zviera"), wrd("morský cicavec s dlhým točeným klom", "NARVAL", "zviera")]
 ]);
 dopln("Čo je na obrázku?", [
   [zm("🐱", "Mačka"), zm("🌻", "Slnečnica"), zm("🚗", "Auto"), zm("⚽", "Futbalová lopta"), zm("🍌", "Banán"), zm("🏠", "Dom")],
@@ -4552,6 +4553,56 @@ BANK["Príbehy zo športu a hudby"] = [
    ["Ondrej Nepela bol trojnásobným majstrom sveta v krasokorčuľovaní. Na ktorej olympiáde získal zlato?", "V Sappore 1972"],
    ["Jimi Hendrix bol gitarový virtuóz, ktorý hral aj zubami. Na ktorom festivale v roku 1969 zahral na gitare americkú hymnu?", "Na Woodstocku"]]
 ];
+/* ----- hádaj slovo: písmená pribúdajú, hráči vedia len to, o čo asi ide ----- */
+const wrdK = (druh, list) => list.map(row => row.map(([word, hint]) => wrd(hint, word, druh)));
+KIND["Hádaj mesto"] = 'fun';
+BANK["Hádaj mesto"] = wrdK('mesto', [
+  [["ŽILINA", "mesto na sútoku Váhu a Kysuce"], ["NITRA", "mesto pod Zoborom, kde pôsobil Pribina"], ["PREŠOV", "metropola Šariša"], ["LONDÝN", "hlavné mesto Spojeného kráľovstva"], ["MADRID", "hlavné mesto Španielska"], ["VIEDEŇ", "hlavné mesto Rakúska"]],
+  [["TRENČÍN", "mesto s hradom a Studňou lásky"], ["POPRAD", "mesto pod Vysokými Tatrami s letiskom"], ["BANSKÁ BYSTRICA", "mesto, kde vypuklo SNP"], ["BUDAPEŠŤ", "hlavné mesto Maďarska"], ["PRAHA", "hlavné mesto Česka"], ["VARŠAVA", "hlavné mesto Poľska"]],
+  [["KOMÁRNO", "mesto na sútoku Váhu s Dunajom, oproti leží maďarský Komárom"], ["PIEŠŤANY", "kúpele so znakom muža, ktorý láme barlu"], ["BARDEJOV", "mesto s námestím v zozname UNESCO na severovýchode"], ["LISABON", "hlavné mesto Portugalska"], ["ATÉNY", "hlavné mesto Grécka s Akropolou"], ["BENÁTKY", "talianske mesto na vode s gondolami"]],
+  [["KREMNICA", "mesto, kde sa razia mince"], ["LEVOČA", "mesto s najvyšším gotickým oltárom od Majstra Pavla"], ["MARTIN", "sídlo Matice slovenskej"], ["BARCELONA", "katalánske mesto so Sagradou Famíliou"], ["ISTANBUL", "mesto na dvoch kontinentoch"], ["DUBROVNÍK", "chorvátska perla Jadranu s hradbami"]],
+  [["BANSKÁ ŠTIAVNICA", "banské mesto s tajchmi"], ["ŠTÚROVO", "mesto oproti Ostrihomu, spojené mostom Márie Valérie"], ["SKALICA", "mesto známe trdelníkom a rotundou"], ["MARRÁKEŠ", "marocké mesto s námestím Džamá al-Fná"], ["VALLETTA", "hlavné mesto Malty"], ["KODAŇ", "hlavné mesto Dánska s Malou morskou vílou"]]
+]);
+KIND["Hádaj krajinu"] = 'fun';
+BANK["Hádaj krajinu"] = wrdK('krajina', [
+  [["TALIANSKO", "krajina v tvare čižmy"], ["FRANCÚZSKO", "krajina s Eiffelovou vežou"], ["NEMECKO", "krajina s Berlínom a Oktoberfestom"], ["ŠPANIELSKO", "krajina flamenka a býčích zápasov"], ["GRÉCKO", "krajina Akropoly a tisícov ostrovov"], ["ČÍNA", "krajina s Veľkým múrom"]],
+  [["CHORVÁTSKO", "obľúbené more Slovákov na Jadrane"], ["PORTUGALSKO", "krajina na západe Pyrenejského polostrova"], ["NÓRSKO", "krajina fjordov"], ["EGYPT", "krajina pyramíd"], ["MEXIKO", "krajina tacos a mariachi"], ["KANADA", "krajina s javorovým listom na vlajke"]],
+  [["ISLAND", "ostrov gejzírov a ľadovcov"], ["ARGENTÍNA", "krajina tanga a Messiho"], ["ŠVAJČIARSKO", "krajina hodiniek a čokolády"], ["INDIA", "krajina s Tádž Mahalom"], ["TURECKO", "krajina s Istanbulom a kebabom"], ["FÍNSKO", "krajina tisícov jazier a sáun"]],
+  [["NOVÝ ZÉLAND", "krajina kiwi a Pána prsteňov"], ["MAROKO", "africká krajina s Marrákešom"], ["ESTÓNSKO", "pobaltská krajina s Tallinnom"], ["VIETNAM", "krajina so zálivom Ha Long"], ["PERU", "krajina s Machu Picchu"], ["KOLUMBIA", "krajina kávy s hlavným mestom Bogota"]],
+  [["KAZACHSTAN", "najväčšia vnútrozemská krajina sveta"], ["MADAGASKAR", "ostrov lemurov"], ["MONGOLSKO", "krajina Džingischána a jurt"], ["UZBEKISTAN", "krajina so Samarkandom"], ["AZERBAJDŽAN", "krajina ohňa s hlavným mestom Baku"], ["BHUTÁN", "himalájske kráľovstvo, ktoré meria hrubé národné šťastie"]]
+]);
+KIND["Hádaj jedlo"] = 'fun';
+BANK["Hádaj jedlo"] = wrdK('jedlo', [
+  [["PIZZA", "talianske jedlo na okrúhlom ceste"], ["PALACINKY", "tenké placky s džemom"], ["HAMBURGER", "mäso v žemli"], ["ŠPAGETY", "dlhé tenké cestoviny"], ["HRANOLKY", "pražené zemiakové prúžky"], ["ZMRZLINA", "studený dezert v kornútiku"]],
+  [["HALUŠKY", "slovenské národné jedlo s bryndzou"], ["GULÁŠ", "hustá paprikovo-mäsová polievka"], ["REZEŇ", "vyprážané mäso v trojobale"], ["LEČO", "dusená paprika s paradajkami"], ["KAPUSTNICA", "vianočná polievka z kyslej kapusty"], ["BUCHTY", "kysnuté pečivo s lekvárom"]],
+  [["LASAGNE", "talianske vrstvené cestoviny s mäsom a bešamelom"], ["TORTILLA", "mexická placka"], ["SUSHI", "japonská ryža s rybou"], ["OMELETA", "jedlo z rozšľahaných vajec"], ["LOKŠE", "zemiakové placky s husacou masťou"], ["PIROHY", "taštičky plnené bryndzou alebo zemiakmi"]],
+  [["GYROS", "grécke mäso z ražňa v pite"], ["MUSAKA", "grécke zapekané jedlo z baklažánu"], ["PAELLA", "španielska ryža s plodmi mora"], ["RIZOTO", "talianska krémová ryža"], ["TIRAMISU", "taliansky dezert s kávou a mascarpone"], ["ŠTRÚDĽA", "zavinuté lístkové cesto s jablkami"]],
+  [["FALAFEL", "vyprážané guľky z cíceru"], ["GUACAMOLE", "mexický dip z avokáda"], ["RATATOUILLE", "francúzska dusená zelenina, aj názov filmu o potkanovi"], ["BAKLAVA", "sladké lístkové cesto s orechmi a medom"], ["KIMČI", "kórejská kvasená kapusta"], ["ŠAKŠUKA", "vajcia zapečené v paradajkovej omáčke"]]
+]);
+KIND["Hádaj povolanie"] = 'fun';
+BANK["Hádaj povolanie"] = wrdK('povolanie', [
+  [["LEKÁR", "lieči chorých"], ["UČITEĽ", "učí deti v škole"], ["HASIČ", "hasí požiare"], ["POLICAJT", "chytá zlodejov"], ["KUCHÁR", "varí v reštaurácii"], ["PEKÁR", "pečie chlieb"]],
+  [["KADERNÍK", "strihá vlasy"], ["ZUBÁR", "ošetruje zuby"], ["PILOT", "riadi lietadlo"], ["ČAŠNÍK", "obsluhuje v reštaurácii"], ["MURÁR", "stavia steny z tehál"], ["POŠTÁR", "nosí listy"]],
+  [["ARCHITEKT", "navrhuje budovy"], ["VETERINÁR", "lieči zvieratá"], ["ELEKTRIKÁR", "opravuje elektrinu"], ["KOMINÁR", "čistí komíny a prináša šťastie"], ["ZÁHRADNÍK", "stará sa o rastliny"], ["NOVINÁR", "píše správy do novín"]],
+  [["ASTRONÓM", "pozoruje hviezdy"], ["ARCHEOLÓG", "vykopáva staré pamiatky"], ["PROGRAMÁTOR", "píše počítačové programy"], ["LEKÁRNIK", "vydáva lieky"], ["TLMOČNÍK", "prekladá reč naživo"], ["HODINÁR", "opravuje hodinky"]],
+  [["SOMMELIER", "odborník na víno v reštaurácii"], ["NOTÁR", "overuje listiny a dedičstvá"], ["ANESTEZIOLÓG", "uspáva pacientov pred operáciou"], ["KARTOGRAF", "kreslí mapy"], ["METEOROLÓG", "predpovedá počasie"], ["SKLÁR", "fúka sklo"]]
+]);
+KIND["Hádaj šport"] = 'fun';
+BANK["Hádaj šport"] = wrdK('šport', [
+  [["FUTBAL", "11 hráčov kope do lopty"], ["HOKEJ", "puk a korčule"], ["TENIS", "raketa a loptička cez sieť"], ["PLÁVANIE", "šport v bazéne"], ["LYŽOVANIE", "jazda dolu svahom na dvoch doskách"], ["BASKETBAL", "lopta do koša"]],
+  [["VOLEJBAL", "odbíjanie lopty cez vysokú sieť"], ["HÁDZANÁ", "lopta do bránky rukou"], ["BOX", "zápas v rukaviciach v ringu"], ["GOLF", "loptička do jamky palicou"], ["KARATE", "japonské bojové umenie s kimonom"], ["VESLOVANIE", "loď poháňaná veslami"]],
+  [["BIATLON", "beh na lyžiach a streľba"], ["ŠERM", "súboj s kordom alebo fleuretom"], ["JUDO", "japonský zápas s hodmi"], ["RAGBY", "šport s vajcovitou loptou"], ["BEJZBAL", "pálka a loptička, obľúbené v USA"], ["LUKOSTREĽBA", "streľba šípmi na terč"]],
+  [["VODNÝ SLALOM", "disciplína Martikána a Hochschornerovcov"], ["KRASOKORČUĽOVANIE", "skoky a piruety na ľade na hudbu"], ["CURLING", "kamene po ľade a metly"], ["BADMINTON", "košíček a rakety"], ["TRIATLON", "plávanie, bicykel a beh"], ["SKOK O ŽRDI", "atletická disciplína s dlhou tyčou"]],
+  [["DESAŤBOJ", "desať atletických disciplín za dva dni"], ["SKELETON", "saňový šport hlavou dopredu"], ["KRIKET", "britský šport s pálkou a bránkami"], ["POLO", "loptový šport na koňoch"], ["SQUASH", "loptička o stenu v malom kurte"], ["SEVERSKÁ KOMBINÁCIA", "skoky na lyžiach a beh na lyžiach"]]
+]);
+KIND["Hádaj vec z domácnosti"] = 'fun';
+BANK["Hádaj vec z domácnosti"] = wrdK('vec z domácnosti', [
+  [["STOLIČKA", "sedí sa na nej"], ["POSTEĽ", "spí sa v nej"], ["LYŽICA", "jeme ňou polievku"], ["HRNČEK", "pijeme z neho čaj"], ["VANKÚŠ", "dáva sa pod hlavu"], ["LAMPA", "svieti na stole"]],
+  [["CHLADNIČKA", "chladí jedlo"], ["VYSÁVAČ", "vysáva prach"], ["ŽEHLIČKA", "vyhladí oblečenie"], ["UTERÁK", "utierame sa ním"], ["ŠATNÍK", "skriňa na oblečenie"], ["KANVICA", "varí vodu na čaj"]],
+  [["MIKROVLNKA", "rýchlo zohreje jedlo"], ["PRÁČKA", "perie bielizeň"], ["VARECHA", "drevená lyžica na miešanie"], ["CEDIDLO", "scedí cestoviny"], ["RADIÁTOR", "hreje v izbe"], ["VEŠIAK", "zavesí sa naň kabát"]],
+  [["HRIANKOVAČ", "opečie chlieb"], ["MIXÉR", "rozmixuje ovocie"], ["ZÁCLONA", "priesvitná látka na okne"], ["ROLETA", "zatiahne okno"], ["PAPLÓN", "prikrývka do postele"], ["VALČEK", "rozvaľká sa ním cesto"]],
+  [["ODSÁVAČ PÁR", "visí nad sporákom"], ["STRÚHADLO", "nastrúha syr"], ["LIS NA CESNAK", "rozpučí strúčik cesnaku"], ["ROZPRAŠOVAČ", "rozprašuje vodu na kvety"], ["PALIČKA NA MÄSO", "naklepe rezne"], ["TERMOSTAT", "nastavuje teplotu kúrenia"]]
+]);
 </script>
 <script>
 const app = document.getElementById('app');
@@ -5233,11 +5284,12 @@ function vQuestion() {
     : seesAns() ? `<div class="qans secret"><span class="l">Odpoveď · vidíš len ty</span><span class="v">${esc(T.a)}</span></div>` : '';
   // zaujímavosť k dvom najťažším otázkam – len na obrazovke moderátora
   const fakt = typeof FACTS !== 'undefined' && seesAns() && S.cur && S.cur.t >= 3 ? FACTS[T.a] : '';
+  const hintHtml = seesAns() && T.m && T.m.hint && !S.revealed ? `<div class="qfact"><span class="l">🤫 Nápoveda · len pre teba</span>${esc(T.m.hint)}</div>` : '';
   const factHtml = fakt ? `<div class="qfact"><span class="l">💡 Zaujímavosť · len pre teba</span>${esc(fakt)}</div>` : '';
   return `<div class="game"><section class="qv" style="--pc:${pc}">
       <div class="qmeta"><span>${esc(col.cat)}</span><span>${val}</span></div>
       <div class="qcenter">${hideQ ? `<div class="teaser"><span class="tcat">${esc(col.cat)}</span><span class="thint">${val}</span></div>`
-        : `<p class="qtext${T.m ? " small" : T.q.length > 150 ? " long" : ""}">${esc(T.q)}</p>`}${hideQ ? '' : mediaHtml(T)}${ans}${factHtml}
+        : `<p class="qtext${T.m ? " small" : T.q.length > 150 ? " long" : ""}">${esc(T.q)}</p>`}${hideQ ? '' : mediaHtml(T)}${ans}${hintHtml}${factHtml}
         <div class="qstate">${state}</div></div>
       ${ctrls() ? `<div class="mod">${btns}<button class="mbtn" data-act="undo">Vrátiť krok <kbd>Z</kbd></button></div>` : ''}
     </section>${pods()}<footer class="gfoot"><span>${S.round}. kolo</span><span>${roleTag() || `Kód pre ťahák: <b>${S.code}</b>`}</span><span></span></footer></div>`;
