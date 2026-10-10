@@ -14,7 +14,7 @@
   let cfg = null;
   try { const m = /[#&]rm=([^&]+)/.exec(location.hash); if (m) cfg = JSON.parse(decodeURIComponent(m[1])); } catch (e) {}
   if (!cfg) try { cfg = JSON.parse(sessionStorage.getItem('rm-cfg') || 'null'); } catch (e) {}
-  if (!cfg || !/^(mod|hrac)$/.test(cfg.mode) || !/^[A-Z]{4}$/.test(cfg.room || '')) cfg = null;
+  if (!cfg || !/^(mod|hrac)$/.test(cfg.mode) || !(cfg.off && cfg.mode === 'hrac' || /^[A-Z]{4}$/.test(cfg.room || ''))) cfg = null;
   // hneď od začiatku (kým sa načíta celá stránka) neukazovať návod pre počítač a TV
   document.documentElement.classList.add('rm', 'rm-boot', cfg ? 'rm-' + cfg.mode : 'rm-start');
   RM.nastav = c => {
@@ -140,6 +140,60 @@
     try { bc.onmessage({data: m}); } catch (e) { console.error(e); }
   };
 
+  /* ---------- bez internetu: mobily sa spoja priamo cez Wi-Fi (WebRTC) a údaje na spojenie
+     si vymenia cez QR kódy – moderátor ukáže kód hráčovi, hráč ukáže svoj kód moderátorovi ---------- */
+  const QR_PFX = 'RISKUJ1';
+  const b64u = b => btoa(String.fromCharCode.apply(null, b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const unb64u = s => Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+  // z popisu spojenia (SDP) stačí pár údajov – kód je potom malý a ľahko sa naskenuje
+  RM.sigZabal = (druh, id, sdp) => {
+    const g = re => (re.exec(sdp) || [])[1] || '';
+    const fp = g(/a=fingerprint:sha-256 ([0-9A-Fa-f:]+)/).split(':').map(x => parseInt(x, 16));
+    const kand = [];
+    sdp.replace(/a=candidate:\S+ 1 udp \d+ (\S+) (\d+) typ host/gi, (m, adr, port) => {
+      if (!adr.includes(':') && !kand.includes(adr + ':' + port)) kand.push(adr + ':' + port);   // IPv6 netreba
+      return m;
+    });
+    const setup = {actpass: 'x', active: 'a', passive: 'p'}[g(/a=setup:(\w+)/)] || 'x';
+    return {txt: [QR_PFX, druh, id, g(/a=ice-ufrag:(\S+)/), g(/a=ice-pwd:(\S+)/), b64u(fp), setup, kand.slice(0, 6).join(',')].join('|'), kand: kand.length};
+  };
+  RM.sigRozbal = txt => {
+    const p = String(txt || '').trim().split('|');
+    if (p[0] !== QR_PFX || p.length < 8 || !/^[OA]$/.test(p[1])) return null;
+    const [, druh, id, uf, pw, fpB, st, kd] = p;
+    let fp;
+    try { fp = unb64u(fpB).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(':'); } catch (e) { return null; }
+    const l = ['v=0', 'o=- ' + Math.floor(Math.random() * 1e9) + ' 2 IN IP4 127.0.0.1', 's=-', 't=0 0', 'a=group:BUNDLE 0',
+      'a=msid-semantic: WMS', 'm=application 9 UDP/DTLS/SCTP webrtc-datachannel', 'c=IN IP4 0.0.0.0'];
+    (kd ? kd.split(',') : []).forEach((k, i) => {
+      const j = k.lastIndexOf(':');
+      if (j > 0) l.push(`a=candidate:${i + 1} 1 udp ${2122260223 - i} ${k.slice(0, j)} ${k.slice(j + 1)} typ host generation 0`);
+    });
+    l.push('a=ice-ufrag:' + uf, 'a=ice-pwd:' + pw, 'a=ice-options:trickle', 'a=fingerprint:sha-256 ' + fp,
+      'a=setup:' + ({x: 'actpass', a: 'active', p: 'passive'}[st] || 'actpass'), 'a=mid:0', 'a=sctp-port:5000', 'a=max-message-size:262144', '');
+    return {druh, id, sdp: {type: druh === 'O' ? 'offer' : 'answer', sdp: l.join('\r\n')}};
+  };
+  const zber = pc => new Promise(res => {          // počká, kým mobil zistí svoje adresy v sieti
+    if (pc.iceGatheringState === 'complete') { res(); return; }
+    const t = setTimeout(res, 4000);
+    pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') { clearTimeout(t); res(); } });
+  });
+  const BEZ_SIETE = 'Mobil nie je na žiadnej Wi-Fi. Pripoj sa na Wi-Fi alebo hotspot (všetci na ten istý).';
+  // dátový kanál vyzerá pre zvyšok kódu rovnako ako spojenie z PeerJS (open, send, close)
+  function Kanal(pc, dc, naData, naKoniec) {
+    let hotovo = false;
+    const w = {
+      qr: true,
+      get open() { return !hotovo && dc.readyState === 'open'; },
+      send(d) { dc.send(JSON.stringify(d)); },
+      close() { if (hotovo) return; hotovo = true; try { dc.close(); } catch (e) {} try { pc.close(); } catch (e) {} naKoniec(w); }
+    };
+    dc.onmessage = e => { let d; try { d = JSON.parse(e.data); } catch (x) { return; } if (!hotovo) naData(w, d); };
+    dc.onclose = () => w.close();
+    pc.addEventListener('connectionstatechange', () => { if (pc.connectionState === 'failed' || pc.connectionState === 'closed') w.close(); });
+    return w;
+  }
+
   /* ---------- spojenie (PeerJS) ---------- */
   const u = new URLSearchParams(location.search);
   const PJ = {debug: 0, config: {iceServers: [
@@ -198,6 +252,36 @@
       });
     }
     RM.pripojeni = () => conns.size;
+    // hráč bez internetu: moderátor ukáže ponuku (QR), hráč odpovie svojím QR kódom
+    const cakaju = new Map();
+    RM.qrPonuka = async () => {
+      const pc = new RTCPeerConnection({iceServers: []});
+      const dc = pc.createDataChannel('riskuj', {ordered: true});
+      const id = Math.random().toString(36).slice(2, 8);
+      await pc.setLocalDescription(await pc.createOffer());
+      await zber(pc);
+      const z = RM.sigZabal('O', id, pc.localDescription.sdp);
+      if (!z.kand) { pc.close(); throw new Error(BEZ_SIETE); }
+      cakaju.set(id, pc);
+      while (cakaju.size > 8) { const [k, v] = cakaju.entries().next().value; try { v.close(); } catch (e) {} cakaju.delete(k); }
+      dc.onopen = () => {
+        cakaju.delete(id);
+        const w = Kanal(pc, dc, onData, w => { conns.delete(w); count(); });
+        conns.add(w); count();
+        if (RM.onQr) RM.onQr('ok', id);
+      };
+      pc.addEventListener('connectionstatechange', () => { if (pc.connectionState === 'failed' && cakaju.has(id)) { cakaju.delete(id); pc.close(); if (RM.onQr) RM.onQr('chyba', id); } });
+      return z.txt;
+    };
+    RM.qrPrijmi = async txt => {
+      const s = RM.sigRozbal(txt);
+      if (!s) throw new Error('Toto nie je kód z hry Riskuj.');
+      if (s.druh !== 'A') throw new Error('To je kód moderátora – naskenuj kód z mobilu hráča.');
+      const pc = cakaju.get(s.id);
+      if (!pc || pc.signalingState !== 'have-local-offer') throw new Error('Tento kód je už použitý alebo starý – hráč nech naskenuje nový kód.');
+      await pc.setRemoteDescription(s.sdp);
+      return s.id;
+    };
     create();
   } else {
     let peer = null, conn = null, lastIn = 0, rid = 0, retryT = 0;
@@ -211,6 +295,12 @@
       pend.set(id, {res: d => { clearTimeout(tm); res(d); }, rej: e => { clearTimeout(tm); rej(e); }});
       try { conn.send({k: 'api', rid: id, path, body}); } catch (e) { pend.delete(id); clearTimeout(tm); rej(e); }
     });
+    function prijmi(d) {
+      if (!d) return;
+      lastIn = Date.now();
+      if (d.k === 'apir') { const p = pend.get(d.rid); if (p) { pend.delete(d.rid); if (d.ok) p.res(d.data); else p.rej(new Error('api')); } }
+      else if (d.k === 'bc') RM.bcIn(d.m);
+    }
     // hráč posiela moderátorovi len „ahoj“ a „žijem“ – stav hry riadi výhradne moderátor
     RM.bcOut = m => { if (m && (m.t === 'hello' || m.t === 'ping') && isOpen()) { try { conn.send({k: 'bc', m}); } catch (e) {} } };
     function connect() {
@@ -225,12 +315,7 @@
         RM.status = 'ok'; lastIn = Date.now(); up();
         RM.bcOut({t: 'hello'});
       });
-      c.on('data', d => {
-        if (c !== conn || !d) return;
-        lastIn = Date.now();
-        if (d.k === 'apir') { const p = pend.get(d.rid); if (p) { pend.delete(d.rid); if (d.ok) p.res(d.data); else p.rej(new Error('api')); } }
-        else if (d.k === 'bc') RM.bcIn(d.m);
-      });
+      c.on('data', d => { if (c === conn) prijmi(d); });
       const zavrene = () => { clearTimeout(tm); if (c !== conn) return; conn = null; if (RM.status === 'ok') RM.status = 'connecting'; up(); retry(1500, connect); };
       c.on('close', zavrene);
       c.on('error', zavrene);
@@ -247,8 +332,41 @@
       });
       // peer sa reconnectne sám, no keď je spojenie s moderátorom ticho (moderátor posiela znamenie každé 2 s), pripojíme sa znova
     }
-    setInterval(() => { if (isOpen() && Date.now() - lastIn > 9000) { try { conn.close(); } catch (e) {} conn = null; RM.status = 'connecting'; up(); connect(); } }, 2000);
     RM.isOpen = isOpen;
-    create();
+    if (RM.off) {
+      // bez internetu: hráč naskenuje kód moderátora a ukáže mu svoj
+      let pc = null;
+      RM.status = 'qr';
+      RM.qrOdpovedz = async txt => {
+        const s = RM.sigRozbal(txt);
+        if (!s) throw new Error('Toto nie je kód z hry Riskuj.');
+        if (s.druh !== 'O') throw new Error('To je kód iného hráča – naskenuj kód z mobilu moderátora.');
+        if (pc) { try { pc.close(); } catch (e) {} }
+        const p = pc = new RTCPeerConnection({iceServers: []});
+        p.ondatachannel = e => {
+          const dc = e.channel;
+          const otvor = () => {
+            if (p !== pc) return;
+            if (conn) conn.close();
+            conn = Kanal(p, dc, (w, d) => { if (w === conn) prijmi(d); }, w => { if (w !== conn) return; conn = null; RM.status = 'qr'; RM.qrPreruseny = true; up(); });
+            RM.status = 'ok'; lastIn = Date.now(); up();
+            RM.bcOut({t: 'hello'});
+          };
+          if (dc.readyState === 'open') otvor(); else dc.onopen = otvor;
+        };
+        p.addEventListener('connectionstatechange', () => { if (p === pc && p.connectionState === 'failed' && RM.status !== 'ok') { RM.status = 'qr-zlyhalo'; up(); } });
+        await p.setRemoteDescription(s.sdp);
+        await p.setLocalDescription(await p.createAnswer());
+        await zber(p);
+        const z = RM.sigZabal('A', s.id, p.localDescription.sdp);
+        if (!z.kand) { p.close(); throw new Error(BEZ_SIETE); }
+        RM.status = 'qr-caka'; up();
+        return z.txt;
+      };
+      setInterval(() => { if (isOpen() && Date.now() - lastIn > 15000) conn.close(); }, 2000);
+    } else {
+      setInterval(() => { if (isOpen() && Date.now() - lastIn > 9000) { try { conn.close(); } catch (e) {} conn = null; RM.status = 'connecting'; up(); connect(); } }, 2000);
+      create();
+    }
   }
 })();

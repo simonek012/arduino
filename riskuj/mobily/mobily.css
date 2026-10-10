@@ -53,3 +53,29 @@ html.rm-hrac .homebtn,html.rm-hrac .qrfab{display:none}
   html.rm-hrac .app{height:100%;margin-right:36vw}
   #rmBz{top:0;left:auto;width:36vw;height:auto;border-top:0;border-left:2px solid var(--line)}
 }
+
+/* bez internetu: QR kódy a fotoaparát */
+.rm-go2{font:700 17px var(--body);padding:12px;border-radius:12px;border:2px solid var(--gold);background:transparent;color:var(--text)}
+.rm-over{position:fixed;inset:0;z-index:95;background:var(--ground);overflow:auto;padding:max(14px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom))}
+.rm-over[hidden]{display:none}
+.rm-over .rm-in{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.rm-over h3{margin:0;font-size:22px}
+.rm-over .hint{margin:0}
+.rm-krok{margin:0;font-size:17px}
+.rm-qrkod{align-self:center;width:min(80vw,46vh,360px);aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:#fff;border-radius:14px;padding:4px;box-sizing:border-box}
+.rm-qrkod svg{width:100%;height:100%;display:block}
+.rm-qrkod .hint,.rm-qrkod .rm-err{color:#333;text-align:center;padding:0 10px}
+.rm-qrkod .lnk{color:#1f3fbf}
+.rm-cam{align-self:center;width:min(56vw,260px);aspect-ratio:4/3;border-radius:14px;overflow:hidden;background:#000;border:2px solid var(--line)}
+.rm-cam.big{width:min(88vw,420px)}
+.rm-cam video{width:100%;height:100%;object-fit:cover;display:block}
+.rm-qrstav{margin:0;min-height:1.3em;font-weight:700}
+.rm-qrstav.ok{color:var(--ok)}.rm-qrstav.bad{color:var(--bad)}
+.rm-vloz summary{color:var(--muted);text-decoration:underline;cursor:pointer}
+.rm-vloz textarea{display:block;width:100%;box-sizing:border-box;font:13px monospace;border-radius:10px;border:2px solid var(--line);background:var(--board);color:var(--text);padding:8px;margin:6px 0}
+.rm-over .rm-row{justify-content:space-between;align-items:center}
+.rm-hlava{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.rm-hlava .btn{padding:8px 16px;font-size:16px;flex:none}
+.rm-krokbox{display:flex;flex-direction:column;gap:10px}
+.rm-krokbox[hidden]{display:none}
+#rmParErr:empty{display:none}

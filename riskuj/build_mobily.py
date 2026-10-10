@@ -29,6 +29,8 @@ def no_close_tag(name, s):
 tv = (D / 'tv.html').read_text('utf-8')
 mob = (D / 'mobil.html').read_text('utf-8')
 peerjs = no_close_tag('peerjs.min.js', (M / 'peerjs.min.js').read_text('utf-8'))
+qrgen = no_close_tag('qrcode.min.js', (M / 'qrcode.min.js').read_text('utf-8'))
+jsqr = no_close_tag('jsqr.min.js', (M / 'jsqr.min.js').read_text('utf-8'))
 hlavicka = no_close_tag('hlavicka.js', (M / 'hlavicka.js').read_text('utf-8'))
 koniec = no_close_tag('koniec.js', (M / 'koniec.js').read_text('utf-8'))
 css = (M / 'mobily.css').read_text('utf-8')
@@ -109,9 +111,14 @@ for a, b, n in [
     ("'Naozaj na úvod? Klikni znova'", "'Naozaj na úvod? Ťukni znova'", 1),
 ]:
     tv = rep(tv, a, b, n)
+# bez internetu nesmie stránka čakať na nič z internetu: QR kód na pripojenie mobilov (cdnjs) tu netreba
+# a písma z Google sa načítajú len popri (keď sú dostupné)
+tv = rep(tv, '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>\n', '')
+tv = rep(tv, '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap">',
+         '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap" media="print" onload="this.media=\'all\'">')
 tv = rep(tv, '<title>Riskuj a nepiskuj! s mobilmi</title>',
          '<title>Riskuj a nepiskuj! – len na mobiloch</title>\n<meta name="theme-color" content="#050920">\n'
-         f'<script>{peerjs}</script>\n<script>{hlavicka}</script>\n<style>{css}</style>')
+         f'<script>{peerjs}</script>\n<script>{qrgen}</script>\n<script>{jsqr}</script>\n<script>{hlavicka}</script>\n<style>{css}</style>')
 tlacidlo = json.dumps(mob, ensure_ascii=False).replace('</', '<\\/')
 i = tv.rindex('</body>')
 tv = tv[:i] + f'<script>\nwindow.RM_TLACIDLO = {tlacidlo};\n{koniec}</script>\n' + tv[i:]
