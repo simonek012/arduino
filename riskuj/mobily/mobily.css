@@ -1,0 +1,52 @@
+/* ===== Riskuj len na mobiloch ===== */
+/* úvodná voľba */
+html.rm-start body{overflow:hidden}
+#rmStart{position:fixed;inset:0;z-index:100;background:var(--ground);overflow:auto;padding:max(18px,env(safe-area-inset-top)) 18px max(18px,env(safe-area-inset-bottom))}
+#rmStart .rm-in{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+#rmStart .logo{font-size:clamp(72px,24vw,150px)}
+.rm-lead{color:var(--muted);font-size:17px;margin:0}
+.rm-big{display:flex;flex-direction:column;gap:4px;text-align:left;padding:18px;border-radius:18px;border:2px solid var(--gold);background:var(--board);color:var(--text)}
+.rm-big b{font-size:24px}.rm-big span{color:var(--muted);font-size:15px}
+.rm-card{display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:18px;border:2px solid var(--line);background:var(--board)}
+.rm-card b{font-size:24px}
+.rm-card input{font:700 22px var(--body);padding:12px 14px;border-radius:12px;border:2px solid var(--line);background:var(--ground);color:var(--text);width:100%;box-sizing:border-box}
+.rm-card input:focus{outline:none;border-color:var(--gold)}
+#rmKod{letter-spacing:.3em;text-transform:uppercase;font-family:var(--disp);font-size:32px}
+.rm-go{font:800 20px var(--body);padding:14px;border-radius:12px;border:0;background:var(--gold);color:#241800}
+.rm-err{color:var(--bad);font-weight:700;margin:0;min-height:1.2em}
+.rm-tip{color:var(--muted);font-size:14px;margin:0}
+
+/* moderátor */
+.rm-room{display:flex;flex-direction:column;gap:12px;padding:18px;border-radius:18px;border:2px solid var(--gold);background:var(--board)}
+.rm-room h3{margin:0}
+.rm-kod{font-size:20px;font-weight:700}
+.rm-kod b{font-family:var(--disp);font-size:56px;letter-spacing:.12em;color:var(--gold);vertical-align:middle;margin-left:.2em}
+.rm-stav{margin:0}
+.rm-room .steps{margin:0;padding-left:1.3em}
+.rm-row{display:flex;flex-wrap:wrap;gap:6px 16px}
+html.rm-mod .qrfab{display:none}
+#rmPill{position:fixed;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:45;font:700 15px var(--body);padding:8px 14px;border-radius:99px;border:2px solid var(--gold);background:var(--board);color:var(--text);box-shadow:0 4px 14px rgba(0,0,0,.5)}
+#rmPill b{color:var(--gold);letter-spacing:.08em}
+#rmInfo{position:fixed;inset:0;z-index:90;background:rgba(3,6,24,.9);display:flex;align-items:center;justify-content:center;padding:18px}
+#rmInfo[hidden]{display:none}
+#rmInfo .rm-in{background:var(--board);border:2px solid var(--gold);border-radius:18px;padding:18px;max-width:460px;width:100%;display:flex;flex-direction:column;gap:12px}
+/* dole je pás pre pilulku s kódom a tlačidlo Úvod, aby neprekrývali hráčov */
+html.rm-mod .app{height:calc(100% - 52px - env(safe-area-inset-bottom,0px))}
+html.rm-mod .homebtn{top:auto;right:auto;left:8px;bottom:calc(12px + env(safe-area-inset-bottom,0px));opacity:.8;font-size:14px;padding:7px 12px}
+
+/* hráč: hore tabuľa a otázky (ako TV), dole tlačidlo */
+html.rm-hrac{--bzh:34vh}
+html.rm-hrac body{padding-inline:6px}
+html.rm-hrac .app{height:calc(100% - var(--bzh));transition:height .2s}
+html.rm-hrac .homebtn,html.rm-hrac .qrfab{display:none}
+#rmBz{position:fixed;left:0;right:0;bottom:0;height:var(--bzh);z-index:60;background:var(--ground);border-top:2px solid var(--line);display:flex;flex-direction:column;transition:height .2s}
+#rmBz iframe{flex:1;width:100%;border:0;display:block;background:var(--ground)}
+.rm-bzhead{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 10px;font-size:13px;color:var(--muted);min-height:26px}
+.rm-bzhead b{color:var(--gold)}
+.rm-bzhead button{background:none;border:0;color:var(--muted);text-decoration:underline;font-size:13px;padding:2px 4px}
+.rm-wait{padding-block:16px}
+.rm-wait .logo{font-size:clamp(64px,20vw,140px)}
+@media (orientation:landscape) and (max-height:600px){
+  html.rm-hrac .app{height:100%;margin-right:36vw}
+  #rmBz{top:0;left:auto;width:36vw;height:auto;border-top:0;border-left:2px solid var(--line)}
+}
