@@ -91,3 +91,7 @@ html.rm-hrac .homebtn,html.rm-hrac .qrfab{display:none}
 .rm-qrjoin .hint{text-align:center;margin:0}
 #rmInfo .rm-qrkod{width:min(64vw,40vh,280px)}
 .rm-go2.rm-maly{font-size:14px;padding:8px;border-width:1px;border-color:var(--line);color:var(--muted)}
+.rm-modbtn{border-color:var(--line);padding:14px 18px}
+.rm-modbtn b{font-size:20px}
+.rm-modbtn.armed{border-color:var(--gold);background:#2a2200}
+.rm-modbtn.armed span{color:var(--gold)}

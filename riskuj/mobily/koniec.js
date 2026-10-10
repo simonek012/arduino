@@ -16,6 +16,7 @@
   /* ---------- QR kódy: kreslenie a skenovanie fotoaparátom (na spojenie bez internetu) ---------- */
   const QR = {
     svg(txt) {
+      qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
       const q = qrcode(0, 'L'); q.addData(txt); q.make();
       const n = q.getModuleCount(), m = 3;
       let d = '';
@@ -65,8 +66,9 @@
 
   // QR kód hry: keď je hra na webe, je v ňom odkaz (otvorí ho aj obyčajný fotoaparát), inak len kód hry
   const naWebe = /^https?:$/.test(location.protocol);
-  const qrHry = room => naWebe ? location.href.split('#')[0] + '#hra=' + room : 'RISKUJ-HRA|' + room;
-  const kodZQr = t => { const m = /^RISKUJ-HRA\|([A-Z]{4})$/.exec(t) || /[#&]hra=([A-Z]{4})(?![A-Za-z])/.exec(t); return m ? m[1] : null; };
+  const qrHry = room => naWebe ? location.href.split('#')[0] + '#hra=' + room
+    : `RISKUJ hra ${room} – tento kód naskenuj v hre: otvor súbor Riskuj v Chrome, ťukni Som hráč a 📷 Naskenovať QR kód.`;
+  const kodZQr = t => { const m = /^RISKUJ hra ([A-Z]{4}) /.exec(t) || /^RISKUJ-HRA\|([A-Z]{4})$/.exec(t) || /[#&]hra=([A-Z]{4})(?![A-Za-z])/.exec(t); return m ? m[1] : null; };
   const qrNavod = () => naWebe
     ? 'Hráči naskenujú kód <b>fotoaparátom mobilu</b>, hra sa im otvorí. Potom napíšu meno a ťuknú <b>Pripojiť</b>.'
     : 'Hráč musí mať <b>tento súbor otvorený</b> v Chrome: <b>Som hráč</b> → meno → <b>📷 Naskenovať QR kód</b>. Obyčajný fotoaparát tento kód neotvorí.';
@@ -82,7 +84,6 @@
     box.innerHTML = `<div class="rm-in">
       <h1 class="logo" aria-label="Riskuj a nepiskuj!">Riskuj<span class="logo-sub">a nepiskuj!</span></h1>
       <p class="rm-lead">Len na mobiloch – bez počítača a TV. Jeden mobil má moderátor, ostatní hráči.</p>
-      <button class="rm-big" type="button" id="rmMod"><b>🎤 Som moderátor</b><span>Vytvorím hru, čítam otázky a vidím aj odpovede.</span></button>
       <form class="rm-card" id="rmJoin" autocomplete="off">
         <b>🙋 Som hráč</b>
         ${zOdkazu ? `<p class="rm-tip">Pripájaš sa do hry <b>${h(zOdkazu)}</b> – napíš meno a ťukni <b>Pripojiť</b>.</p>` : ''}
@@ -100,12 +101,21 @@
         </div>
         <button class="lnk" type="button" id="rmBezNetu">📶 Bez internetu a kamera nejde? Pripojiť ručne</button>
       </form>
+      <button class="rm-big rm-modbtn" type="button" id="rmMod"><b>🎤 Som moderátor</b><span id="rmModTxt">Len jeden z vás: vytvorí hru, ostatným ukáže QR kód a vidí aj odpovede.</span></button>
       <p class="rm-tip">Každý si otvorí <b>tento istý súbor</b> v prehliadači (napr. Chrome), hráč napíše meno a naskenuje QR kód z mobilu moderátora.<br>
         <b>Bez internetu</b> (bez dát): všetci sa pripojte na jednu Wi-Fi alebo na hotspot z mobilu moderátora – QR kód funguje aj tak.</p>
     </div>`;
     document.body.appendChild(box);
     root.classList.add('rm-start');
-    box.querySelector('#rmMod').onclick = () => {
+    const modBtn = box.querySelector('#rmMod');
+    modBtn.onclick = () => {
+      // hráč omylom ťukne na moderátora → mal by vlastnú hru; preto druhé ťuknutie
+      if (!modBtn.classList.contains('armed')) {
+        modBtn.classList.add('armed');
+        box.querySelector('#rmModTxt').textContent = 'Naozaj si moderátor? Ťukni ešte raz. (Hráči ťukajú Som hráč vyššie.)';
+        setTimeout(() => { modBtn.classList.remove('armed'); box.querySelector('#rmModTxt').textContent = 'Len jeden z vás: vytvorí hru, ostatným ukáže QR kód a vidí aj odpovede.'; }, 5000);
+        return;
+      }
       let room = ls('rm-room') || '';
       if (!/^[A-Z]{4}$/.test(room)) { room = RM.novyKod(); ls('rm-room', room); }
       RM.nastav({mode: 'mod', room});
