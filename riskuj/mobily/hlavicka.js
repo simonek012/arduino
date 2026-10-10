@@ -21,6 +21,14 @@
     const s = c ? JSON.stringify(c) : '';
     try { if (c) sessionStorage.setItem('rm-cfg', s); else sessionStorage.removeItem('rm-cfg'); } catch (e) {}
     const base = location.href.split('#')[0];
+    if (c && !RM.mode) {
+      // prvá voľba roly: stránka sa znova nenačítava (je veľká a stiahnutý súbor sa niekedy znova otvoriť nedá)
+      const z = Object.assign({}, c); delete z.ponuka;
+      try { history.replaceState(null, '', base + '#rm=' + encodeURIComponent(JSON.stringify(z))); } catch (e) {}
+      RM.spusti(c);
+      if (RM.poVolbe) RM.poVolbe();
+      return;
+    }
     if (c) location.replace(base + '#rm=' + encodeURIComponent(s)); else location.replace(base + '#');
     location.reload();
   };
@@ -78,17 +86,11 @@
     return w;
   }
 
-  if (!cfg) return;                       // úvodnú voľbu (moderátor / hráč) ukáže koniec stránky
-  Object.assign(RM, cfg);
-  // naskenovaný kód moderátora (bez internetu) sa použije len raz – po ďalšom obnovení stránky už nie
-  if (cfg.ponuka) {
-    const c = Object.assign({}, cfg); delete c.ponuka;
-    try { sessionStorage.setItem('rm-cfg', JSON.stringify(c)); history.replaceState(null, '', location.href.split('#')[0] + '#rm=' + encodeURIComponent(JSON.stringify(c))); } catch (e) {}
-  }
-  window.RM_HRAC = cfg.mode === 'hrac';
-  window.RM_ROLE = cfg.mode === 'hrac' ? 'tv' : 'mod';
-  try { sessionStorage.setItem('riskuj-role', window.RM_ROLE); } catch (e) {}
   const up = () => { try { RM.onStatus && RM.onStatus(); } catch (e) {} };
+  // kým si mobil nevyberie rolu, nikam sa nepripája
+  RM.api = () => Promise.reject(new Error('offline'));
+  RM.bcOut = () => {};
+  RM.isOpen = () => false;
 
   /* ---------- server v mobile moderátora (to isté, čo server.ps1) ---------- */
   function Server() {
@@ -209,169 +211,183 @@
   const peerId = room => 'riskuj-sk-mobily-' + room.toLowerCase();
   const NET_ERR = ['network', 'server-error', 'socket-error', 'socket-closed', 'disconnected'];
 
-  if (RM.mode === 'mod') {
-    RM.server = new Server();
-    RM.api = (path, body) => { try { return Promise.resolve(RM.server.handle(path, body)); } catch (e) { return Promise.reject(e); } };
-    const conns = new Set();
-    let peer = null, stateMsg = null, stateT = 0;
-    const send = (c, d) => { try { if (c.open) c.send(d); } catch (e) {} };
-    const all = d => conns.forEach(c => send(c, d));
-    const count = () => { RM.peersN = conns.size; up(); };
-    // stav hry sa posiela najviac ~12× za sekundu (pri rýchlych zmenách len ten posledný)
-    RM.bcOut = m => {
-      if (m && m.t === 'state') {
-        stateMsg = m;
-        if (!stateT) stateT = setTimeout(() => { stateT = 0; const s = stateMsg; stateMsg = null; if (s) all({k: 'bc', m: s}); }, 80);
-        return;
-      }
-      all({k: 'bc', m});
-    };
-    function onData(c, d) {
-      if (!d || typeof d !== 'object') return;
-      if (d.k === 'api') {
-        let res, ok = true;
-        try { res = RM.server.handle(String(d.path || ''), d.body); } catch (e) { ok = false; }
-        send(c, {k: 'apir', rid: d.rid, ok: ok && res !== undefined, data: res === undefined ? null : res});
-      } else if (d.k === 'bc') RM.bcIn(d.m);
+  // spustí spojenie podľa zvolenej roly (pri obnovení stránky hneď, inak po voľbe na úvode)
+  RM.spusti = cfg => {
+    if (RM.mode) return;
+    Object.assign(RM, cfg);
+    // naskenovaný kód moderátora (bez internetu) sa použije len raz – po ďalšom obnovení stránky už nie
+    if (cfg.ponuka) {
+      const c = Object.assign({}, cfg); delete c.ponuka;
+      try { sessionStorage.setItem('rm-cfg', JSON.stringify(c)); history.replaceState(null, '', location.href.split('#')[0] + '#rm=' + encodeURIComponent(JSON.stringify(c))); } catch (e) {}
     }
-    let retryT = 0;
-    const retry = (ms, fn) => { clearTimeout(retryT); retryT = setTimeout(fn, ms); };
-    function create() {
-      RM.status = 'connecting'; up();
-      try { peer = new Peer(peerId(RM.room), PJ); } catch (e) { RM.status = 'error'; up(); retry(4000, create); return; }
-      peer.on('open', () => { RM.status = 'ok'; up(); });
-      peer.on('connection', c => {
-        c.on('open', () => { conns.add(c); count(); });
-        c.on('data', d => onData(c, d));
-        c.on('close', () => { conns.delete(c); count(); });
-        c.on('error', () => { conns.delete(c); count(); });
-      });
-      // spojenie so serverom PeerJS sa stratilo – hráči, čo už sú pripojení, hrajú ďalej
-      peer.on('disconnected', () => { RM.status = 'reconnecting'; up(); retry(2000, () => { if (peer && !peer.destroyed && peer.disconnected) { try { peer.reconnect(); } catch (e) {} } }); });
-      peer.on('error', e => {
-        if (e.type === 'unavailable-id') { RM.status = 'taken'; up(); try { peer.destroy(); } catch (x) {} retry(4000, create); }
-        else if (NET_ERR.includes(e.type) || e.type === 'browser-incompatible') {
-          RM.status = 'reconnecting'; up();
-          retry(3000, () => { if (!peer || peer.destroyed) create(); else if (peer.disconnected) { try { peer.reconnect(); } catch (x) { try { peer.destroy(); } catch (y) {} create(); } } });
+    window.RM_HRAC = cfg.mode === 'hrac';
+    window.RM_ROLE = cfg.mode === 'hrac' ? 'tv' : 'mod';
+    try { sessionStorage.setItem('riskuj-role', window.RM_ROLE); } catch (e) {}
+    if (RM.mode === 'mod') {
+      RM.server = new Server();
+      RM.api = (path, body) => { try { return Promise.resolve(RM.server.handle(path, body)); } catch (e) { return Promise.reject(e); } };
+      const conns = new Set();
+      let peer = null, stateMsg = null, stateT = 0;
+      const send = (c, d) => { try { if (c.open) c.send(d); } catch (e) {} };
+      const all = d => conns.forEach(c => send(c, d));
+      const count = () => { RM.peersN = conns.size; up(); };
+      // stav hry sa posiela najviac ~12× za sekundu (pri rýchlych zmenách len ten posledný)
+      RM.bcOut = m => {
+        if (m && m.t === 'state') {
+          stateMsg = m;
+          if (!stateT) stateT = setTimeout(() => { stateT = 0; const s = stateMsg; stateMsg = null; if (s) all({k: 'bc', m: s}); }, 80);
+          return;
         }
-      });
-    }
-    RM.pripojeni = () => conns.size;
-    // hráč bez internetu: moderátor ukáže ponuku (QR), hráč odpovie svojím QR kódom
-    const cakaju = new Map();
-    RM.qrPonuka = async () => {
-      const pc = new RTCPeerConnection({iceServers: []});
-      const dc = pc.createDataChannel('riskuj', {ordered: true});
-      const id = Math.random().toString(36).slice(2, 8);
-      await pc.setLocalDescription(await pc.createOffer());
-      await zber(pc);
-      const z = RM.sigZabal('O', id, pc.localDescription.sdp);
-      if (!z.kand) { pc.close(); throw new Error(BEZ_SIETE); }
-      cakaju.set(id, pc);
-      while (cakaju.size > 8) { const [k, v] = cakaju.entries().next().value; try { v.close(); } catch (e) {} cakaju.delete(k); }
-      dc.onopen = () => {
-        cakaju.delete(id);
-        const w = Kanal(pc, dc, onData, w => { conns.delete(w); count(); });
-        conns.add(w); count();
-        if (RM.onQr) RM.onQr('ok', id);
+        all({k: 'bc', m});
       };
-      pc.addEventListener('connectionstatechange', () => { if (pc.connectionState === 'failed' && cakaju.has(id)) { cakaju.delete(id); pc.close(); if (RM.onQr) RM.onQr('chyba', id); } });
-      return z.txt;
-    };
-    RM.qrPrijmi = async txt => {
-      const s = RM.sigRozbal(txt);
-      if (!s) throw new Error('Toto nie je kód z hry Riskuj.');
-      if (s.druh !== 'A') throw new Error('To je kód moderátora – naskenuj kód z mobilu hráča.');
-      const pc = cakaju.get(s.id);
-      if (!pc || pc.signalingState !== 'have-local-offer') throw new Error('Tento kód je už použitý alebo starý – hráč nech naskenuje nový kód.');
-      await pc.setRemoteDescription(s.sdp);
-      return s.id;
-    };
-    create();
-  } else {
-    let peer = null, conn = null, lastIn = 0, rid = 0, retryT = 0;
-    const pend = new Map();
-    const retry = (ms, fn) => { clearTimeout(retryT); retryT = setTimeout(fn, ms); };
-    const isOpen = () => !!(conn && conn.open);
-    RM.api = (path, body) => new Promise((res, rej) => {
-      if (!isOpen()) { rej(new Error('offline')); return; }
-      const id = ++rid;
-      const tm = setTimeout(() => { if (pend.has(id)) { pend.delete(id); rej(new Error('timeout')); } }, 5000);
-      pend.set(id, {res: d => { clearTimeout(tm); res(d); }, rej: e => { clearTimeout(tm); rej(e); }});
-      try { conn.send({k: 'api', rid: id, path, body}); } catch (e) { pend.delete(id); clearTimeout(tm); rej(e); }
-    });
-    function prijmi(d) {
-      if (!d) return;
-      lastIn = Date.now();
-      if (d.k === 'apir') { const p = pend.get(d.rid); if (p) { pend.delete(d.rid); if (d.ok) p.res(d.data); else p.rej(new Error('api')); } }
-      else if (d.k === 'bc') RM.bcIn(d.m);
-    }
-    // hráč posiela moderátorovi len „ahoj“ a „žijem“ – stav hry riadi výhradne moderátor
-    RM.bcOut = m => { if (m && (m.t === 'hello' || m.t === 'ping') && isOpen()) { try { conn.send({k: 'bc', m}); } catch (e) {} } };
-    function connect() {
-      if (!peer || peer.destroyed) { create(); return; }
-      if (peer.disconnected) { try { peer.reconnect(); } catch (e) {} retry(2500, connect); return; }
-      if (conn) { try { conn.close(); } catch (e) {} }
-      RM.status = RM.status === 'nomod' ? 'nomod' : 'connecting'; up();
-      const c = conn = peer.connect(peerId(RM.room), {reliable: true});
-      const tm = setTimeout(() => { if (c === conn && !c.open) { try { c.close(); } catch (e) {} conn = null; connect(); } }, 12000);
-      c.on('open', () => {
-        clearTimeout(tm); if (c !== conn) return;
-        RM.status = 'ok'; lastIn = Date.now(); up();
-        RM.bcOut({t: 'hello'});
-      });
-      c.on('data', d => { if (c === conn) prijmi(d); });
-      const zavrene = () => { clearTimeout(tm); if (c !== conn) return; conn = null; if (RM.status === 'ok') RM.status = 'connecting'; up(); retry(1500, connect); };
-      c.on('close', zavrene);
-      c.on('error', zavrene);
-    }
-    function create() {
-      RM.status = 'connecting'; up();
-      try { peer = new Peer(PJ); } catch (e) { RM.status = 'error'; up(); retry(4000, create); return; }
-      peer.on('open', () => connect());
-      peer.on('disconnected', () => retry(2000, () => { if (peer && !peer.destroyed && peer.disconnected) { try { peer.reconnect(); } catch (e) {} } }));
-      peer.on('error', e => {
-        if (e.type === 'peer-unavailable') { RM.status = 'nomod'; up(); conn = null; retry(2500, connect); }
-        else if (NET_ERR.includes(e.type)) { if (RM.status !== 'ok') { RM.status = 'connecting'; up(); } retry(3000, () => { if (!peer || peer.destroyed) create(); else if (peer.disconnected) { try { peer.reconnect(); } catch (x) {} retry(2500, connect); } else if (!isOpen()) connect(); }); }
-        else if (e.type === 'unavailable-id' || e.type === 'invalid-id') { try { peer.destroy(); } catch (x) {} retry(2000, create); }
-      });
-      // peer sa reconnectne sám, no keď je spojenie s moderátorom ticho (moderátor posiela znamenie každé 2 s), pripojíme sa znova
-    }
-    RM.isOpen = isOpen;
-    if (RM.off) {
-      // bez internetu: hráč naskenuje kód moderátora a ukáže mu svoj
-      let pc = null;
-      RM.status = 'qr';
-      RM.qrOdpovedz = async txt => {
-        const s = RM.sigRozbal(txt);
-        if (!s) throw new Error('Toto nie je kód z hry Riskuj.');
-        if (s.druh !== 'O') throw new Error('To je kód iného hráča – naskenuj kód z mobilu moderátora.');
-        if (pc) { try { pc.close(); } catch (e) {} }
-        const p = pc = new RTCPeerConnection({iceServers: []});
-        p.ondatachannel = e => {
-          const dc = e.channel;
-          const otvor = () => {
-            if (p !== pc) return;
-            if (conn) conn.close();
-            conn = Kanal(p, dc, (w, d) => { if (w === conn) prijmi(d); }, w => { if (w !== conn) return; conn = null; RM.status = 'qr'; RM.qrPreruseny = true; up(); });
-            RM.status = 'ok'; lastIn = Date.now(); up();
-            RM.bcOut({t: 'hello'});
-          };
-          if (dc.readyState === 'open') otvor(); else dc.onopen = otvor;
+      function onData(c, d) {
+        if (!d || typeof d !== 'object') return;
+        if (d.k === 'api') {
+          let res, ok = true;
+          try { res = RM.server.handle(String(d.path || ''), d.body); } catch (e) { ok = false; }
+          send(c, {k: 'apir', rid: d.rid, ok: ok && res !== undefined, data: res === undefined ? null : res});
+        } else if (d.k === 'bc') RM.bcIn(d.m);
+      }
+      let retryT = 0;
+      const retry = (ms, fn) => { clearTimeout(retryT); retryT = setTimeout(fn, ms); };
+      function create() {
+        RM.status = 'connecting'; up();
+        try { peer = new Peer(peerId(RM.room), PJ); } catch (e) { RM.status = 'error'; up(); retry(4000, create); return; }
+        peer.on('open', () => { RM.status = 'ok'; up(); });
+        peer.on('connection', c => {
+          c.on('open', () => { conns.add(c); count(); });
+          c.on('data', d => onData(c, d));
+          c.on('close', () => { conns.delete(c); count(); });
+          c.on('error', () => { conns.delete(c); count(); });
+        });
+        // spojenie so serverom PeerJS sa stratilo – hráči, čo už sú pripojení, hrajú ďalej
+        peer.on('disconnected', () => { RM.status = 'reconnecting'; up(); retry(2000, () => { if (peer && !peer.destroyed && peer.disconnected) { try { peer.reconnect(); } catch (e) {} } }); });
+        peer.on('error', e => {
+          if (e.type === 'unavailable-id') { RM.status = 'taken'; up(); try { peer.destroy(); } catch (x) {} retry(4000, create); }
+          else if (NET_ERR.includes(e.type) || e.type === 'browser-incompatible') {
+            RM.status = 'reconnecting'; up();
+            retry(3000, () => { if (!peer || peer.destroyed) create(); else if (peer.disconnected) { try { peer.reconnect(); } catch (x) { try { peer.destroy(); } catch (y) {} create(); } } });
+          }
+        });
+      }
+      RM.pripojeni = () => conns.size;
+      // hráč bez internetu: moderátor ukáže ponuku (QR), hráč odpovie svojím QR kódom
+      const cakaju = new Map();
+      RM.qrPonuka = async () => {
+        const pc = new RTCPeerConnection({iceServers: []});
+        const dc = pc.createDataChannel('riskuj', {ordered: true});
+        const id = Math.random().toString(36).slice(2, 8);
+        await pc.setLocalDescription(await pc.createOffer());
+        await zber(pc);
+        const z = RM.sigZabal('O', id, pc.localDescription.sdp);
+        if (!z.kand) { pc.close(); throw new Error(BEZ_SIETE); }
+        cakaju.set(id, pc);
+        while (cakaju.size > 8) { const [k, v] = cakaju.entries().next().value; try { v.close(); } catch (e) {} cakaju.delete(k); }
+        dc.onopen = () => {
+          cakaju.delete(id);
+          const w = Kanal(pc, dc, onData, w => { conns.delete(w); count(); });
+          conns.add(w); count();
+          if (RM.onQr) RM.onQr('ok', id);
         };
-        p.addEventListener('connectionstatechange', () => { if (p === pc && p.connectionState === 'failed' && RM.status !== 'ok') { RM.status = 'qr-zlyhalo'; up(); } });
-        await p.setRemoteDescription(s.sdp);
-        await p.setLocalDescription(await p.createAnswer());
-        await zber(p);
-        const z = RM.sigZabal('A', s.id, p.localDescription.sdp);
-        if (!z.kand) { p.close(); throw new Error(BEZ_SIETE); }
-        RM.status = 'qr-caka'; up();
+        pc.addEventListener('connectionstatechange', () => { if (pc.connectionState === 'failed' && cakaju.has(id)) { cakaju.delete(id); pc.close(); if (RM.onQr) RM.onQr('chyba', id); } });
         return z.txt;
       };
-      setInterval(() => { if (isOpen() && Date.now() - lastIn > 15000) conn.close(); }, 2000);
-    } else {
-      setInterval(() => { if (isOpen() && Date.now() - lastIn > 9000) { try { conn.close(); } catch (e) {} conn = null; RM.status = 'connecting'; up(); connect(); } }, 2000);
+      RM.qrPrijmi = async txt => {
+        const s = RM.sigRozbal(txt);
+        if (!s) throw new Error('Toto nie je kód z hry Riskuj.');
+        if (s.druh !== 'A') throw new Error('To je kód moderátora – naskenuj kód z mobilu hráča.');
+        const pc = cakaju.get(s.id);
+        if (!pc || pc.signalingState !== 'have-local-offer') throw new Error('Tento kód je už použitý alebo starý – hráč nech naskenuje nový kód.');
+        await pc.setRemoteDescription(s.sdp);
+        return s.id;
+      };
       create();
+    } else {
+      let peer = null, conn = null, lastIn = 0, rid = 0, retryT = 0;
+      const pend = new Map();
+      const retry = (ms, fn) => { clearTimeout(retryT); retryT = setTimeout(fn, ms); };
+      const isOpen = () => !!(conn && conn.open);
+      RM.api = (path, body) => new Promise((res, rej) => {
+        if (!isOpen()) { rej(new Error('offline')); return; }
+        const id = ++rid;
+        const tm = setTimeout(() => { if (pend.has(id)) { pend.delete(id); rej(new Error('timeout')); } }, 5000);
+        pend.set(id, {res: d => { clearTimeout(tm); res(d); }, rej: e => { clearTimeout(tm); rej(e); }});
+        try { conn.send({k: 'api', rid: id, path, body}); } catch (e) { pend.delete(id); clearTimeout(tm); rej(e); }
+      });
+      function prijmi(d) {
+        if (!d) return;
+        lastIn = Date.now();
+        if (d.k === 'apir') { const p = pend.get(d.rid); if (p) { pend.delete(d.rid); if (d.ok) p.res(d.data); else p.rej(new Error('api')); } }
+        else if (d.k === 'bc') RM.bcIn(d.m);
+      }
+      // hráč posiela moderátorovi len „ahoj“ a „žijem“ – stav hry riadi výhradne moderátor
+      RM.bcOut = m => { if (m && (m.t === 'hello' || m.t === 'ping') && isOpen()) { try { conn.send({k: 'bc', m}); } catch (e) {} } };
+      function connect() {
+        if (!peer || peer.destroyed) { create(); return; }
+        if (peer.disconnected) { try { peer.reconnect(); } catch (e) {} retry(2500, connect); return; }
+        if (conn) { try { conn.close(); } catch (e) {} }
+        RM.status = RM.status === 'nomod' ? 'nomod' : 'connecting'; up();
+        const c = conn = peer.connect(peerId(RM.room), {reliable: true});
+        const tm = setTimeout(() => { if (c === conn && !c.open) { try { c.close(); } catch (e) {} conn = null; connect(); } }, 12000);
+        c.on('open', () => {
+          clearTimeout(tm); if (c !== conn) return;
+          RM.status = 'ok'; lastIn = Date.now(); up();
+          RM.bcOut({t: 'hello'});
+        });
+        c.on('data', d => { if (c === conn) prijmi(d); });
+        const zavrene = () => { clearTimeout(tm); if (c !== conn) return; conn = null; if (RM.status === 'ok') RM.status = 'connecting'; up(); retry(1500, connect); };
+        c.on('close', zavrene);
+        c.on('error', zavrene);
+      }
+      function create() {
+        RM.status = 'connecting'; up();
+        try { peer = new Peer(PJ); } catch (e) { RM.status = 'error'; up(); retry(4000, create); return; }
+        peer.on('open', () => connect());
+        peer.on('disconnected', () => retry(2000, () => { if (peer && !peer.destroyed && peer.disconnected) { try { peer.reconnect(); } catch (e) {} } }));
+        peer.on('error', e => {
+          if (e.type === 'peer-unavailable') { RM.status = 'nomod'; up(); conn = null; retry(2500, connect); }
+          else if (NET_ERR.includes(e.type)) { if (RM.status !== 'ok') { RM.status = 'connecting'; up(); } retry(3000, () => { if (!peer || peer.destroyed) create(); else if (peer.disconnected) { try { peer.reconnect(); } catch (x) {} retry(2500, connect); } else if (!isOpen()) connect(); }); }
+          else if (e.type === 'unavailable-id' || e.type === 'invalid-id') { try { peer.destroy(); } catch (x) {} retry(2000, create); }
+        });
+        // peer sa reconnectne sám, no keď je spojenie s moderátorom ticho (moderátor posiela znamenie každé 2 s), pripojíme sa znova
+      }
+      RM.isOpen = isOpen;
+      if (RM.off) {
+        // bez internetu: hráč naskenuje kód moderátora a ukáže mu svoj
+        let pc = null;
+        RM.status = 'qr';
+        RM.qrOdpovedz = async txt => {
+          const s = RM.sigRozbal(txt);
+          if (!s) throw new Error('Toto nie je kód z hry Riskuj.');
+          if (s.druh !== 'O') throw new Error('To je kód iného hráča – naskenuj kód z mobilu moderátora.');
+          if (pc) { try { pc.close(); } catch (e) {} }
+          const p = pc = new RTCPeerConnection({iceServers: []});
+          p.ondatachannel = e => {
+            const dc = e.channel;
+            const otvor = () => {
+              if (p !== pc) return;
+              if (conn) conn.close();
+              conn = Kanal(p, dc, (w, d) => { if (w === conn) prijmi(d); }, w => { if (w !== conn) return; conn = null; RM.status = 'qr'; RM.qrPreruseny = true; up(); });
+              RM.status = 'ok'; lastIn = Date.now(); up();
+              RM.bcOut({t: 'hello'});
+            };
+            if (dc.readyState === 'open') otvor(); else dc.onopen = otvor;
+          };
+          p.addEventListener('connectionstatechange', () => { if (p === pc && p.connectionState === 'failed' && RM.status !== 'ok') { RM.status = 'qr-zlyhalo'; up(); } });
+          await p.setRemoteDescription(s.sdp);
+          await p.setLocalDescription(await p.createAnswer());
+          await zber(p);
+          const z = RM.sigZabal('A', s.id, p.localDescription.sdp);
+          if (!z.kand) { p.close(); throw new Error(BEZ_SIETE); }
+          RM.status = 'qr-caka'; up();
+          return z.txt;
+        };
+        setInterval(() => { if (isOpen() && Date.now() - lastIn > 15000) conn.close(); }, 2000);
+      } else {
+        setInterval(() => { if (isOpen() && Date.now() - lastIn > 9000) { try { conn.close(); } catch (e) {} conn = null; RM.status = 'connecting'; up(); connect(); } }, 2000);
+        create();
+      }
     }
-  }
+  };
+  if (cfg) RM.spusti(cfg);
 })();
