@@ -60,15 +60,19 @@ mob = rep(mob, "if (me && me.id) { showGame(); keepAwake(); } else { showJoin();
 poll();
 // meno zadané na úvode – pripojí sa samo (aj keď si ho hráč zmenil); kým spojenie s moderátorom
 // ešte nie je hotové, skúša to znova
-let rmAuto = !!window.RM_NAME && !(me && me.id && me.name === window.RM_NAME);
+let rmAuto = !!window.RM_NAME && !(me && me.id && me.name === window.RM_NAME), rmBusy = false, rmT = 0;
 async function rmTry() {
-  if (!rmAuto) return;
+  if (!rmAuto || rmBusy) return;
+  rmBusy = true; clearTimeout(rmT);
   await doJoin(window.RM_NAME, me && me.id);
+  rmBusy = false;
   if (me && me.name === window.RM_NAME && !$('#game').hidden) { rmAuto = false; return; }
   $('#jstatus').textContent = 'Pripájam sa k moderátorovi…';
-  setTimeout(rmTry, 2000);
+  rmT = setTimeout(rmTry, 2000);
 }
 rmTry();
+// hneď ako je spojenie s moderátorom hotové, prihlási sa (nečaká na ďalší pokus)
+window.addEventListener('message', e => { if (e.data && e.data.rmSpojene) { failCount = 0; rmTry(); } });
 $('#rename').addEventListener('click', () => { rmAuto = false; });
 // stránka okolo rámčeka podľa toho prispôsobí výšku
 setInterval(() => {

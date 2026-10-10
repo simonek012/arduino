@@ -79,3 +79,15 @@ html.rm-hrac .homebtn,html.rm-hrac .qrfab{display:none}
 .rm-krokbox{display:flex;flex-direction:column;gap:10px}
 .rm-krokbox[hidden]{display:none}
 #rmParErr:empty{display:none}
+.rm-skener{display:flex;flex-direction:column;align-items:center;gap:6px}
+.rm-skener[hidden]{display:none}
+.rm-alebo{color:var(--muted);font-size:14px;text-align:center;margin-top:4px}
+.rm-kodrow{display:flex;gap:8px}
+.rm-kodrow input{flex:1;min-width:0}
+.rm-kodrow .rm-go2{flex:none;padding:12px 18px}
+#rmJoin>.lnk{align-self:center;font-size:14px}
+.rm-qrjoin{display:flex;flex-direction:column;align-items:center;gap:8px}
+.rm-qrjoin .rm-qrkod{width:min(64vw,40vh,280px)}
+.rm-qrjoin .hint{text-align:center;margin:0}
+#rmInfo .rm-qrkod{width:min(64vw,40vh,280px)}
+.rm-go2.rm-maly{font-size:14px;padding:8px;border-width:1px;border-color:var(--line);color:var(--muted)}

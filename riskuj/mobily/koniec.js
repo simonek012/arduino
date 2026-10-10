@@ -70,15 +70,22 @@
       <button class="rm-big" type="button" id="rmMod"><b>🎤 Som moderátor</b><span>Vytvorím hru, čítam otázky a vidím aj odpovede.</span></button>
       <form class="rm-card" id="rmJoin" autocomplete="off">
         <b>🙋 Som hráč</b>
-        <input id="rmKod" maxlength="4" placeholder="KÓD HRY" autocapitalize="characters" spellcheck="false" aria-label="Kód hry" value="${h(last.room || '')}">
         <input id="rmMeno" maxlength="16" placeholder="Tvoje meno" aria-label="Tvoje meno" value="${h(last.name || '')}">
-        <button class="rm-go" type="submit">Pripojiť sa</button>
-        <button class="rm-go2" type="button" id="rmBezNetu">📶 Bez internetu (cez QR kód)</button>
+        <button class="rm-go" type="button" id="rmSken">📷 Naskenovať QR kód moderátora</button>
+        <div class="rm-skener" id="rmSkener" hidden>
+          <div class="rm-cam big"><video muted playsinline></video></div>
+          <button class="lnk" type="button" id="rmSkenX">Zrušiť</button>
+        </div>
         <p class="rm-err" id="rmErr"></p>
+        <div class="rm-alebo">alebo zadaj kód hry</div>
+        <div class="rm-kodrow">
+          <input id="rmKod" maxlength="4" placeholder="KÓD" autocapitalize="characters" spellcheck="false" aria-label="Kód hry" value="${h(last.room || '')}">
+          <button class="rm-go2" type="submit">Pripojiť</button>
+        </div>
+        <button class="lnk" type="button" id="rmBezNetu">📶 Bez internetu a kamera nejde? Pripojiť ručne</button>
       </form>
-      <p class="rm-tip">Každý si otvorí <b>tento istý súbor</b> v prehliadači (napr. Chrome).<br>
-        <b>S internetom</b> stačí kód hry.<br>
-        <b>Bez internetu</b> (bez dát): všetci sa pripojte na jednu Wi-Fi alebo na hotspot z mobilu moderátora, hráči ťuknú <b>Bez internetu</b> a s moderátorom si naskenujú QR kódy.</p>
+      <p class="rm-tip">Každý si otvorí <b>tento istý súbor</b> v prehliadači (napr. Chrome), hráč napíše meno a naskenuje QR kód z mobilu moderátora.<br>
+        <b>Bez internetu</b> (bez dát): všetci sa pripojte na jednu Wi-Fi alebo na hotspot z mobilu moderátora – QR kód funguje aj tak.</p>
     </div>`;
     document.body.appendChild(box);
     root.classList.add('rm-start');
@@ -98,6 +105,31 @@
       ls('rm-last', JSON.stringify({room, name}));
       RM.nastav({mode: 'hrac', room, name: name.slice(0, 16)});
     });
+    // QR kód moderátora: s internetom je v ňom kód hry, bez internetu údaje na priame spojenie
+    const err = t => { box.querySelector('#rmErr').textContent = t || ''; };
+    const meno = () => {
+      const name = box.querySelector('#rmMeno').value.trim();
+      if (!name) { err('Najprv napíš svoje meno.'); box.querySelector('#rmMeno').focus(); }
+      return name.slice(0, 16);
+    };
+    let skenStop = null;
+    const skenKoniec = () => { if (skenStop) { skenStop(); skenStop = null; } box.querySelector('#rmSkener').hidden = true; box.querySelector('#rmSken').hidden = false; };
+    const naskenovane = txt => {
+      txt = String(txt || '').trim();
+      const name = box.querySelector('#rmMeno').value.trim().slice(0, 16);
+      let m = /^RISKUJ-HRA\|([A-Z]{4})$/.exec(txt);
+      if (m) { skenKoniec(); ls('rm-last', JSON.stringify({room: m[1], name})); RM.nastav({mode: 'hrac', room: m[1], name}); return; }
+      const s = RM.sigRozbal ? RM.sigRozbal(txt) : null;
+      if (s && s.druh === 'O') { skenKoniec(); ls('rm-last', JSON.stringify({room: '', name})); RM.nastav({mode: 'hrac', off: 1, room: '', name, ponuka: txt}); return; }
+      err(s ? 'To je kód iného hráča – naskenuj kód z mobilu moderátora.' : 'Toto nie je QR kód z hry Riskuj.');
+    };
+    box.querySelector('#rmSken').onclick = async () => {
+      err(''); if (!meno()) return;
+      box.querySelector('#rmSkener').hidden = false; box.querySelector('#rmSken').hidden = true;
+      try { skenStop = await QR.skener(box.querySelector('#rmSkener video'), naskenovane); }
+      catch (e) { skenKoniec(); err('Kamera nejde – povoľ ju prehliadaču, alebo zadaj kód hry nižšie.'); }
+    };
+    box.querySelector('#rmSkenX').onclick = skenKoniec;
     box.querySelector('#rmBezNetu').onclick = () => {
       const name = box.querySelector('#rmMeno').value.trim();
       if (!name) { box.querySelector('#rmErr').textContent = 'Napíš svoje meno.'; box.querySelector('#rmMeno').focus(); return; }
@@ -126,19 +158,21 @@
       error: 'Prehliadač nepodporuje spojenie. Skús Chrome.'
     })[RM.status] || 'Pripájam sa…';
     const roomHtml = () => `<section class="rm-room" id="rmRoom"><h3>📱 Hra len na mobiloch</h3>
-        <div class="rm-kod">Kód hry: <b>${h(RM.room)}</b></div>
+        ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-kod">Kód hry: <b>${h(RM.room)}</b></div>`}
         <p class="hint rm-stav" id="rmRoomStav">${h(stavText())}</p>
+        ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-qrjoin"><div class="rm-qrkod">${QR.svg('RISKUJ-HRA|' + RM.room)}</div>
+          <p class="hint">Hráč napíše meno, ťukne <b>📷 Naskenovať QR kód</b> a namieri mobil sem. Alebo zadá kód <b>${h(RM.room)}</b>.</p></div>`}
         ${RM.status === 'reconnecting' || RM.status === 'error' ? `<ol class="steps">
           <li>Všetci sa pripojte na <b>jednu Wi-Fi</b> alebo na <b>hotspot z tvojho mobilu</b> (mobilné dáta môžu byť vypnuté).</li>
-          <li>Hráči si otvoria <b>tento istý súbor</b>, ťuknú <b>Som hráč</b>, napíšu meno a ťuknú <b>Bez internetu</b>.</li>
-          <li>Ty ťukni <b>Pripojiť hráča bez internetu</b> a s každým hráčom si naskenujte QR kódy (on tvoj, ty jeho).</li>
+          <li>Hráči si otvoria <b>tento istý súbor</b>, ťuknú <b>Som hráč</b>, napíšu meno a ťuknú <b>📷 Naskenovať QR kód</b>.</li>
+          <li>Ty ťukni <b>Pripojiť hráča bez internetu</b> – hráč naskenuje tvoj kód a ty potom jeho (každý hráč zvlášť).</li>
           <li>Keď sú všetci v zozname, spusti hru.</li>
         </ol>` : `<ol class="steps">
-          <li>Hráči si otvoria <b>tento istý súbor</b> v prehliadači (napr. Chrome).</li>
-          <li>Ťuknú <b>Som hráč</b>, zadajú kód <b>${h(RM.room)}</b> a svoje meno.</li>
+          <li>Hráči si otvoria <b>tento istý súbor</b> v prehliadači (napr. Chrome) a ťuknú <b>Som hráč</b>.</li>
+          <li>Napíšu meno a naskenujú QR kód vyššie (alebo zadajú kód <b>${h(RM.room)}</b>).</li>
           <li>Keď sú všetci v zozname, spusti hru. Ty vidíš aj odpovede, hráči majú v mobile tabuľu, otázky a tlačidlo.</li>
         </ol>`}
-        <button class="rm-go2" type="button" data-act="rm-qr">📶 Pripojiť hráča bez internetu (QR kód)</button>
+        <button class="rm-go2${RM.status === 'reconnecting' || RM.status === 'error' ? '' : ' rm-maly'}" type="button" data-act="rm-qr">📶 Pripojiť hráča bez internetu (QR kód)</button>
         <div class="pchips" id="plist"></div>
         <label class="check"><input type="checkbox" id="rmZvuk"${zvukHraci ? ' checked' : ''}> Zvuky a melódie hrať na mobiloch hráčov (keď nie ste v jednej miestnosti)</label>
         <div class="rm-row"><button class="lnk" type="button" data-act="phonesreset">Odpojiť všetky mobily</button><button class="lnk" type="button" data-act="rm-novykod">Nový kód hry</button><button class="lnk" type="button" data-act="rm-leave">Zmeniť rolu</button></div>
@@ -173,9 +207,10 @@
       if (info.hidden) return;
       const hraci = RM.server.hraci();
       info.innerHTML = `<div class="rm-in"><h3>📱 Pripojenie hráčov</h3>
+        ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-qrkod">${QR.svg('RISKUJ-HRA|' + RM.room)}</div>`}
         <div class="rm-kod">Kód hry: <b>${h(RM.room)}</b></div>
         <p class="hint">${h(stavText())}</p>
-        <p class="hint">Hráč si otvorí tento istý súbor, ťukne <b>Som hráč</b> a zadá kód. Kto vypadol, zadá svoje meno znova a pokračuje so svojimi bodmi.</p>
+        <p class="hint">Hráč si otvorí tento istý súbor, ťukne <b>Som hráč</b>, napíše meno a naskenuje QR kód (alebo zadá kód). Kto vypadol, použije rovnaké meno a pokračuje so svojimi bodmi.</p>
         <div class="pchips">${hraci.length ? hraci.map(p => `<span class="pchip"><b>${p.online ? '📱' : '📵'}</b> ${h(p.name)}</span>`).join('') : '<span class="hint">Zatiaľ nikto.</span>'}</div>
         <button class="rm-go2" type="button" id="rmInfoQr">📶 Pripojiť hráča bez internetu (QR kód)</button>
         <button class="rm-go" type="button" id="rmInfoX">Zavrieť</button></div>`;
@@ -342,7 +377,11 @@
   };
   const _render = render;
   render = function (remote) { const r = _render(remote); posliFq(); return r; };
+  let bolOk = false;
   RM.onStatus = () => {
+    const ok = RM.status === 'ok';
+    if (ok && !bolOk && fr.contentWindow) fr.contentWindow.postMessage({rmSpojene: 1}, '*');
+    bolOk = ok;
     const st = document.getElementById('rmBzStav');
     if (st) st.innerHTML = `${RM.status === 'ok' ? '🟢' : RM.status === 'nomod' ? '🟠' : '🟡'} ${h(stavText())} · ${RM.off ? 'bez internetu' : `hra <b>${h(RM.room)}</b>`}`;
     if (RM.off) parUkaz();
@@ -409,7 +448,8 @@
       if (zobrazeny === false) return;
       zobrazeny = false; par.hidden = false;
       if (RM.qrPreruseny) chyba('Spojenie s moderátorom sa prerušilo – naskenuj znova jeho kód.');
-      skenuj();
+      if (RM.ponuka) { const t = RM.ponuka; RM.ponuka = null; krok(1); spracuj(t).then(() => { if (par.querySelector('#rmPar2').hidden) skenuj(); }); }
+      else skenuj();
     };
   }
   RM.onStatus();

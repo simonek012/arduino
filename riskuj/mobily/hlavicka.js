@@ -24,8 +24,67 @@
     if (c) location.replace(base + '#rm=' + encodeURIComponent(s)); else location.replace(base + '#');
     location.reload();
   };
+  /* ---------- bez internetu: mobily sa spoja priamo cez Wi-Fi (WebRTC) a údaje na spojenie
+     si vymenia cez QR kódy – moderátor ukáže kód hráčovi, hráč ukáže svoj kód moderátorovi ---------- */
+  const QR_PFX = 'RISKUJ1';
+  const b64u = b => btoa(String.fromCharCode.apply(null, b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const unb64u = s => Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+  // z popisu spojenia (SDP) stačí pár údajov – kód je potom malý a ľahko sa naskenuje
+  RM.sigZabal = (druh, id, sdp) => {
+    const g = re => (re.exec(sdp) || [])[1] || '';
+    const fp = g(/a=fingerprint:sha-256 ([0-9A-Fa-f:]+)/).split(':').map(x => parseInt(x, 16));
+    const kand = [];
+    sdp.replace(/a=candidate:\S+ 1 udp \d+ (\S+) (\d+) typ host/gi, (m, adr, port) => {
+      if (!adr.includes(':') && !kand.includes(adr + ':' + port)) kand.push(adr + ':' + port);   // IPv6 netreba
+      return m;
+    });
+    const setup = {actpass: 'x', active: 'a', passive: 'p'}[g(/a=setup:(\w+)/)] || 'x';
+    return {txt: [QR_PFX, druh, id, g(/a=ice-ufrag:(\S+)/), g(/a=ice-pwd:(\S+)/), b64u(fp), setup, kand.slice(0, 6).join(',')].join('|'), kand: kand.length};
+  };
+  RM.sigRozbal = txt => {
+    const p = String(txt || '').trim().split('|');
+    if (p[0] !== QR_PFX || p.length < 8 || !/^[OA]$/.test(p[1])) return null;
+    const [, druh, id, uf, pw, fpB, st, kd] = p;
+    let fp;
+    try { fp = unb64u(fpB).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(':'); } catch (e) { return null; }
+    const l = ['v=0', 'o=- ' + Math.floor(Math.random() * 1e9) + ' 2 IN IP4 127.0.0.1', 's=-', 't=0 0', 'a=group:BUNDLE 0',
+      'a=msid-semantic: WMS', 'm=application 9 UDP/DTLS/SCTP webrtc-datachannel', 'c=IN IP4 0.0.0.0'];
+    (kd ? kd.split(',') : []).forEach((k, i) => {
+      const j = k.lastIndexOf(':');
+      if (j > 0) l.push(`a=candidate:${i + 1} 1 udp ${2122260223 - i} ${k.slice(0, j)} ${k.slice(j + 1)} typ host generation 0`);
+    });
+    l.push('a=ice-ufrag:' + uf, 'a=ice-pwd:' + pw, 'a=ice-options:trickle', 'a=fingerprint:sha-256 ' + fp,
+      'a=setup:' + ({x: 'actpass', a: 'active', p: 'passive'}[st] || 'actpass'), 'a=mid:0', 'a=sctp-port:5000', 'a=max-message-size:262144', '');
+    return {druh, id, sdp: {type: druh === 'O' ? 'offer' : 'answer', sdp: l.join('\r\n')}};
+  };
+  const zber = pc => new Promise(res => {          // počká, kým mobil zistí svoje adresy v sieti
+    if (pc.iceGatheringState === 'complete') { res(); return; }
+    const t = setTimeout(res, 4000);
+    pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') { clearTimeout(t); res(); } });
+  });
+  const BEZ_SIETE = 'Mobil nie je na žiadnej Wi-Fi. Pripoj sa na Wi-Fi alebo hotspot (všetci na ten istý).';
+  // dátový kanál vyzerá pre zvyšok kódu rovnako ako spojenie z PeerJS (open, send, close)
+  function Kanal(pc, dc, naData, naKoniec) {
+    let hotovo = false;
+    const w = {
+      qr: true,
+      get open() { return !hotovo && dc.readyState === 'open'; },
+      send(d) { dc.send(JSON.stringify(d)); },
+      close() { if (hotovo) return; hotovo = true; try { dc.close(); } catch (e) {} try { pc.close(); } catch (e) {} naKoniec(w); }
+    };
+    dc.onmessage = e => { let d; try { d = JSON.parse(e.data); } catch (x) { return; } if (!hotovo) naData(w, d); };
+    dc.onclose = () => w.close();
+    pc.addEventListener('connectionstatechange', () => { if (pc.connectionState === 'failed' || pc.connectionState === 'closed') w.close(); });
+    return w;
+  }
+
   if (!cfg) return;                       // úvodnú voľbu (moderátor / hráč) ukáže koniec stránky
   Object.assign(RM, cfg);
+  // naskenovaný kód moderátora (bez internetu) sa použije len raz – po ďalšom obnovení stránky už nie
+  if (cfg.ponuka) {
+    const c = Object.assign({}, cfg); delete c.ponuka;
+    try { sessionStorage.setItem('rm-cfg', JSON.stringify(c)); history.replaceState(null, '', location.href.split('#')[0] + '#rm=' + encodeURIComponent(JSON.stringify(c))); } catch (e) {}
+  }
   window.RM_HRAC = cfg.mode === 'hrac';
   window.RM_ROLE = cfg.mode === 'hrac' ? 'tv' : 'mod';
   try { sessionStorage.setItem('riskuj-role', window.RM_ROLE); } catch (e) {}
@@ -139,60 +198,6 @@
     if (RM.mode === 'hrac' && window.RM_PRIJMI && window.RM_PRIJMI(m)) return;
     try { bc.onmessage({data: m}); } catch (e) { console.error(e); }
   };
-
-  /* ---------- bez internetu: mobily sa spoja priamo cez Wi-Fi (WebRTC) a údaje na spojenie
-     si vymenia cez QR kódy – moderátor ukáže kód hráčovi, hráč ukáže svoj kód moderátorovi ---------- */
-  const QR_PFX = 'RISKUJ1';
-  const b64u = b => btoa(String.fromCharCode.apply(null, b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const unb64u = s => Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-  // z popisu spojenia (SDP) stačí pár údajov – kód je potom malý a ľahko sa naskenuje
-  RM.sigZabal = (druh, id, sdp) => {
-    const g = re => (re.exec(sdp) || [])[1] || '';
-    const fp = g(/a=fingerprint:sha-256 ([0-9A-Fa-f:]+)/).split(':').map(x => parseInt(x, 16));
-    const kand = [];
-    sdp.replace(/a=candidate:\S+ 1 udp \d+ (\S+) (\d+) typ host/gi, (m, adr, port) => {
-      if (!adr.includes(':') && !kand.includes(adr + ':' + port)) kand.push(adr + ':' + port);   // IPv6 netreba
-      return m;
-    });
-    const setup = {actpass: 'x', active: 'a', passive: 'p'}[g(/a=setup:(\w+)/)] || 'x';
-    return {txt: [QR_PFX, druh, id, g(/a=ice-ufrag:(\S+)/), g(/a=ice-pwd:(\S+)/), b64u(fp), setup, kand.slice(0, 6).join(',')].join('|'), kand: kand.length};
-  };
-  RM.sigRozbal = txt => {
-    const p = String(txt || '').trim().split('|');
-    if (p[0] !== QR_PFX || p.length < 8 || !/^[OA]$/.test(p[1])) return null;
-    const [, druh, id, uf, pw, fpB, st, kd] = p;
-    let fp;
-    try { fp = unb64u(fpB).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(':'); } catch (e) { return null; }
-    const l = ['v=0', 'o=- ' + Math.floor(Math.random() * 1e9) + ' 2 IN IP4 127.0.0.1', 's=-', 't=0 0', 'a=group:BUNDLE 0',
-      'a=msid-semantic: WMS', 'm=application 9 UDP/DTLS/SCTP webrtc-datachannel', 'c=IN IP4 0.0.0.0'];
-    (kd ? kd.split(',') : []).forEach((k, i) => {
-      const j = k.lastIndexOf(':');
-      if (j > 0) l.push(`a=candidate:${i + 1} 1 udp ${2122260223 - i} ${k.slice(0, j)} ${k.slice(j + 1)} typ host generation 0`);
-    });
-    l.push('a=ice-ufrag:' + uf, 'a=ice-pwd:' + pw, 'a=ice-options:trickle', 'a=fingerprint:sha-256 ' + fp,
-      'a=setup:' + ({x: 'actpass', a: 'active', p: 'passive'}[st] || 'actpass'), 'a=mid:0', 'a=sctp-port:5000', 'a=max-message-size:262144', '');
-    return {druh, id, sdp: {type: druh === 'O' ? 'offer' : 'answer', sdp: l.join('\r\n')}};
-  };
-  const zber = pc => new Promise(res => {          // počká, kým mobil zistí svoje adresy v sieti
-    if (pc.iceGatheringState === 'complete') { res(); return; }
-    const t = setTimeout(res, 4000);
-    pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') { clearTimeout(t); res(); } });
-  });
-  const BEZ_SIETE = 'Mobil nie je na žiadnej Wi-Fi. Pripoj sa na Wi-Fi alebo hotspot (všetci na ten istý).';
-  // dátový kanál vyzerá pre zvyšok kódu rovnako ako spojenie z PeerJS (open, send, close)
-  function Kanal(pc, dc, naData, naKoniec) {
-    let hotovo = false;
-    const w = {
-      qr: true,
-      get open() { return !hotovo && dc.readyState === 'open'; },
-      send(d) { dc.send(JSON.stringify(d)); },
-      close() { if (hotovo) return; hotovo = true; try { dc.close(); } catch (e) {} try { pc.close(); } catch (e) {} naKoniec(w); }
-    };
-    dc.onmessage = e => { let d; try { d = JSON.parse(e.data); } catch (x) { return; } if (!hotovo) naData(w, d); };
-    dc.onclose = () => w.close();
-    pc.addEventListener('connectionstatechange', () => { if (pc.connectionState === 'failed' || pc.connectionState === 'closed') w.close(); });
-    return w;
-  }
 
   /* ---------- spojenie (PeerJS) ---------- */
   const u = new URLSearchParams(location.search);
