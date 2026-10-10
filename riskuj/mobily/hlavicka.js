@@ -6,7 +6,7 @@
    takže zvyšok hry (tv.html) netreba meniť. */
 (function () {
   'use strict';
-  const RM = window.RM = {mode: null, room: '', name: '', status: 'off', peersN: 0, onStatus: null};
+  const RM = window.RM = {mode: null, room: '', name: '', status: 'off', peersN: 0, onStatus: null, VERZIA: '__VERZIA__'};
   const KODY = 'ABCDEFGHJKLMNPRSTUVXYZ';
   RM.novyKod = () => Array.from({length: 4}, () => KODY[Math.floor(Math.random() * KODY.length)]).join('');
 
@@ -15,6 +15,15 @@
   try { const m = /[#&]rm=([^&]+)/.exec(location.hash); if (m) cfg = JSON.parse(decodeURIComponent(m[1])); } catch (e) {}
   if (!cfg) try { cfg = JSON.parse(sessionStorage.getItem('rm-cfg') || 'null'); } catch (e) {}
   if (!cfg || !/^(mod|hrac)$/.test(cfg.mode) || !(cfg.off && cfg.mode === 'hrac' || /^[A-Z]{4}$/.test(cfg.room || ''))) cfg = null;
+  // rola sa obnoví len pri obnovení rozohranej stránky – keď sa súbor otvorí znova neskôr (napr. ďalší deň),
+  // začína sa výberom Som hráč / Som moderátor (inak by mobil hráča mohol ostať „moderátorom“ s vlastnou hrou)
+  let zije = 0;
+  try { zije = +sessionStorage.getItem('rm-zije') || 0; } catch (e) {}
+  const nav = ((performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {}).type;
+  if (cfg && Date.now() - zije > 15 * 60e3 && !(nav === 'reload' && Date.now() - zije < 6 * 3600e3)) {
+    cfg = null;
+    try { sessionStorage.removeItem('rm-cfg'); history.replaceState(null, '', location.href.split('#')[0]); } catch (e) {}
+  }
   // hneď od začiatku (kým sa načíta celá stránka) neukazovať návod pre počítač a TV
   document.documentElement.classList.add('rm', 'rm-boot', cfg ? 'rm-' + cfg.mode : 'rm-start');
   RM.nastav = c => {
@@ -91,6 +100,7 @@
   RM.api = () => Promise.reject(new Error('offline'));
   RM.bcOut = () => {};
   RM.isOpen = () => false;
+  const ziva = () => { try { sessionStorage.setItem('rm-zije', String(Date.now())); } catch (e) {} };
 
   /* ---------- server v mobile moderátora (to isté, čo server.ps1) ---------- */
   function Server() {
@@ -112,18 +122,19 @@
         players: players.map(p => ({id: p.id, name: p.name, online: online(p.id)})),
         final: {stage: finalStage, max: Object.assign({}, finalMax), sent}, zet, treq: tokReq.slice()};
     };
-    this.hraci = () => players.map(p => ({id: p.id, name: p.name, online: online(p.id)}));
+    this.hraci = () => players.map(p => ({id: p.id, name: p.name, online: online(p.id), v: p.v || ''}));
     this.handle = function (path, data) {
       data = data || {};
       switch (path.split('?')[0]) {
         case 'info': return {ips: [], port: 0, public: ''};
-        case 'state': seen(q(path, 'id')); return state();
+        case 'state': seen(q(path, 'id')); return Object.assign(state(), {ver: RM.VERZIA});
         case 'join': {
           const name = String(data.name || '').trim().slice(0, 16) || 'Hráč';
           let p = data.id ? find(String(data.id)) : null;
           if (p) p.name = name;                                       // ten istý mobil, prípadne nové meno
           else p = players.find(x => x.name.toLowerCase() === name.toLowerCase()) || null;   // znovupripojenie
           if (!p) { p = {id: Math.random().toString(36).slice(2, 12), name}; players.push(p); }
+          p.v = String(data.v || '');                                  // verzia súboru v mobile hráča
           lastSeen[p.id] = Date.now(); save(); up();
           return {id: p.id, name: p.name};
         }
@@ -222,6 +233,7 @@
     }
     window.RM_HRAC = cfg.mode === 'hrac';
     window.RM_ROLE = cfg.mode === 'hrac' ? 'tv' : 'mod';
+    ziva(); setInterval(ziva, 10000);
     try { sessionStorage.setItem('riskuj-role', window.RM_ROLE); } catch (e) {}
     if (RM.mode === 'mod') {
       RM.server = new Server();
@@ -308,6 +320,7 @@
       const retry = (ms, fn) => { clearTimeout(retryT); retryT = setTimeout(fn, ms); };
       const isOpen = () => !!(conn && conn.open);
       RM.api = (path, body) => new Promise((res, rej) => {
+        if (path === 'join') body = Object.assign({}, body, {v: RM.VERZIA});   // moderátor tak zistí starý súbor
         if (!isOpen()) { rej(new Error('offline')); return; }
         const id = ++rid;
         const tm = setTimeout(() => { if (pend.has(id)) { pend.delete(id); rej(new Error('timeout')); } }, 5000);

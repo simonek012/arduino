@@ -104,6 +104,7 @@
       <button class="rm-big rm-modbtn" type="button" id="rmMod"><b>🎤 Som moderátor</b><span id="rmModTxt">Len jeden z vás: vytvorí hru, ostatným ukáže QR kód a vidí aj odpovede.</span></button>
       <p class="rm-tip">Každý si otvorí <b>tento istý súbor</b> v prehliadači (napr. Chrome), hráč napíše meno a naskenuje QR kód z mobilu moderátora.<br>
         <b>Bez internetu</b> (bez dát): všetci sa pripojte na jednu Wi-Fi alebo na hotspot z mobilu moderátora – QR kód funguje aj tak.</p>
+      <p class="rm-tip">Verzia súboru: <b>${h(RM.VERZIA)}</b> – všetci musia mať tú istú.</p>
     </div>`;
     document.body.appendChild(box);
     root.classList.add('rm-start');
@@ -189,9 +190,15 @@
       taken: 'Tento kód hry je ešte obsadený (napr. hra otvorená v inom okne alebo pred chvíľou zatvorená). Skúšam znova…',
       error: 'Prehliadač nepodporuje spojenie. Skús Chrome.'
     })[RM.status] || 'Pripájam sa…';
+    // hráč so starším súborom by mal vlastnú hru alebo by mu niečo nefungovalo – moderátor to uvidí
+    const verziaText = () => {
+      const zle = RM.server.hraci().filter(p => p.v !== RM.VERZIA).map(p => p.name);
+      return zle.length ? `⚠ ${zle.join(', ')} ${zle.length > 1 ? 'majú' : 'má'} iný (starší) súbor. Pošli ${zle.length > 1 ? 'im' : 'mu'} ten svoj (verzia ${RM.VERZIA}) a nech ho otvorí.` : '';
+    };
     const roomHtml = () => `<section class="rm-room" id="rmRoom"><h3>📱 Hra len na mobiloch</h3>
         ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-kod">Kód hry: <b>${h(RM.room)}</b></div>`}
         <p class="hint rm-stav" id="rmRoomStav">${h(stavText())}</p>
+        <p class="rm-err" id="rmVerzia">${h(verziaText())}</p>
         ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-qrjoin"><div class="rm-qrkod">${QR.svg(qrHry(RM.room))}</div>
           <p class="hint">${qrNavod()} Alebo zadá kód <b>${h(RM.room)}</b>.</p></div>`}
         ${RM.status === 'reconnecting' || RM.status === 'error' ? `<ol class="steps">
@@ -258,6 +265,7 @@
       if (bolNet !== null && bolNet !== bezNetu && S && S.phase === 'setup') setTimeout(() => render(), 0);   // iný návod na pripojenie
       bolNet = bezNetu;
       const st = document.getElementById('rmRoomStav'); if (st) st.textContent = stavText();
+      const vz = document.getElementById('rmVerzia'); if (vz) vz.textContent = verziaText();
       paintInfo();
     };
     setInterval(() => { paintInfo(); if (!qrBox.hidden) qrHraci(); }, 2000);
@@ -359,18 +367,20 @@
       'qr-zlyhalo': 'Spojenie sa nepodarilo',
       error: 'Prehliadač nepodporuje spojenie. Skús Chrome.'
     })[RM.status] || 'Pripájam sa…';
-    let cakajuci = [];
+    let cakajuci = [], modVerzia = '';
     vSetup = function () {
       return `<section class="setup rm-wait"><h1 class="logo" aria-label="Riskuj a nepiskuj!">Riskuj<span class="logo-sub">a nepiskuj!</span></h1>
         <p class="tag">${RM.off ? `Si v hre ako <b>${h(RM.name)}</b> (bez internetu).` : `Si v hre <b>${h(RM.room)}</b> ako <b>${h(RM.name)}</b>.`}</p>
         <p class="tag" id="rmWaitStav">${RM.status === 'ok' ? 'Čakáme, kým moderátor spustí hru. Potom tu uvidíš tabuľu a otázky, tlačidlo máš dole.' : h(stavText())}</p>
+        ${modVerzia && modVerzia !== RM.VERZIA ? `<p class="rm-err">⚠ Moderátor má iný súbor ako ty (ty: ${h(RM.VERZIA)}). Nech ti pošle ten svoj a otvor ho.</p>` : ''}
         <div class="pchips" id="rmWaitList">${cakajuci.map(p => `<span class="pchip">${p.online ? '📱' : '📵'} ${h(p.name)}</span>`).join('')}</div></section>`;
     };
     setInterval(() => {
       if (inGame() || !RM.isOpen()) return;
       RM.api('state').then(st => {
-        const k = JSON.stringify(st.players || []);
-        if (k === JSON.stringify(cakajuci)) return;
+        const k = JSON.stringify(st.players || []), ver = st.ver || '?';
+        if (k === JSON.stringify(cakajuci) && ver === modVerzia) return;
+        modVerzia = ver;
         cakajuci = st.players || [];
         if (!inGame()) render(true);
       }).catch(() => {});

@@ -30,7 +30,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
    takže zvyšok hry (tv.html) netreba meniť. */
 (function () {
   'use strict';
-  const RM = window.RM = {mode: null, room: '', name: '', status: 'off', peersN: 0, onStatus: null};
+  const RM = window.RM = {mode: null, room: '', name: '', status: 'off', peersN: 0, onStatus: null, VERZIA: 'A9156'};
   const KODY = 'ABCDEFGHJKLMNPRSTUVXYZ';
   RM.novyKod = () => Array.from({length: 4}, () => KODY[Math.floor(Math.random() * KODY.length)]).join('');
 
@@ -39,6 +39,15 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   try { const m = /[#&]rm=([^&]+)/.exec(location.hash); if (m) cfg = JSON.parse(decodeURIComponent(m[1])); } catch (e) {}
   if (!cfg) try { cfg = JSON.parse(sessionStorage.getItem('rm-cfg') || 'null'); } catch (e) {}
   if (!cfg || !/^(mod|hrac)$/.test(cfg.mode) || !(cfg.off && cfg.mode === 'hrac' || /^[A-Z]{4}$/.test(cfg.room || ''))) cfg = null;
+  // rola sa obnoví len pri obnovení rozohranej stránky – keď sa súbor otvorí znova neskôr (napr. ďalší deň),
+  // začína sa výberom Som hráč / Som moderátor (inak by mobil hráča mohol ostať „moderátorom“ s vlastnou hrou)
+  let zije = 0;
+  try { zije = +sessionStorage.getItem('rm-zije') || 0; } catch (e) {}
+  const nav = ((performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {}).type;
+  if (cfg && Date.now() - zije > 15 * 60e3 && !(nav === 'reload' && Date.now() - zije < 6 * 3600e3)) {
+    cfg = null;
+    try { sessionStorage.removeItem('rm-cfg'); history.replaceState(null, '', location.href.split('#')[0]); } catch (e) {}
+  }
   // hneď od začiatku (kým sa načíta celá stránka) neukazovať návod pre počítač a TV
   document.documentElement.classList.add('rm', 'rm-boot', cfg ? 'rm-' + cfg.mode : 'rm-start');
   RM.nastav = c => {
@@ -115,6 +124,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   RM.api = () => Promise.reject(new Error('offline'));
   RM.bcOut = () => {};
   RM.isOpen = () => false;
+  const ziva = () => { try { sessionStorage.setItem('rm-zije', String(Date.now())); } catch (e) {} };
 
   /* ---------- server v mobile moderátora (to isté, čo server.ps1) ---------- */
   function Server() {
@@ -136,18 +146,19 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         players: players.map(p => ({id: p.id, name: p.name, online: online(p.id)})),
         final: {stage: finalStage, max: Object.assign({}, finalMax), sent}, zet, treq: tokReq.slice()};
     };
-    this.hraci = () => players.map(p => ({id: p.id, name: p.name, online: online(p.id)}));
+    this.hraci = () => players.map(p => ({id: p.id, name: p.name, online: online(p.id), v: p.v || ''}));
     this.handle = function (path, data) {
       data = data || {};
       switch (path.split('?')[0]) {
         case 'info': return {ips: [], port: 0, public: ''};
-        case 'state': seen(q(path, 'id')); return state();
+        case 'state': seen(q(path, 'id')); return Object.assign(state(), {ver: RM.VERZIA});
         case 'join': {
           const name = String(data.name || '').trim().slice(0, 16) || 'Hráč';
           let p = data.id ? find(String(data.id)) : null;
           if (p) p.name = name;                                       // ten istý mobil, prípadne nové meno
           else p = players.find(x => x.name.toLowerCase() === name.toLowerCase()) || null;   // znovupripojenie
           if (!p) { p = {id: Math.random().toString(36).slice(2, 12), name}; players.push(p); }
+          p.v = String(data.v || '');                                  // verzia súboru v mobile hráča
           lastSeen[p.id] = Date.now(); save(); up();
           return {id: p.id, name: p.name};
         }
@@ -246,6 +257,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     }
     window.RM_HRAC = cfg.mode === 'hrac';
     window.RM_ROLE = cfg.mode === 'hrac' ? 'tv' : 'mod';
+    ziva(); setInterval(ziva, 10000);
     try { sessionStorage.setItem('riskuj-role', window.RM_ROLE); } catch (e) {}
     if (RM.mode === 'mod') {
       RM.server = new Server();
@@ -332,6 +344,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       const retry = (ms, fn) => { clearTimeout(retryT); retryT = setTimeout(fn, ms); };
       const isOpen = () => !!(conn && conn.open);
       RM.api = (path, body) => new Promise((res, rej) => {
+        if (path === 'join') body = Object.assign({}, body, {v: RM.VERZIA});   // moderátor tak zistí starý súbor
         if (!isOpen()) { rej(new Error('offline')); return; }
         const id = ++rid;
         const tm = setTimeout(() => { if (pend.has(id)) { pend.delete(id); rej(new Error('timeout')); } }, 5000);
@@ -7044,6 +7057,7 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
       <button class="rm-big rm-modbtn" type="button" id="rmMod"><b>🎤 Som moderátor</b><span id="rmModTxt">Len jeden z vás: vytvorí hru, ostatným ukáže QR kód a vidí aj odpovede.</span></button>
       <p class="rm-tip">Každý si otvorí <b>tento istý súbor</b> v prehliadači (napr. Chrome), hráč napíše meno a naskenuje QR kód z mobilu moderátora.<br>
         <b>Bez internetu</b> (bez dát): všetci sa pripojte na jednu Wi-Fi alebo na hotspot z mobilu moderátora – QR kód funguje aj tak.</p>
+      <p class="rm-tip">Verzia súboru: <b>${h(RM.VERZIA)}</b> – všetci musia mať tú istú.</p>
     </div>`;
     document.body.appendChild(box);
     root.classList.add('rm-start');
@@ -7129,9 +7143,15 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
       taken: 'Tento kód hry je ešte obsadený (napr. hra otvorená v inom okne alebo pred chvíľou zatvorená). Skúšam znova…',
       error: 'Prehliadač nepodporuje spojenie. Skús Chrome.'
     })[RM.status] || 'Pripájam sa…';
+    // hráč so starším súborom by mal vlastnú hru alebo by mu niečo nefungovalo – moderátor to uvidí
+    const verziaText = () => {
+      const zle = RM.server.hraci().filter(p => p.v !== RM.VERZIA).map(p => p.name);
+      return zle.length ? `⚠ ${zle.join(', ')} ${zle.length > 1 ? 'majú' : 'má'} iný (starší) súbor. Pošli ${zle.length > 1 ? 'im' : 'mu'} ten svoj (verzia ${RM.VERZIA}) a nech ho otvorí.` : '';
+    };
     const roomHtml = () => `<section class="rm-room" id="rmRoom"><h3>📱 Hra len na mobiloch</h3>
         ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-kod">Kód hry: <b>${h(RM.room)}</b></div>`}
         <p class="hint rm-stav" id="rmRoomStav">${h(stavText())}</p>
+        <p class="rm-err" id="rmVerzia">${h(verziaText())}</p>
         ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-qrjoin"><div class="rm-qrkod">${QR.svg(qrHry(RM.room))}</div>
           <p class="hint">${qrNavod()} Alebo zadá kód <b>${h(RM.room)}</b>.</p></div>`}
         ${RM.status === 'reconnecting' || RM.status === 'error' ? `<ol class="steps">
@@ -7198,6 +7218,7 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
       if (bolNet !== null && bolNet !== bezNetu && S && S.phase === 'setup') setTimeout(() => render(), 0);   // iný návod na pripojenie
       bolNet = bezNetu;
       const st = document.getElementById('rmRoomStav'); if (st) st.textContent = stavText();
+      const vz = document.getElementById('rmVerzia'); if (vz) vz.textContent = verziaText();
       paintInfo();
     };
     setInterval(() => { paintInfo(); if (!qrBox.hidden) qrHraci(); }, 2000);
@@ -7299,18 +7320,20 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
       'qr-zlyhalo': 'Spojenie sa nepodarilo',
       error: 'Prehliadač nepodporuje spojenie. Skús Chrome.'
     })[RM.status] || 'Pripájam sa…';
-    let cakajuci = [];
+    let cakajuci = [], modVerzia = '';
     vSetup = function () {
       return `<section class="setup rm-wait"><h1 class="logo" aria-label="Riskuj a nepiskuj!">Riskuj<span class="logo-sub">a nepiskuj!</span></h1>
         <p class="tag">${RM.off ? `Si v hre ako <b>${h(RM.name)}</b> (bez internetu).` : `Si v hre <b>${h(RM.room)}</b> ako <b>${h(RM.name)}</b>.`}</p>
         <p class="tag" id="rmWaitStav">${RM.status === 'ok' ? 'Čakáme, kým moderátor spustí hru. Potom tu uvidíš tabuľu a otázky, tlačidlo máš dole.' : h(stavText())}</p>
+        ${modVerzia && modVerzia !== RM.VERZIA ? `<p class="rm-err">⚠ Moderátor má iný súbor ako ty (ty: ${h(RM.VERZIA)}). Nech ti pošle ten svoj a otvor ho.</p>` : ''}
         <div class="pchips" id="rmWaitList">${cakajuci.map(p => `<span class="pchip">${p.online ? '📱' : '📵'} ${h(p.name)}</span>`).join('')}</div></section>`;
     };
     setInterval(() => {
       if (inGame() || !RM.isOpen()) return;
       RM.api('state').then(st => {
-        const k = JSON.stringify(st.players || []);
-        if (k === JSON.stringify(cakajuci)) return;
+        const k = JSON.stringify(st.players || []), ver = st.ver || '?';
+        if (k === JSON.stringify(cakajuci) && ver === modVerzia) return;
+        modVerzia = ver;
         cakajuci = st.players || [];
         if (!inGame()) render(true);
       }).catch(() => {});

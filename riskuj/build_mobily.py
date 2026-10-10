@@ -32,6 +32,13 @@ peerjs = no_close_tag('peerjs.min.js', (M / 'peerjs.min.js').read_text('utf-8'))
 qrgen = no_close_tag('qrcode.min.js', (M / 'qrcode.min.js').read_text('utf-8'))
 jsqr = no_close_tag('jsqr.min.js', (M / 'jsqr.min.js').read_text('utf-8'))
 hlavicka = no_close_tag('hlavicka.js', (M / 'hlavicka.js').read_text('utf-8'))
+# verzia = odtlačok obsahu: rovnaké súbory → rovnaká verzia (hráč so starým súborom sa tak dá spoznať)
+import hashlib
+_h = hashlib.sha1()
+for f in [D / 'tv.html', D / 'mobil.html', D / 'build_mobily.py'] + sorted(M.glob('*')):
+    _h.update(f.read_bytes())
+VERZIA = _h.hexdigest()[:5].upper()
+hlavicka = hlavicka.replace("'__VERZIA__'", repr(VERZIA))
 koniec = no_close_tag('koniec.js', (M / 'koniec.js').read_text('utf-8'))
 css = (M / 'mobily.css').read_text('utf-8')
 
@@ -128,4 +135,4 @@ i = tv.rindex('</body>')
 tv = tv[:i] + f'<script>\nwindow.RM_TLACIDLO = {tlacidlo};\n{koniec}</script>\n' + tv[i:]
 
 OUT.write_text(tv, 'utf-8')
-print(f'{OUT.name}: {OUT.stat().st_size / 1e6:.1f} MB')
+print(f'{OUT.name}: {OUT.stat().st_size / 1e6:.1f} MB, verzia {VERZIA}')
