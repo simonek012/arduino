@@ -1,6 +1,7 @@
 /* ===== Riskuj len na mobiloch ===== */
 /* úvodná voľba */
 html.rm-start body{overflow:hidden}
+html.rm-boot .app{visibility:hidden}
 #rmStart{position:fixed;inset:0;z-index:100;background:var(--ground);overflow:auto;padding:max(18px,env(safe-area-inset-top)) 18px max(18px,env(safe-area-inset-bottom))}
 #rmStart .rm-in{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
 #rmStart .logo{font-size:clamp(72px,24vw,150px)}
@@ -25,6 +26,8 @@ html.rm-start body{overflow:hidden}
 .rm-room .steps{margin:0;padding-left:1.3em}
 .rm-row{display:flex;flex-wrap:wrap;gap:6px 16px}
 html.rm-mod .qrfab{display:none}
+/* skratky klávesnice na mobile nemajú zmysel */
+html.rm-mod kbd,html.rm-hrac kbd{display:none}
 #rmPill{position:fixed;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:45;font:700 15px var(--body);padding:8px 14px;border-radius:99px;border:2px solid var(--gold);background:var(--board);color:var(--text);box-shadow:0 4px 14px rgba(0,0,0,.5)}
 #rmPill b{color:var(--gold);letter-spacing:.08em}
 #rmInfo{position:fixed;inset:0;z-index:90;background:rgba(3,6,24,.9);display:flex;align-items:center;justify-content:center;padding:18px}

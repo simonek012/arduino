@@ -54,6 +54,7 @@
   }
 
   root.classList.add('rm-' + RM.mode);
+  setTimeout(() => root.classList.remove('rm-boot'), 0);   // úpravy obrazoviek nižšie sú hotové
   const potvrd = (el, txt, fn) => {                    // druhé ťuknutie potvrdí (bez okien prehliadača)
     if (!el.dataset.armed) { el.dataset.armed = '1'; el.dataset.txt = el.textContent; el.textContent = txt; setTimeout(() => { if (el.isConnected && el.dataset.armed) { delete el.dataset.armed; el.textContent = el.dataset.txt; } }, 4000); return; }
     fn();

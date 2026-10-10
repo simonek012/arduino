@@ -15,6 +15,8 @@
   try { const m = /[#&]rm=([^&]+)/.exec(location.hash); if (m) cfg = JSON.parse(decodeURIComponent(m[1])); } catch (e) {}
   if (!cfg) try { cfg = JSON.parse(sessionStorage.getItem('rm-cfg') || 'null'); } catch (e) {}
   if (!cfg || !/^(mod|hrac)$/.test(cfg.mode) || !/^[A-Z]{4}$/.test(cfg.room || '')) cfg = null;
+  // hneď od začiatku (kým sa načíta celá stránka) neukazovať návod pre počítač a TV
+  document.documentElement.classList.add('rm', 'rm-boot', cfg ? 'rm-' + cfg.mode : 'rm-start');
   RM.nastav = c => {
     const s = c ? JSON.stringify(c) : '';
     try { if (c) sessionStorage.setItem('rm-cfg', s); else sessionStorage.removeItem('rm-cfg'); } catch (e) {}

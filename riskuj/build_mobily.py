@@ -88,6 +88,27 @@ tv = rep(tv, "const ctrls = () => ROLE !== 'tv' || !modAlive();",
 # kde hrajú zvuky, určuje moderátor (štandardne len jeho mobil)
 tv = rep(tv, "const here = ROLE !== 'mod' || !livePeers().some(p => p.role === 'tv');",
          "const here = window.RM_ZVUK ? window.RM_ZVUK() : (ROLE !== 'mod' || !livePeers().some(p => p.role === 'tv'));", 2)
+# texty: nie je tu TV ani počítač, hráči majú všetko v mobile
+for a, b, n in [
+    ("const ROLE_NAME = {solo: 'jedna obrazovka', tv: 'TV pre hráčov', mod: 'moderátor'};",
+     "const ROLE_NAME = {solo: 'jedna obrazovka', tv: 'mobil hráča', mod: 'moderátor'};", 1),
+    ("'TV · moderátor pripojený' : 'TV · moderátor nie je pripojený'",
+     "'📱 moderátor pripojený' : '📱 moderátor nie je pripojený'", 1),
+    ('Televízny kvíz pre 2 až 6 hráčov', 'Kvíz pre 2 až 6 hráčov', 1),
+    ('Hlásia sa rukou alebo nahlas a moderátor klikne na toho, kto bol prvý, alebo stlačí jeho číslo (1 až 6). Hráč sa potom na obrazovke označí.',
+     'Hlásia sa tlačidlom v mobile – kto stlačí prvý, ten odpovedá.', 1),
+    ('Každý si napíše stávku a odpoveď na papier.', 'Každý si zadá stávku a odpoveď v mobile.', 1),
+    ('Otázku vidíš len ty – prečítaj ju alebo ukáž na TV.', 'Otázku vidíš len ty – prečítaj ju nahlas alebo ju ukáž hráčom.', 1),
+    ('Ukázať otázku na TV', 'Ukázať otázku hráčom', 2),
+    ("'>Ukázať odpoveď na TV<'", "'>Ukázať odpoveď hráčom<'", 1),
+    ('na TV ešte skryté', 'hráči ešte nevidia', 1),
+    ('Na TV sa nezobrazí.', 'Ostatní ju nevidia.', 1),
+    ('klikni alebo ${i + 1} = odpovedá', 'ťukni = odpovedá', 1),
+    ('Kliknutím kategóriu vyberieš, ďalším kliknutím výber zrušíš.', 'Ťuknutím kategóriu vyberieš, ďalším ťuknutím výber zrušíš.', 1),
+    ("'Naozaj ukončiť kolo? Klikni znova'", "'Naozaj ukončiť kolo? Ťukni znova'", 1),
+    ("'Naozaj na úvod? Klikni znova'", "'Naozaj na úvod? Ťukni znova'", 1),
+]:
+    tv = rep(tv, a, b, n)
 tv = rep(tv, '<title>Riskuj a nepiskuj! s mobilmi</title>',
          '<title>Riskuj a nepiskuj! – len na mobiloch</title>\n<meta name="theme-color" content="#050920">\n'
          f'<script>{peerjs}</script>\n<script>{hlavicka}</script>\n<style>{css}</style>')
