@@ -64,14 +64,14 @@
     fn();
   };
 
-  // QR kód hry: keď je hra na webe, je v ňom odkaz (otvorí ho aj obyčajný fotoaparát), inak len kód hry
+  // QR kód hry je odkaz na hru na webe: hráč ho naskenuje obyčajným fotoaparátom a súbor mať nemusí
+  const WEB = 'https://simonek012.github.io/arduino/riskuj/riskuj-mobily.html';
   const naWebe = /^https?:$/.test(location.protocol);
-  const qrHry = room => naWebe ? location.href.split('#')[0] + '#hra=' + room
-    : `RISKUJ hra ${room} – tento kód naskenuj v hre: otvor súbor Riskuj v Chrome, ťukni Som hráč a 📷 Naskenovať QR kód.`;
+  const qrHry = room => (naWebe ? location.href.split('#')[0] : WEB) + '#hra=' + room;
+  // na webe si mobil hru uloží – keď ju raz otvoril s internetom, otvorí sa aj bez signálu
+  if (naWebe && 'serviceWorker' in navigator) { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
   const kodZQr = t => { const m = /^RISKUJ hra ([A-Z]{4}) /.exec(t) || /^RISKUJ-HRA\|([A-Z]{4})$/.exec(t) || /[#&]hra=([A-Z]{4})(?![A-Za-z])/.exec(t); return m ? m[1] : null; };
-  const qrNavod = () => naWebe
-    ? 'Hráči naskenujú kód <b>fotoaparátom mobilu</b>, hra sa im otvorí. Potom napíšu meno a ťuknú <b>Pripojiť</b>.'
-    : 'Hráč musí mať <b>tento súbor otvorený</b> v Chrome: <b>Som hráč</b> → meno → <b>📷 Naskenovať QR kód</b>. Obyčajný fotoaparát tento kód neotvorí.';
+  const qrNavod = () => 'Hráči naskenujú kód <b>fotoaparátom mobilu</b> (treba internet), hra sa im otvorí. Napíšu meno a ťuknú <b>Pripojiť</b>.';
 
   /* ---------- úvod: kto som? ---------- */
   if (!RM.mode) {
@@ -83,31 +83,31 @@
     box.id = 'rmStart';
     box.innerHTML = `<div class="rm-in">
       <h1 class="logo" aria-label="Riskuj a nepiskuj!">Riskuj<span class="logo-sub">a nepiskuj!</span></h1>
-      <p class="rm-lead">Len na mobiloch – bez počítača a TV. Jeden mobil má moderátor, ostatní hráči.</p>
+      <p class="rm-verzia">Verzia ${h(RM.VERZIA)}</p>
+      <p class="rm-lead">${zOdkazu ? 'Si pozvaný do hry. Napíš svoje meno a pripoj sa.' : 'Len na mobiloch – bez počítača a TV. Jeden mobil má moderátor, ostatní hráči.'}</p>
       <form class="rm-card" id="rmJoin" autocomplete="off">
         <b>🙋 Som hráč</b>
         ${zOdkazu ? `<p class="rm-tip">Pripájaš sa do hry <b>${h(zOdkazu)}</b> – napíš meno a ťukni <b>Pripojiť</b>.</p>` : ''}
         <input id="rmMeno" maxlength="16" placeholder="Tvoje meno" aria-label="Tvoje meno" value="${h(last.name || '')}">
-        <button class="rm-go" type="button" id="rmSken">📷 Naskenovať QR kód moderátora</button>
+        <button class="rm-go" type="button" id="rmSken"${zOdkazu ? ' hidden' : ''}>📷 Naskenovať QR kód moderátora</button>
         <div class="rm-skener" id="rmSkener" hidden>
           <div class="rm-cam big"><video muted playsinline></video></div>
           <button class="lnk" type="button" id="rmSkenX">Zrušiť</button>
         </div>
         <p class="rm-err" id="rmErr"></p>
-        <div class="rm-alebo">alebo zadaj kód hry</div>
-        <div class="rm-kodrow">
-          <input id="rmKod" maxlength="4" placeholder="KÓD" autocapitalize="characters" spellcheck="false" aria-label="Kód hry" value="${h(last.room || '')}">
-          <button class="rm-go2" type="submit">Pripojiť</button>
+        <div class="rm-alebo"${zOdkazu ? ' hidden' : ''}>alebo zadaj kód hry</div>
+        <div class="rm-kodrow${zOdkazu ? ' rm-odkaz' : ''}">
+          <input id="rmKod" maxlength="4" placeholder="KÓD" autocapitalize="characters" spellcheck="false" aria-label="Kód hry" value="${h(last.room || '')}"${zOdkazu ? ' hidden' : ''}>
+          <button class="${zOdkazu ? 'rm-go' : 'rm-go2'}" type="submit">${zOdkazu ? `Pripojiť sa do hry ${h(zOdkazu)}` : 'Pripojiť'}</button>
         </div>
-        <button class="lnk" type="button" id="rmBezNetu">📶 Bez internetu a kamera nejde? Pripojiť ručne</button>
+        <button class="lnk" type="button" id="rmBezNetu"${zOdkazu ? ' hidden' : ''}>📶 Bez internetu a kamera nejde? Pripojiť ručne</button>
       </form>
-      <button class="rm-big rm-modbtn" type="button" id="rmMod"><b>🎤 Som moderátor</b><span id="rmModTxt">Len jeden z vás: vytvorí hru, ostatným ukáže QR kód a vidí aj odpovede.</span></button>
-      <p class="rm-tip">Každý si otvorí <b>tento istý súbor</b> v prehliadači (napr. Chrome), hráč napíše meno a naskenuje QR kód z mobilu moderátora.<br>
-        <b>Bez internetu</b> (bez dát): všetci sa pripojte na jednu Wi-Fi alebo na hotspot z mobilu moderátora – QR kód funguje aj tak.</p>
-      <p class="rm-tip">Verzia súboru: <b>${h(RM.VERZIA)}</b> – všetci musia mať tú istú.</p>
+      <button class="rm-big rm-modbtn" type="button" id="rmMod"${zOdkazu ? ' hidden' : ''}><b>🎤 Som moderátor</b><span id="rmModTxt">Len jeden z vás: vytvorí hru, ostatným ukáže QR kód a vidí aj odpovede.</span></button>
+      ${zOdkazu ? '' : `<p class="rm-tip"><b>S internetom:</b> hráči nepotrebujú súbor – naskenujú QR kód z mobilu moderátora obyčajným fotoaparátom.<br>
+        <b>Bez signálu:</b> hráči si vopred stiahnu tento súbor (alebo hru raz otvoria s internetom), všetci sú na hotspote moderátora a pripoja sa cez <b>Bez internetu</b>.</p>`}
     </div>`;
     document.body.appendChild(box);
-    root.classList.add('rm-start');
+    root.classList.add('rm-start', 'rm-ok');
     const modBtn = box.querySelector('#rmMod');
     modBtn.onclick = () => {
       // hráč omylom ťukne na moderátora → mal by vlastnú hru; preto druhé ťuknutie
@@ -174,7 +174,7 @@
   } else spustiUI();
 
   function spustiUI() {
-    root.classList.add('rm-' + RM.mode);
+    root.classList.add('rm-' + RM.mode, 'rm-ok');
     setTimeout(() => root.classList.remove('rm-boot'), 0);   // úpravy obrazoviek nižšie sú hotové
     if (RM.mode === 'mod') modUI(); else hracUI();
   }
@@ -193,14 +193,16 @@
     // hráč so starším súborom by mal vlastnú hru alebo by mu niečo nefungovalo – moderátor to uvidí
     const verziaText = () => {
       const zle = RM.server.hraci().filter(p => p.v !== RM.VERZIA).map(p => p.name);
-      return zle.length ? `⚠ ${zle.join(', ')} ${zle.length > 1 ? 'majú' : 'má'} iný (starší) súbor. Pošli ${zle.length > 1 ? 'im' : 'mu'} ten svoj (verzia ${RM.VERZIA}) a nech ho otvorí.` : '';
+      return zle.length ? `⚠ ${zle.join(', ')} ${zle.length > 1 ? 'majú' : 'má'} iný (starší) súbor. Nech naskenuje${zle.length > 1 ? 'jú' : ''} tvoj QR kód fotoaparátom (alebo pošli súbor verzie ${RM.VERZIA}).` : '';
     };
     const roomHtml = () => `<section class="rm-room" id="rmRoom"><h3>📱 Hra len na mobiloch</h3>
         ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-kod">Kód hry: <b>${h(RM.room)}</b></div>`}
         <p class="hint rm-stav" id="rmRoomStav">${h(stavText())}</p>
         <p class="rm-err" id="rmVerzia">${h(verziaText())}</p>
         ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-qrjoin"><div class="rm-qrkod">${QR.svg(qrHry(RM.room))}</div>
-          <p class="hint">${qrNavod()} Alebo zadá kód <b>${h(RM.room)}</b>.</p></div>`}
+          <p class="hint">${qrNavod()} Alebo zadá kód <b>${h(RM.room)}</b>.</p>
+          <button class="rm-go2 rm-maly" type="button" data-act="rm-poslat">📤 Poslať odkaz hráčom (WhatsApp…)</button></div>`}
+        <p class="hint">Verzia ${h(RM.VERZIA)}</p>
         ${RM.status === 'reconnecting' || RM.status === 'error' ? `<ol class="steps">
           <li>Všetci sa pripojte na <b>jednu Wi-Fi</b> alebo na <b>hotspot z tvojho mobilu</b> (mobilné dáta môžu byť vypnuté).</li>
           <li>Hráči si otvoria <b>tento istý súbor</b>, ťuknú <b>Som hráč</b>, napíšu meno a ťuknú <b>📷 Naskenovať QR kód</b>.</li>
@@ -227,6 +229,12 @@
     const _act = act;
     act = function (a, el) {
       if (a === 'rm-qr') return otvorQr();
+      if (a === 'rm-poslat') {
+        const url = qrHry(RM.room);
+        if (navigator.share) { navigator.share({title: 'Riskuj', text: 'Poď hrať Riskuj!', url}).catch(() => {}); return; }
+        try { navigator.clipboard.writeText(url).then(() => { el.textContent = '✅ Odkaz skopírovaný – vlož ho do správy'; }); } catch (e) { prompt('Odkaz pre hráčov:', url); }
+        return;
+      }
       if (a === 'rm-leave') return potvrd(el, 'Naozaj? Ťukni znova', () => RM.nastav(null));
       if (a === 'rm-novykod') return potvrd(el, 'Hráči sa budú musieť pripojiť znova – ťukni znova', () => { const room = RM.novyKod(); ls('rm-room', room); RM.nastav({mode: 'mod', room}); });
       return _act(a, el);
@@ -372,7 +380,8 @@
       return `<section class="setup rm-wait"><h1 class="logo" aria-label="Riskuj a nepiskuj!">Riskuj<span class="logo-sub">a nepiskuj!</span></h1>
         <p class="tag">${RM.off ? `Si v hre ako <b>${h(RM.name)}</b> (bez internetu).` : `Si v hre <b>${h(RM.room)}</b> ako <b>${h(RM.name)}</b>.`}</p>
         <p class="tag" id="rmWaitStav">${RM.status === 'ok' ? 'Čakáme, kým moderátor spustí hru. Potom tu uvidíš tabuľu a otázky, tlačidlo máš dole.' : h(stavText())}</p>
-        ${modVerzia && modVerzia !== RM.VERZIA ? `<p class="rm-err">⚠ Moderátor má iný súbor ako ty (ty: ${h(RM.VERZIA)}). Nech ti pošle ten svoj a otvor ho.</p>` : ''}
+        <p class="hint">Verzia ${h(RM.VERZIA)}</p>
+        ${modVerzia && modVerzia !== RM.VERZIA ? `<p class="rm-err">⚠ Moderátor má inú verziu (${h(modVerzia)}) ako ty (${h(RM.VERZIA)}). Otvor hru cez QR kód moderátora alebo si stiahni jeho súbor.</p>` : ''}
         <div class="pchips" id="rmWaitList">${cakajuci.map(p => `<span class="pchip">${p.online ? '📱' : '📵'} ${h(p.name)}</span>`).join('')}</div></section>`;
     };
     setInterval(() => {

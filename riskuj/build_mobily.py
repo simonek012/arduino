@@ -27,17 +27,30 @@ def no_close_tag(name, s):
 
 
 tv = (D / 'tv.html').read_text('utf-8')
+# chyby počas behu sa ukážu na obrazovke (dá sa poslať snímka) – skript beží ako prvý
+CHYBY = '''<script>window.RM_CHYBY = [];
+window.addEventListener('error', function (e) {
+  var t = (e.message || 'chyba') + (e.lineno ? ' (riadok ' + e.lineno + ')' : '');
+  RM_CHYBY.push(t);
+  var f = document.getElementById('rmFatalErr'); if (f) f.textContent = RM_CHYBY.join(' | ');
+  if (!document.body) return;
+  var b = document.getElementById('rmChyba');
+  if (!b) { b = document.createElement('div'); b.id = 'rmChyba'; b.onclick = function () { b.remove(); }; document.body.appendChild(b); }
+  b.textContent = '⚠ Chyba: ' + t + ' (ťukni pre skrytie)';
+});</script>
+'''
+FATAL = '''<div id="rmFatal"><h2>Riskuj sa nespustil</h2>
+<p>Otvor tento súbor v prehliadači <b>Chrome</b> – nie v náhľade WhatsAppu, Messengera, Teams ani v prehliadači súborov.</p>
+<p>Alebo otvor hru z webu: <b>simonek012.github.io/arduino/riskuj/riskuj-mobily.html</b></p>
+<p id="rmFatalErr"></p></div>
+'''
 mob = (D / 'mobil.html').read_text('utf-8')
 peerjs = no_close_tag('peerjs.min.js', (M / 'peerjs.min.js').read_text('utf-8'))
 qrgen = no_close_tag('qrcode.min.js', (M / 'qrcode.min.js').read_text('utf-8'))
 jsqr = no_close_tag('jsqr.min.js', (M / 'jsqr.min.js').read_text('utf-8'))
 hlavicka = no_close_tag('hlavicka.js', (M / 'hlavicka.js').read_text('utf-8'))
-# verzia = odtlačok obsahu: rovnaké súbory → rovnaká verzia (hráč so starým súborom sa tak dá spoznať)
-import hashlib
-_h = hashlib.sha1()
-for f in [D / 'tv.html', D / 'mobil.html', D / 'build_mobily.py'] + sorted(M.glob('*')):
-    _h.update(f.read_bytes())
-VERZIA = _h.hexdigest()[:5].upper()
+# verzia = číslo v mobily/verzia.txt (pri každom novom súbore pre hráčov o 1 vyššie) – je v názve súboru aj na obrazovke
+VERZIA = (M / 'verzia.txt').read_text('utf-8').strip()
 hlavicka = hlavicka.replace("'__VERZIA__'", repr(VERZIA))
 koniec = no_close_tag('koniec.js', (M / 'koniec.js').read_text('utf-8'))
 css = (M / 'mobily.css').read_text('utf-8')
@@ -128,11 +141,19 @@ tv = rep(tv, '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0
 tv = rep(tv, '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap">',
          '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap" media="print" onload="this.media=\'all\'">')
 tv = rep(tv, '<title>Riskuj a nepiskuj! s mobilmi</title>',
-         '<title>Riskuj a nepiskuj! – len na mobiloch</title>\n<meta name="theme-color" content="#050920">\n'
+         f'<title>Riskuj v{VERZIA} – len na mobiloch</title>\n<meta name="theme-color" content="#050920">\n'
+         + CHYBY +
          f'<script>{peerjs}</script>\n<script>{qrgen}</script>\n<script>{jsqr}</script>\n<script>{hlavicka}</script>\n<style>{css}</style>')
 tlacidlo = json.dumps(mob, ensure_ascii=False).replace('</', '<\\/')
 i = tv.rindex('</body>')
 tv = tv[:i] + f'<script>\nwindow.RM_TLACIDLO = {tlacidlo};\n{koniec}</script>\n' + tv[i:]
+# keď sa časť pre mobily nespustí (napr. súbor otvorený v náhľade inej aplikácie), nech sa neukáže samostatná hra
+tv = rep(tv, '<main class="app" id="app"></main>', FATAL + '<main class="app" id="app"></main>')
 
-OUT.write_text(tv, 'utf-8')
-print(f'{OUT.name}: {OUT.stat().st_size / 1e6:.1f} MB, verzia {VERZIA}')
+OUT.write_text(tv, 'utf-8')                          # na webe má stále rovnaký názov (QR kód naň ukazuje)
+KOPIA = D / 'na-poslanie' / f'riskuj-mobily-v{VERZIA}.html'   # súbor na poslanie má v názve číslo verzie
+KOPIA.parent.mkdir(exist_ok=True)
+for stara in KOPIA.parent.glob('riskuj-mobily-v*.html'):
+    stara.unlink()
+KOPIA.write_text(tv, 'utf-8')
+print(f'{OUT.name} + {KOPIA.parent.name}/{KOPIA.name}: {OUT.stat().st_size / 1e6:.1f} MB, verzia {VERZIA}')
