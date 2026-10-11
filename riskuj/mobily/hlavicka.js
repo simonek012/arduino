@@ -17,10 +17,12 @@
   if (!cfg || !/^(mod|hrac)$/.test(cfg.mode) || !(cfg.off && cfg.mode === 'hrac' || /^[A-Z]{4}$/.test(cfg.room || ''))) cfg = null;
   // rola sa obnoví len pri obnovení rozohranej stránky – keď sa súbor otvorí znova neskôr (napr. ďalší deň),
   // začína sa výberom Som hráč / Som moderátor (inak by mobil hráča mohol ostať „moderátorom“ s vlastnou hrou)
+  // „naposledy živá“ je v sessionStorage aj priamo v adrese (#rm=…,"t":…) – otvorený súbor niekedy úložisko nemá
   let zije = 0;
   try { zije = +sessionStorage.getItem('rm-zije') || 0; } catch (e) {}
+  if (cfg && +cfg.t > zije) zije = +cfg.t;
   const nav = ((performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {}).type;
-  if (cfg && Date.now() - zije > 15 * 60e3 && !(nav === 'reload' && Date.now() - zije < 6 * 3600e3)) {
+  if (cfg && Date.now() - zije > 15 * 60e3 && !((nav === 'reload' || nav === 'back_forward') && Date.now() - zije < 6 * 3600e3)) {
     cfg = null;
     try { sessionStorage.removeItem('rm-cfg'); history.replaceState(null, '', location.href.split('#')[0]); } catch (e) {}
   }
@@ -38,6 +40,7 @@
       if (RM.poVolbe) RM.poVolbe();
       return;
     }
+    RM.odchod = true;                     // zámerný odchod – bez otázky „Naozaj opustiť stránku?“
     if (c) location.replace(base + '#rm=' + encodeURIComponent(s)); else location.replace(base + '#');
     location.reload();
   };
@@ -100,7 +103,15 @@
   RM.api = () => Promise.reject(new Error('offline'));
   RM.bcOut = () => {};
   RM.isOpen = () => false;
-  const ziva = () => { try { sessionStorage.setItem('rm-zije', String(Date.now())); } catch (e) {} };
+  const ziva = () => {
+    const t = Date.now();
+    try { sessionStorage.setItem('rm-zije', String(t)); } catch (e) {}
+    if (!RM.mode) return;
+    const c = {mode: RM.mode, room: RM.room, name: RM.name, t};
+    if (RM.off) c.off = 1;
+    try { history.replaceState(history.state, '', location.href.split('#')[0] + '#rm=' + encodeURIComponent(JSON.stringify(c))); } catch (e) {}
+  };
+  RM.ziva = ziva;
 
   /* ---------- server v mobile moderátora (to isté, čo server.ps1) ---------- */
   function Server() {
@@ -233,7 +244,7 @@
     }
     window.RM_HRAC = cfg.mode === 'hrac';
     window.RM_ROLE = cfg.mode === 'hrac' ? 'tv' : 'mod';
-    ziva(); setInterval(ziva, 10000);
+    setTimeout(ziva, 0); setInterval(ziva, 10000);
     try { sessionStorage.setItem('riskuj-role', window.RM_ROLE); } catch (e) {}
     if (RM.mode === 'mod') {
       RM.server = new Server();
@@ -402,5 +413,5 @@
       }
     }
   };
-  if (cfg) RM.spusti(cfg);
+  if (cfg) { RM.zObnovenia = true; RM.spusti(cfg); }   // stránka sa obnovila uprostred hry
 })();

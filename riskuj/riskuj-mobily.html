@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>[hidden]{display:none!important}img{max-width:100%}</style>
-<title>Riskuj v11 – len na mobiloch</title>
+<title>Riskuj v12 – len na mobiloch</title>
 <meta name="theme-color" content="#050920">
 <script>window.RM_CHYBY = [];
 window.addEventListener('error', function (e) {
@@ -40,7 +40,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
    takže zvyšok hry (tv.html) netreba meniť. */
 (function () {
   'use strict';
-  const RM = window.RM = {mode: null, room: '', name: '', status: 'off', peersN: 0, onStatus: null, VERZIA: '11'};
+  const RM = window.RM = {mode: null, room: '', name: '', status: 'off', peersN: 0, onStatus: null, VERZIA: '12'};
   const KODY = 'ABCDEFGHJKLMNPRSTUVXYZ';
   RM.novyKod = () => Array.from({length: 4}, () => KODY[Math.floor(Math.random() * KODY.length)]).join('');
 
@@ -51,10 +51,12 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   if (!cfg || !/^(mod|hrac)$/.test(cfg.mode) || !(cfg.off && cfg.mode === 'hrac' || /^[A-Z]{4}$/.test(cfg.room || ''))) cfg = null;
   // rola sa obnoví len pri obnovení rozohranej stránky – keď sa súbor otvorí znova neskôr (napr. ďalší deň),
   // začína sa výberom Som hráč / Som moderátor (inak by mobil hráča mohol ostať „moderátorom“ s vlastnou hrou)
+  // „naposledy živá“ je v sessionStorage aj priamo v adrese (#rm=…,"t":…) – otvorený súbor niekedy úložisko nemá
   let zije = 0;
   try { zije = +sessionStorage.getItem('rm-zije') || 0; } catch (e) {}
+  if (cfg && +cfg.t > zije) zije = +cfg.t;
   const nav = ((performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {}).type;
-  if (cfg && Date.now() - zije > 15 * 60e3 && !(nav === 'reload' && Date.now() - zije < 6 * 3600e3)) {
+  if (cfg && Date.now() - zije > 15 * 60e3 && !((nav === 'reload' || nav === 'back_forward') && Date.now() - zije < 6 * 3600e3)) {
     cfg = null;
     try { sessionStorage.removeItem('rm-cfg'); history.replaceState(null, '', location.href.split('#')[0]); } catch (e) {}
   }
@@ -72,6 +74,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       if (RM.poVolbe) RM.poVolbe();
       return;
     }
+    RM.odchod = true;                     // zámerný odchod – bez otázky „Naozaj opustiť stránku?“
     if (c) location.replace(base + '#rm=' + encodeURIComponent(s)); else location.replace(base + '#');
     location.reload();
   };
@@ -134,7 +137,15 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   RM.api = () => Promise.reject(new Error('offline'));
   RM.bcOut = () => {};
   RM.isOpen = () => false;
-  const ziva = () => { try { sessionStorage.setItem('rm-zije', String(Date.now())); } catch (e) {} };
+  const ziva = () => {
+    const t = Date.now();
+    try { sessionStorage.setItem('rm-zije', String(t)); } catch (e) {}
+    if (!RM.mode) return;
+    const c = {mode: RM.mode, room: RM.room, name: RM.name, t};
+    if (RM.off) c.off = 1;
+    try { history.replaceState(history.state, '', location.href.split('#')[0] + '#rm=' + encodeURIComponent(JSON.stringify(c))); } catch (e) {}
+  };
+  RM.ziva = ziva;
 
   /* ---------- server v mobile moderátora (to isté, čo server.ps1) ---------- */
   function Server() {
@@ -267,7 +278,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     }
     window.RM_HRAC = cfg.mode === 'hrac';
     window.RM_ROLE = cfg.mode === 'hrac' ? 'tv' : 'mod';
-    ziva(); setInterval(ziva, 10000);
+    setTimeout(ziva, 0); setInterval(ziva, 10000);
     try { sessionStorage.setItem('riskuj-role', window.RM_ROLE); } catch (e) {}
     if (RM.mode === 'mod') {
       RM.server = new Server();
@@ -436,7 +447,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       }
     }
   };
-  if (cfg) RM.spusti(cfg);
+  if (cfg) { RM.zObnovenia = true; RM.spusti(cfg); }   // stránka sa obnovila uprostred hry
 })();
 </script>
 <style>/* ===== Riskuj len na mobiloch ===== */
@@ -549,6 +560,11 @@ html.rm-ok #rmFatal{display:none}
 .rm-kamera .rm-err{font-size:14px;font-weight:600}
 .rm-cam[hidden]{display:none}
 .rm-qrstav{overflow-wrap:anywhere}
+/* potiahnutím dole sa stránka nesmie obnoviť (Chrome v mobile) */
+html.rm,html.rm body{overscroll-behavior-y:none}
+.rm-web{display:flex;flex-direction:column;gap:8px}
+.rm-web .rm-err{font-size:14px;font-weight:600;margin:0}
+.rm-web a.rm-go2{text-align:center;text-decoration:none}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -7071,6 +7087,21 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
   const kodZQr = t => { const m = /^RISKUJ hra ([A-Z]{4}) /.exec(t) || /^RISKUJ-HRA\|([A-Z]{4})$/.exec(t) || /[#&]hra=([A-Z]{4})(?![A-Za-z])/.exec(t); return m ? m[1] : null; };
   const qrNavod = () => 'Hráči naskenujú kód <b>fotoaparátom mobilu</b> (treba internet), hra sa im otvorí. Napíšu meno a ťuknú <b>Pripojiť</b>.';
 
+  // hra sa nesmie stratiť omylom: tlačidlo Späť ostane v hre a obnovenie / zatvorenie sa najprv opýta
+  function chranOdchod() {
+    window.addEventListener('beforeunload', e => { if (RM.odchod) return; e.preventDefault(); e.returnValue = ''; });
+    try { history.pushState({rm: 1}, '', location.href); } catch (e) {}
+    RM.ziva();
+    window.addEventListener('popstate', () => {
+      if (RM.odchod) return;
+      try { history.pushState({rm: 1}, '', location.href); } catch (e) {}
+      RM.ziva();                                       // aktuálna adresa (s časom), aby obnovenie stránky vedelo rolu
+      if (typeof toast === 'function') toast(RM.mode === 'mod' ? 'Hra beží ďalej. Na odchod použi „Zmeniť rolu“.' : 'Hra beží ďalej. Na odchod ťukni „Odísť“.');
+    });
+  }
+  // otvorený súbor (nie web): prehliadač nemusí povoliť kameru ani ukladanie – moderátor to uvidí
+  const ulozisko = (() => { try { localStorage.setItem('rm-test', '1'); return localStorage.getItem('rm-test') === '1'; } catch (e) { return false; } })();
+
   /* ---------- úvod: kto som? ---------- */
   if (!RM.mode) {
     let last = {};
@@ -7176,6 +7207,7 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
 
   function spustiUI() {
     root.classList.add('rm-' + RM.mode, 'rm-ok');
+    chranOdchod();
     setTimeout(() => root.classList.remove('rm-boot'), 0);   // úpravy obrazoviek nižšie sú hotové
     if (RM.mode === 'mod') modUI(); else hracUI();
   }
@@ -7203,6 +7235,8 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
         ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-kod">Kód hry: <b>${h(RM.room)}</b></div>`}
         <p class="hint rm-stav" id="rmRoomStav">${h(stavText())}</p>
         <p class="rm-err" id="rmVerzia">${h(verziaText())}</p>
+        ${naWebe && ulozisko && window.isSecureContext ? '' : `<div class="rm-web"><p class="rm-err">⚠ Hru máš otvorenú ako súbor${!window.isSecureContext ? ' – mobil tu nepovolí kameru' : ''}${!ulozisko ? ' a neuloží rozohranú hru (pri obnovení stránky by sa stratila)' : ''}. Spoľahlivejšie je otvoriť hru z webu (raz s internetom, potom ide aj bez neho):</p>
+          <a class="rm-go2" href="${WEB}">🌐 Otvoriť hru z webu</a></div>`}
         ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-qrjoin"><div class="rm-qrkod">${QR.svg(qrHry(RM.room))}</div>
           <p class="hint">${qrNavod()} Alebo zadá kód <b>${h(RM.room)}</b>.</p>
           <button class="rm-go2 rm-maly" type="button" data-act="rm-poslat">📤 Poslať odkaz hráčom (WhatsApp…)</button></div>`}
@@ -7377,6 +7411,8 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
     }, 1000);
     RM.onStatus();
     render(true);
+    // moderátor si obnovil stránku (omylom) → rozohraná hra pokračuje hneď, hráči sa k nej vrátia sami
+    if (RM.zObnovenia && pendingGame && !inGame() && pendingGame.phase !== 'end') joinGame(pendingGame, 'mod');
   }
 
   /* ---------- HRÁČ ---------- */

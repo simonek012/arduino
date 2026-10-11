@@ -108,3 +108,8 @@ html.rm-ok #rmFatal{display:none}
 .rm-kamera .rm-err{font-size:14px;font-weight:600}
 .rm-cam[hidden]{display:none}
 .rm-qrstav{overflow-wrap:anywhere}
+/* potiahnutím dole sa stránka nesmie obnoviť (Chrome v mobile) */
+html.rm,html.rm body{overscroll-behavior-y:none}
+.rm-web{display:flex;flex-direction:column;gap:8px}
+.rm-web .rm-err{font-size:14px;font-weight:600;margin:0}
+.rm-web a.rm-go2{text-align:center;text-decoration:none}

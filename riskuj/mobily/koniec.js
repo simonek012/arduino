@@ -91,6 +91,21 @@
   const kodZQr = t => { const m = /^RISKUJ hra ([A-Z]{4}) /.exec(t) || /^RISKUJ-HRA\|([A-Z]{4})$/.exec(t) || /[#&]hra=([A-Z]{4})(?![A-Za-z])/.exec(t); return m ? m[1] : null; };
   const qrNavod = () => 'Hráči naskenujú kód <b>fotoaparátom mobilu</b> (treba internet), hra sa im otvorí. Napíšu meno a ťuknú <b>Pripojiť</b>.';
 
+  // hra sa nesmie stratiť omylom: tlačidlo Späť ostane v hre a obnovenie / zatvorenie sa najprv opýta
+  function chranOdchod() {
+    window.addEventListener('beforeunload', e => { if (RM.odchod) return; e.preventDefault(); e.returnValue = ''; });
+    try { history.pushState({rm: 1}, '', location.href); } catch (e) {}
+    RM.ziva();
+    window.addEventListener('popstate', () => {
+      if (RM.odchod) return;
+      try { history.pushState({rm: 1}, '', location.href); } catch (e) {}
+      RM.ziva();                                       // aktuálna adresa (s časom), aby obnovenie stránky vedelo rolu
+      if (typeof toast === 'function') toast(RM.mode === 'mod' ? 'Hra beží ďalej. Na odchod použi „Zmeniť rolu“.' : 'Hra beží ďalej. Na odchod ťukni „Odísť“.');
+    });
+  }
+  // otvorený súbor (nie web): prehliadač nemusí povoliť kameru ani ukladanie – moderátor to uvidí
+  const ulozisko = (() => { try { localStorage.setItem('rm-test', '1'); return localStorage.getItem('rm-test') === '1'; } catch (e) { return false; } })();
+
   /* ---------- úvod: kto som? ---------- */
   if (!RM.mode) {
     let last = {};
@@ -196,6 +211,7 @@
 
   function spustiUI() {
     root.classList.add('rm-' + RM.mode, 'rm-ok');
+    chranOdchod();
     setTimeout(() => root.classList.remove('rm-boot'), 0);   // úpravy obrazoviek nižšie sú hotové
     if (RM.mode === 'mod') modUI(); else hracUI();
   }
@@ -223,6 +239,8 @@
         ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-kod">Kód hry: <b>${h(RM.room)}</b></div>`}
         <p class="hint rm-stav" id="rmRoomStav">${h(stavText())}</p>
         <p class="rm-err" id="rmVerzia">${h(verziaText())}</p>
+        ${naWebe && ulozisko && window.isSecureContext ? '' : `<div class="rm-web"><p class="rm-err">⚠ Hru máš otvorenú ako súbor${!window.isSecureContext ? ' – mobil tu nepovolí kameru' : ''}${!ulozisko ? ' a neuloží rozohranú hru (pri obnovení stránky by sa stratila)' : ''}. Spoľahlivejšie je otvoriť hru z webu (raz s internetom, potom ide aj bez neho):</p>
+          <a class="rm-go2" href="${WEB}">🌐 Otvoriť hru z webu</a></div>`}
         ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-qrjoin"><div class="rm-qrkod">${QR.svg(qrHry(RM.room))}</div>
           <p class="hint">${qrNavod()} Alebo zadá kód <b>${h(RM.room)}</b>.</p>
           <button class="rm-go2 rm-maly" type="button" data-act="rm-poslat">📤 Poslať odkaz hráčom (WhatsApp…)</button></div>`}
@@ -397,6 +415,8 @@
     }, 1000);
     RM.onStatus();
     render(true);
+    // moderátor si obnovil stránku (omylom) → rozohraná hra pokračuje hneď, hráči sa k nej vrátia sami
+    if (RM.zObnovenia && pendingGame && !inGame() && pendingGame.phase !== 'end') joinGame(pendingGame, 'mod');
   }
 
   /* ---------- HRÁČ ---------- */
