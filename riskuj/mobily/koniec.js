@@ -88,6 +88,38 @@
   const qrHry = room => (naWebe ? location.href.split('#')[0] : WEB) + '#hra=' + room;
   // na webe si mobil hru uloží – keď ju raz otvoril s internetom, otvorí sa aj bez signálu
   if (naWebe && 'serviceWorker' in navigator) { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
+
+  // aktualizácie: na webe leží verzia.json s číslom najnovšej verzie – keď je vyššie, ukáže sa lišta „Aktualizovať“
+  // (nainštalovaná aplikácia by inak mohla otvoriť staršiu uloženú verziu, kým sa nová 9 MB stránka stiahne)
+  async function aktualizuj() {
+    try { if (window.caches) for (const k of await caches.keys()) await caches.delete(k); } catch (e) {}
+    try { const r = await navigator.serviceWorker?.getRegistration(); if (r) await r.update(); } catch (e) {}
+    RM.odchod = true; location.reload();
+  }
+  if (naWebe) setTimeout(() => {
+    fetch('verzia.json?t=' + Date.now(), {cache: 'no-store'}).then(r => r.ok ? r.json() : null).then(d => {
+      if (!d || !(+d.verzia > +RM.VERZIA) || document.getElementById('rmUpd')) return;
+      const b = document.createElement('div');
+      b.id = 'rmUpd';
+      b.innerHTML = `<span>🔄 Je nová verzia ${h(String(d.verzia))}${d.novinky ? ' – ' + h(String(d.novinky)) : ''}</span><button type="button">Aktualizovať</button><button type="button" class="lnk" aria-label="Zavrieť">✕</button>`;
+      const [ano, nie] = b.querySelectorAll('button');
+      ano.onclick = () => { ano.textContent = 'Sťahujem…'; ano.disabled = true; aktualizuj(); };
+      nie.onclick = () => b.remove();
+      document.body.appendChild(b);
+    }).catch(() => {});
+  }, 1500);
+
+  // spoločné vlastné kategórie: kategorie.json na webe (rovnaký súbor, aký vytvorí „Exportovať do súboru“ v hre na PC)
+  // sa po každej zmene sám naimportuje – nové témy tak dostanú všetci bez preinštalovania
+  if (naWebe) fetch('kategorie.json?t=' + Date.now(), {cache: 'no-store'}).then(r => r.ok ? r.text() : null).then(async t => {
+    if (!t || typeof importSets !== 'function') return;
+    let pod = ''; try { pod = ls('rm-kategorie'); } catch (e) {}
+    if (pod === t.length + ':' + t.slice(-64)) return;
+    let data; try { data = JSON.parse(t); } catch (e) { return; }
+    if (!data || data.app !== 'riskuj-kategorie' || !Array.isArray(data.sets) || !data.sets.length) return;
+    await importSets(new Blob([t], {type: 'application/json'}));
+    try { localStorage.setItem('rm-kategorie', t.length + ':' + t.slice(-64)); } catch (e) {}
+  }).catch(() => {});
   const kodZQr = t => { const m = /^RISKUJ hra ([A-Z]{4}) /.exec(t) || /^RISKUJ-HRA\|([A-Z]{4})$/.exec(t) || /[#&]hra=([A-Z]{4})(?![A-Za-z])/.exec(t); return m ? m[1] : null; };
   const qrNavod = () => 'Hráči naskenujú kód <b>fotoaparátom mobilu</b> (treba internet), hra sa im otvorí. Napíšu meno a ťuknú <b>Pripojiť</b>.';
 

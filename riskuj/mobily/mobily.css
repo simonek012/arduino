@@ -116,3 +116,8 @@ html.rm,html.rm body{overscroll-behavior-y:none}
 .rm-app{display:flex;flex-direction:column}
 .rm-app:empty{display:none}
 .rm-app a.rm-go2{text-align:center;text-decoration:none}
+/* lišta s novou verziou (verzia.json na webe) */
+#rmUpd{position:fixed;left:10px;right:10px;bottom:max(10px,env(safe-area-inset-bottom));z-index:300;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--gold);color:#241800;border-radius:14px;padding:10px 14px;font-weight:800;box-shadow:0 6px 24px rgba(0,0,0,.45)}
+#rmUpd span{flex:1 1 180px}
+#rmUpd button{font:inherit;font-weight:900;border:0;border-radius:10px;padding:8px 14px;background:#241800;color:var(--gold)}
+#rmUpd button.lnk{background:transparent;color:#241800;padding:8px}

@@ -12,6 +12,7 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   const url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== location.origin) return;
+  if (/\/(verzia|kategorie)\.json$/.test(url.pathname)) return;   // tieto vždy čerstvé z webu (aktualizácie)
   const kluc = url.origin + url.pathname;            // bez ?… a #hra=… – kód hry z odkazu sa nesmie uložiť
   e.respondWith((async () => {
     const ulozena = await caches.match(kluc);

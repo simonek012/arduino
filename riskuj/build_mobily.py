@@ -120,8 +120,8 @@ for a, b, n in [
      "const ROLE_NAME = {solo: 'jedna obrazovka', tv: 'mobil hráča', mod: 'moderátor'};", 1),
     ("'TV · moderátor pripojený' : 'TV · moderátor nie je pripojený'",
      "'📱 moderátor pripojený' : '📱 moderátor nie je pripojený'", 1),
-    ('Televízny kvíz pre 2 až 6 hráčov', 'Kvíz pre 2 až 6 hráčov', 1),
-    ('Hlásia sa rukou alebo nahlas a moderátor klikne na toho, kto bol prvý, alebo stlačí jeho číslo (1 až 6). Hráč sa potom na obrazovke označí.',
+    ('Televízny kvíz pre 2 až 20 hráčov', 'Kvíz pre 2 až 20 hráčov', 1),
+    ('Hlásia sa rukou alebo nahlas a moderátor klikne na toho, kto bol prvý, alebo stlačí jeho číslo (1 až 9, desiaty hráč 0). Hráč sa potom na obrazovke označí.',
      'Hlásia sa tlačidlom v mobile – kto stlačí prvý, ten odpovedá.', 1),
     ('Každý si napíše stávku a odpoveď na papier.', 'Každý si zadá stávku a odpoveď v mobile.', 1),
     ('Otázku vidíš len ty – prečítaj ju alebo ukáž na TV.', 'Otázku vidíš len ty – prečítaj ju nahlas alebo ju ukáž hráčom.', 1),
@@ -129,7 +129,7 @@ for a, b, n in [
     ("'>Ukázať odpoveď na TV<'", "'>Ukázať odpoveď hráčom<'", 1),
     ('na TV ešte skryté', 'hráči ešte nevidia', 1),
     ('Na TV sa nezobrazí.', 'Ostatní ju nevidia.', 1),
-    ('klikni alebo ${i + 1} = odpovedá', 'ťukni = odpovedá', 1),
+    ("${i < 10 ? `klikni alebo ${(i + 1) % 10} = odpovedá` : 'klikni = odpovedá'}", 'ťukni = odpovedá', 1),
     ('Kliknutím kategóriu vyberieš, ďalším kliknutím výber zrušíš.', 'Ťuknutím kategóriu vyberieš, ďalším ťuknutím výber zrušíš.', 1),
     ("'Naozaj ukončiť kolo? Klikni znova'", "'Naozaj ukončiť kolo? Ťukni znova'", 1),
     ("'Naozaj na úvod? Klikni znova'", "'Naozaj na úvod? Ťukni znova'", 1),
@@ -160,4 +160,6 @@ KOPIA.parent.mkdir(exist_ok=True)
 for stara in KOPIA.parent.glob('riskuj-mobily-v*.html'):
     stara.unlink()
 KOPIA.write_text(tv, 'utf-8')
+# verzia.json: nainštalované aplikácie podľa neho zistia, že je nová verzia, a ponúknu „Aktualizovať“
+(D / 'verzia.json').write_text(json.dumps({'verzia': VERZIA}) + '\n', 'utf-8')
 print(f'{OUT.name} + {KOPIA.parent.name}/{KOPIA.name}: {OUT.stat().st_size / 1e6:.1f} MB, verzia {VERZIA}')
