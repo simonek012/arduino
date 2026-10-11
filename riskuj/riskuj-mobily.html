@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>[hidden]{display:none!important}img{max-width:100%}</style>
-<title>Riskuj v15 – len na mobiloch</title>
+<title>Riskuj v16 – len na mobiloch</title>
 <meta name="theme-color" content="#050920">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="ikona-192.png">
@@ -46,7 +46,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
    takže zvyšok hry (tv.html) netreba meniť. */
 (function () {
   'use strict';
-  const RM = window.RM = {mode: null, room: '', name: '', status: 'off', peersN: 0, onStatus: null, VERZIA: '15'};
+  const RM = window.RM = {mode: null, room: '', name: '', status: 'off', peersN: 0, onStatus: null, VERZIA: '16'};
   // Android/Chrome ponúkne inštaláciu ako aplikáciu – udalosť príde skoro, tak ju zachytíme hneď
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); RM.instal = e; if (RM.onInstal) RM.onInstal(); });
   window.addEventListener('appinstalled', () => { RM.instal = null; RM.nainstalovana = true; if (RM.onInstal) RM.onInstal(); });
@@ -582,6 +582,9 @@ html.rm,html.rm body{overscroll-behavior-y:none}
 #rmUpd span{flex:1 1 180px}
 #rmUpd button{font:inherit;font-weight:900;border:0;border-radius:10px;padding:8px 14px;background:#241800;color:var(--gold)}
 #rmUpd button.lnk{background:transparent;color:#241800;padding:8px}
+/* návrat z moderátora na výber roly (druhé ťuknutie potvrdí) */
+.rm-spat{align-self:flex-start;font:inherit;font-weight:800;font-size:17px;border:2px solid var(--line);border-radius:12px;background:transparent;color:var(--text);padding:8px 14px;margin-bottom:6px}
+.rm-spat[data-armed]{border-color:var(--bad);color:var(--bad)}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -7212,10 +7215,6 @@ function vSetup() {
     <section class="custom" id="pickerSec">${pickerHtml()}</section>
     <section class="custom" id="customSec">${customSecHtml()}</section>
     <section class="custom bank" id="bankSec">${bankSecHtml()}</section>
-    <section class="cheat-cta"><h3>Ťahák pre moderátora</h3>
-      <p>Na tabuli uvidíš kód hry. Na mobile otvor túto istú stránku, zadaj ho sem a uvidíš všetky otázky aj s odpoveďami.</p>
-      <form class="row" id="cheatForm"><input class="code-in" id="ccode" maxlength="40" autocomplete="off" placeholder="KÓD" aria-label="Kód hry" value="${esc(S.cheatCode || '')}"><button class="btn" type="submit">Otvoriť ťahák</button></form>
-    </section>
   </section>`;
 }
 
@@ -7240,7 +7239,7 @@ function vBoard() {
   }
   return `<div class="game"><div class="board">${cells}</div>${pods()}
     <footer class="gfoot"><span>${S.round}. kolo · vyberá <b style="color:${PCOL[S.control]}">${esc(S.players[S.control].name)}</b></span>
-    <span>${roleTag() || `Kód pre ťahák: <b>${S.code}</b>`}</span>
+    <span>${roleTag()}</span>
     <span>${ctrls() ? '<button class="lnk" data-act="undo">Vrátiť krok (Z)</button> · <button class="lnk" data-act="endround">Ukončiť kolo</button> · <button class="lnk" data-act="bgmtoggle">Hudba: ' + (S.bgm ? 'zapnutá' : 'vypnutá') + '</button>' : ''}</span></footer></div>`;
 }
 
@@ -7290,7 +7289,7 @@ function vQuestion() {
         : `<p class="qtext${T.m ? " small" : T.q.length > 150 ? " long" : ""}">${esc(T.q)}</p>`}${hideQ ? '' : mediaHtml(T)}${ans}${hintHtml}${factHtml}
         <div class="qstate">${state}</div></div>
       ${ctrls() ? `<div class="mod">${btns}<button class="mbtn" data-act="undo">Vrátiť krok <kbd>Z</kbd></button></div>` : ''}
-    </section>${pods()}<footer class="gfoot"><span>${S.round}. kolo</span><span>${roleTag() || `Kód pre ťahák: <b>${S.code}</b>`}</span><span></span></footer></div>`;
+    </section>${pods()}<footer class="gfoot"><span>${S.round}. kolo</span><span>${roleTag()}</span><span></span></footer></div>`;
 }
 
 function vRiskBet() {
@@ -7301,7 +7300,7 @@ function vRiskBet() {
       ${ctrls() ? `<input class="bet-in" id="bet" type="number" inputmode="numeric" min="0" max="${max}" step="100" value="${Math.min(max, S.round * 1000)}" aria-label="Stávka">
       <div class="mod"><button class="mbtn gold" data-act="betok">Ukázať otázku <kbd>Enter</kbd></button><button class="mbtn" data-act="undo">Vrátiť krok</button></div>`
       : '<p class="lead" style="color:var(--muted)">Moderátor zadáva stávku…</p>'}
-    </div></section>${pods()}<footer class="gfoot"><span>${S.round}. kolo</span><span>${roleTag() || `Kód pre ťahák: <b>${S.code}</b>`}</span><span></span></footer></div>`;
+    </div></section>${pods()}<footer class="gfoot"><span>${S.round}. kolo</span><span>${roleTag()}</span><span></span></footer></div>`;
 }
 
 function vIntro() {
@@ -7312,7 +7311,7 @@ function vIntro() {
       <p class="lead">Každý má v tomto kole 1× 🛡️ štít a 1× 👉 prihrávku.</p>
       <p class="lead">Začína vyberať <span style="color:${PCOL[S.control]}">${esc(S.players[S.control].name)}</span>${r1 ? '' : ' (má najmenej bodov)'}</p>
       ${ctrls() ? '<div class="mod"><button class="mbtn gold" data-act="goboard">Ukázať tabuľu <kbd>Enter</kbd></button></div>' : ''}
-    </div></section>${pods()}<footer class="gfoot"><span></span><span>Kód pre ťahák: <b>${S.code}</b></span><span></span></footer></div>`;
+    </div></section>${pods()}<footer class="gfoot"><span></span><span>${roleTag()}</span><span></span></footer></div>`;
 }
 
 function finPrehlad() {                                        // moderátor vidí finálovú otázku vopred a môže ju vymeniť
@@ -8544,7 +8543,7 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
     const kameraHtml = () => RM.kamera === 'ok' ? '<span class="hint">📷 Kamera je povolená (na pripájanie bez internetu).</span>'
       : RM.kamera === 'cakam' ? '<span class="hint">📷 Čakám na povolenie kamery…</span>'
       : `${RM.kamera ? `<p class="rm-err">📷 ${h(RM.kamera)}</p>` : ''}<button class="rm-go2 rm-maly" type="button" data-act="rm-kamera">📷 Povoliť kameru (na pripájanie bez internetu)</button>`;
-    const roomHtml = () => `<section class="rm-room" id="rmRoom"><h3>📱 Hra len na mobiloch</h3>
+    const roomHtml = () => `<section class="rm-room" id="rmRoom"><button class="rm-spat" type="button" data-act="rm-leave">← Späť (nie som moderátor)</button><h3>📱 Hra len na mobiloch</h3>
         ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-kod">Kód hry: <b>${h(RM.room)}</b></div>`}
         <p class="hint rm-stav" id="rmRoomStav">${h(stavText())}</p>
         <p class="rm-err" id="rmVerzia">${h(verziaText())}</p>
@@ -8592,7 +8591,7 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
         try { navigator.clipboard.writeText(url).then(() => { el.textContent = '✅ Odkaz skopírovaný – vlož ho do správy'; }); } catch (e) { prompt('Odkaz pre hráčov:', url); }
         return;
       }
-      if (a === 'rm-leave') return potvrd(el, 'Naozaj? Ťukni znova', () => RM.nastav(null));
+      if (a === 'rm-leave') return potvrd(el, 'Naozaj zrušiť? Ťukni ešte raz', () => RM.nastav(null));
       if (a === 'rm-novykod') return potvrd(el, 'Hráči sa budú musieť pripojiť znova – ťukni znova', () => { const room = RM.novyKod(); ls('rm-room', room); RM.nastav({mode: 'mod', room}); });
       return _act(a, el);
     };

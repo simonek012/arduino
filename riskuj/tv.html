@@ -6629,10 +6629,6 @@ function vSetup() {
     <section class="custom" id="pickerSec">${pickerHtml()}</section>
     <section class="custom" id="customSec">${customSecHtml()}</section>
     <section class="custom bank" id="bankSec">${bankSecHtml()}</section>
-    <section class="cheat-cta"><h3>Ťahák pre moderátora</h3>
-      <p>Na tabuli uvidíš kód hry. Na mobile otvor túto istú stránku, zadaj ho sem a uvidíš všetky otázky aj s odpoveďami.</p>
-      <form class="row" id="cheatForm"><input class="code-in" id="ccode" maxlength="40" autocomplete="off" placeholder="KÓD" aria-label="Kód hry" value="${esc(S.cheatCode || '')}"><button class="btn" type="submit">Otvoriť ťahák</button></form>
-    </section>
   </section>`;
 }
 
@@ -6657,7 +6653,7 @@ function vBoard() {
   }
   return `<div class="game"><div class="board">${cells}</div>${pods()}
     <footer class="gfoot"><span>${S.round}. kolo · vyberá <b style="color:${PCOL[S.control]}">${esc(S.players[S.control].name)}</b></span>
-    <span>${roleTag() || `Kód pre ťahák: <b>${S.code}</b>`}</span>
+    <span>${roleTag()}</span>
     <span>${ctrls() ? '<button class="lnk" data-act="undo">Vrátiť krok (Z)</button> · <button class="lnk" data-act="endround">Ukončiť kolo</button> · <button class="lnk" data-act="bgmtoggle">Hudba: ' + (S.bgm ? 'zapnutá' : 'vypnutá') + '</button>' : ''}</span></footer></div>`;
 }
 
@@ -6707,7 +6703,7 @@ function vQuestion() {
         : `<p class="qtext${T.m ? " small" : T.q.length > 150 ? " long" : ""}">${esc(T.q)}</p>`}${hideQ ? '' : mediaHtml(T)}${ans}${hintHtml}${factHtml}
         <div class="qstate">${state}</div></div>
       ${ctrls() ? `<div class="mod">${btns}<button class="mbtn" data-act="undo">Vrátiť krok <kbd>Z</kbd></button></div>` : ''}
-    </section>${pods()}<footer class="gfoot"><span>${S.round}. kolo</span><span>${roleTag() || `Kód pre ťahák: <b>${S.code}</b>`}</span><span></span></footer></div>`;
+    </section>${pods()}<footer class="gfoot"><span>${S.round}. kolo</span><span>${roleTag()}</span><span></span></footer></div>`;
 }
 
 function vRiskBet() {
@@ -6718,7 +6714,7 @@ function vRiskBet() {
       ${ctrls() ? `<input class="bet-in" id="bet" type="number" inputmode="numeric" min="0" max="${max}" step="100" value="${Math.min(max, S.round * 1000)}" aria-label="Stávka">
       <div class="mod"><button class="mbtn gold" data-act="betok">Ukázať otázku <kbd>Enter</kbd></button><button class="mbtn" data-act="undo">Vrátiť krok</button></div>`
       : '<p class="lead" style="color:var(--muted)">Moderátor zadáva stávku…</p>'}
-    </div></section>${pods()}<footer class="gfoot"><span>${S.round}. kolo</span><span>${roleTag() || `Kód pre ťahák: <b>${S.code}</b>`}</span><span></span></footer></div>`;
+    </div></section>${pods()}<footer class="gfoot"><span>${S.round}. kolo</span><span>${roleTag()}</span><span></span></footer></div>`;
 }
 
 function vIntro() {
@@ -6729,7 +6725,7 @@ function vIntro() {
       <p class="lead">Každý má v tomto kole 1× 🛡️ štít a 1× 👉 prihrávku.</p>
       <p class="lead">Začína vyberať <span style="color:${PCOL[S.control]}">${esc(S.players[S.control].name)}</span>${r1 ? '' : ' (má najmenej bodov)'}</p>
       ${ctrls() ? '<div class="mod"><button class="mbtn gold" data-act="goboard">Ukázať tabuľu <kbd>Enter</kbd></button></div>' : ''}
-    </div></section>${pods()}<footer class="gfoot"><span></span><span>Kód pre ťahák: <b>${S.code}</b></span><span></span></footer></div>`;
+    </div></section>${pods()}<footer class="gfoot"><span></span><span>${roleTag()}</span><span></span></footer></div>`;
 }
 
 function finPrehlad() {                                        // moderátor vidí finálovú otázku vopred a môže ju vymeniť

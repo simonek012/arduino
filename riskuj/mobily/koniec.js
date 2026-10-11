@@ -284,7 +284,7 @@
     const kameraHtml = () => RM.kamera === 'ok' ? '<span class="hint">📷 Kamera je povolená (na pripájanie bez internetu).</span>'
       : RM.kamera === 'cakam' ? '<span class="hint">📷 Čakám na povolenie kamery…</span>'
       : `${RM.kamera ? `<p class="rm-err">📷 ${h(RM.kamera)}</p>` : ''}<button class="rm-go2 rm-maly" type="button" data-act="rm-kamera">📷 Povoliť kameru (na pripájanie bez internetu)</button>`;
-    const roomHtml = () => `<section class="rm-room" id="rmRoom"><h3>📱 Hra len na mobiloch</h3>
+    const roomHtml = () => `<section class="rm-room" id="rmRoom"><button class="rm-spat" type="button" data-act="rm-leave">← Späť (nie som moderátor)</button><h3>📱 Hra len na mobiloch</h3>
         ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-kod">Kód hry: <b>${h(RM.room)}</b></div>`}
         <p class="hint rm-stav" id="rmRoomStav">${h(stavText())}</p>
         <p class="rm-err" id="rmVerzia">${h(verziaText())}</p>
@@ -332,7 +332,7 @@
         try { navigator.clipboard.writeText(url).then(() => { el.textContent = '✅ Odkaz skopírovaný – vlož ho do správy'; }); } catch (e) { prompt('Odkaz pre hráčov:', url); }
         return;
       }
-      if (a === 'rm-leave') return potvrd(el, 'Naozaj? Ťukni znova', () => RM.nastav(null));
+      if (a === 'rm-leave') return potvrd(el, 'Naozaj zrušiť? Ťukni ešte raz', () => RM.nastav(null));
       if (a === 'rm-novykod') return potvrd(el, 'Hráči sa budú musieť pripojiť znova – ťukni znova', () => { const room = RM.novyKod(); ls('rm-room', room); RM.nastav({mode: 'mod', room}); });
       return _act(a, el);
     };
