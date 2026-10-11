@@ -113,3 +113,6 @@ html.rm,html.rm body{overscroll-behavior-y:none}
 .rm-web{display:flex;flex-direction:column;gap:8px}
 .rm-web .rm-err{font-size:14px;font-weight:600;margin:0}
 .rm-web a.rm-go2{text-align:center;text-decoration:none}
+.rm-app{display:flex;flex-direction:column}
+.rm-app:empty{display:none}
+.rm-app a.rm-go2{text-align:center;text-decoration:none}

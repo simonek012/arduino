@@ -1,7 +1,12 @@
 /* Riskuj na webe: mobil si hru uloží, aby sa otvorila aj tam, kde nie je signál.
    Keď je internet, vždy sa načíta najnovšia verzia; bez internetu (alebo keď sieť neodpovedá do 3 s) uložená. */
 const CACHE = 'riskuj';
-self.addEventListener('install', () => self.skipWaiting());
+// pri inštalácii sa hneď uloží celá hra (aj keď prvé otvorenie stránky ešte nešlo cez tento skript)
+const SUBORY = ['riskuj-mobily.html', 'manifest.webmanifest', 'ikona-192.png', 'ikona-512.png'];
+self.addEventListener('install', e => {
+  self.skipWaiting();
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SUBORY)).catch(() => {}));
+});
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', e => {
   const req = e.request;

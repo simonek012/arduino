@@ -7,6 +7,9 @@
 (function () {
   'use strict';
   const RM = window.RM = {mode: null, room: '', name: '', status: 'off', peersN: 0, onStatus: null, VERZIA: '__VERZIA__'};
+  // Android/Chrome ponúkne inštaláciu ako aplikáciu – udalosť príde skoro, tak ju zachytíme hneď
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); RM.instal = e; if (RM.onInstal) RM.onInstal(); });
+  window.addEventListener('appinstalled', () => { RM.instal = null; RM.nainstalovana = true; if (RM.onInstal) RM.onInstal(); });
   const KODY = 'ABCDEFGHJKLMNPRSTUVXYZ';
   RM.novyKod = () => Array.from({length: 4}, () => KODY[Math.floor(Math.random() * KODY.length)]).join('');
 

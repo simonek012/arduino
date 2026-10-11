@@ -142,6 +142,10 @@ tv = rep(tv, '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?fam
          '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap" media="print" onload="this.media=\'all\'">')
 tv = rep(tv, '<title>Riskuj a nepiskuj! s mobilmi</title>',
          f'<title>Riskuj v{VERZIA} – len na mobiloch</title>\n<meta name="theme-color" content="#050920">\n'
+         # aplikácia (PWA): ikona na plochu, celá obrazovka, funguje aj bez signálu (sw.js)
+         '<link rel="manifest" href="manifest.webmanifest">\n<link rel="icon" href="ikona-192.png">\n'
+         '<link rel="apple-touch-icon" href="ikona-192.png">\n<meta name="apple-mobile-web-app-capable" content="yes">\n'
+         '<meta name="mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-title" content="Riskuj">\n'
          + CHYBY +
          f'<script>{peerjs}</script>\n<script>{qrgen}</script>\n<script>{jsqr}</script>\n<script>{hlavicka}</script>\n<style>{css}</style>')
 tlacidlo = json.dumps(mob, ensure_ascii=False).replace('</', '<\\/')

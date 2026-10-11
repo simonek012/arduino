@@ -136,11 +136,28 @@
         <button class="lnk" type="button" id="rmBezNetu"${zOdkazu ? ' hidden' : ''}>📶 Bez internetu a kamera nejde? Pripojiť ručne</button>
       </form>
       <button class="rm-big rm-modbtn" type="button" id="rmMod"${zOdkazu ? ' hidden' : ''}><b>🎤 Som moderátor</b><span id="rmModTxt">Len jeden z vás: vytvorí hru, ostatným ukáže QR kód a vidí aj odpovede.</span></button>
+      ${zOdkazu ? '' : '<div class="rm-app" id="rmApp"></div>'}
       ${zOdkazu ? '' : `<p class="rm-tip"><b>S internetom:</b> hráči nepotrebujú súbor – naskenujú QR kód z mobilu moderátora obyčajným fotoaparátom.<br>
         <b>Bez signálu:</b> hráči si vopred stiahnu tento súbor (alebo hru raz otvoria s internetom), všetci sú na hotspote moderátora a pripoja sa cez <b>Bez internetu</b>.</p>`}
     </div>`;
     document.body.appendChild(box);
     root.classList.add('rm-start', 'rm-ok');
+    // aplikácia na ploche: Android ponúkne inštaláciu, na iPhone sa pridá cez Zdieľať
+    const appBox = box.querySelector('#rmApp');
+    const appKresli = () => {
+      if (!appBox) return;
+      const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const ako = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+      if (ako || RM.nainstalovana) { appBox.innerHTML = ''; return; }
+      if (!naWebe) { appBox.innerHTML = `<a class="rm-go2" href="${WEB}">📲 Riskuj ako aplikácia – otvoriť z webu</a>`; return; }
+      appBox.innerHTML = RM.instal ? '<button class="rm-go2" type="button" id="rmInstal">📲 Nainštalovať Riskuj ako aplikáciu (ide aj bez signálu)</button>'
+        : ios ? '<p class="rm-tip">📲 <b>Ako aplikácia na iPhone:</b> v Safari ťukni <b>Zdieľať</b> (štvorček so šípkou) → <b>Pridať na plochu</b>. Potom ide aj bez signálu.</p>'
+        : '<p class="rm-tip">📲 <b>Ako aplikácia:</b> v Chrome ťukni menu <b>⋮</b> → <b>Inštalovať aplikáciu</b> (alebo Pridať na plochu). Potom ide aj bez signálu.</p>';
+      const b = appBox.querySelector('#rmInstal');
+      if (b) b.onclick = () => { const e = RM.instal; RM.instal = null; e.prompt(); e.userChoice.finally(appKresli); };
+    };
+    RM.onInstal = appKresli;
+    appKresli();
     const modBtn = box.querySelector('#rmMod');
     modBtn.onclick = () => {
       // hráč omylom ťukne na moderátora → mal by vlastnú hru; preto druhé ťuknutie

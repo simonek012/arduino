@@ -4,8 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>[hidden]{display:none!important}img{max-width:100%}</style>
-<title>Riskuj v12 – len na mobiloch</title>
+<title>Riskuj v13 – len na mobiloch</title>
 <meta name="theme-color" content="#050920">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="ikona-192.png">
+<link rel="apple-touch-icon" href="ikona-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Riskuj">
 <script>window.RM_CHYBY = [];
 window.addEventListener('error', function (e) {
   var t = (e.message || 'chyba') + (e.lineno ? ' (riadok ' + e.lineno + ')' : '');
@@ -40,7 +46,10 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
    takže zvyšok hry (tv.html) netreba meniť. */
 (function () {
   'use strict';
-  const RM = window.RM = {mode: null, room: '', name: '', status: 'off', peersN: 0, onStatus: null, VERZIA: '12'};
+  const RM = window.RM = {mode: null, room: '', name: '', status: 'off', peersN: 0, onStatus: null, VERZIA: '13'};
+  // Android/Chrome ponúkne inštaláciu ako aplikáciu – udalosť príde skoro, tak ju zachytíme hneď
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); RM.instal = e; if (RM.onInstal) RM.onInstal(); });
+  window.addEventListener('appinstalled', () => { RM.instal = null; RM.nainstalovana = true; if (RM.onInstal) RM.onInstal(); });
   const KODY = 'ABCDEFGHJKLMNPRSTUVXYZ';
   RM.novyKod = () => Array.from({length: 4}, () => KODY[Math.floor(Math.random() * KODY.length)]).join('');
 
@@ -565,6 +574,9 @@ html.rm,html.rm body{overscroll-behavior-y:none}
 .rm-web{display:flex;flex-direction:column;gap:8px}
 .rm-web .rm-err{font-size:14px;font-weight:600;margin:0}
 .rm-web a.rm-go2{text-align:center;text-decoration:none}
+.rm-app{display:flex;flex-direction:column}
+.rm-app:empty{display:none}
+.rm-app a.rm-go2{text-align:center;text-decoration:none}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -7132,11 +7144,28 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
         <button class="lnk" type="button" id="rmBezNetu"${zOdkazu ? ' hidden' : ''}>📶 Bez internetu a kamera nejde? Pripojiť ručne</button>
       </form>
       <button class="rm-big rm-modbtn" type="button" id="rmMod"${zOdkazu ? ' hidden' : ''}><b>🎤 Som moderátor</b><span id="rmModTxt">Len jeden z vás: vytvorí hru, ostatným ukáže QR kód a vidí aj odpovede.</span></button>
+      ${zOdkazu ? '' : '<div class="rm-app" id="rmApp"></div>'}
       ${zOdkazu ? '' : `<p class="rm-tip"><b>S internetom:</b> hráči nepotrebujú súbor – naskenujú QR kód z mobilu moderátora obyčajným fotoaparátom.<br>
         <b>Bez signálu:</b> hráči si vopred stiahnu tento súbor (alebo hru raz otvoria s internetom), všetci sú na hotspote moderátora a pripoja sa cez <b>Bez internetu</b>.</p>`}
     </div>`;
     document.body.appendChild(box);
     root.classList.add('rm-start', 'rm-ok');
+    // aplikácia na ploche: Android ponúkne inštaláciu, na iPhone sa pridá cez Zdieľať
+    const appBox = box.querySelector('#rmApp');
+    const appKresli = () => {
+      if (!appBox) return;
+      const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const ako = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+      if (ako || RM.nainstalovana) { appBox.innerHTML = ''; return; }
+      if (!naWebe) { appBox.innerHTML = `<a class="rm-go2" href="${WEB}">📲 Riskuj ako aplikácia – otvoriť z webu</a>`; return; }
+      appBox.innerHTML = RM.instal ? '<button class="rm-go2" type="button" id="rmInstal">📲 Nainštalovať Riskuj ako aplikáciu (ide aj bez signálu)</button>'
+        : ios ? '<p class="rm-tip">📲 <b>Ako aplikácia na iPhone:</b> v Safari ťukni <b>Zdieľať</b> (štvorček so šípkou) → <b>Pridať na plochu</b>. Potom ide aj bez signálu.</p>'
+        : '<p class="rm-tip">📲 <b>Ako aplikácia:</b> v Chrome ťukni menu <b>⋮</b> → <b>Inštalovať aplikáciu</b> (alebo Pridať na plochu). Potom ide aj bez signálu.</p>';
+      const b = appBox.querySelector('#rmInstal');
+      if (b) b.onclick = () => { const e = RM.instal; RM.instal = null; e.prompt(); e.userChoice.finally(appKresli); };
+    };
+    RM.onInstal = appKresli;
+    appKresli();
     const modBtn = box.querySelector('#rmMod');
     modBtn.onclick = () => {
       // hráč omylom ťukne na moderátora → mal by vlastnú hru; preto druhé ťuknutie
