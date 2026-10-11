@@ -7268,6 +7268,7 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
   let lastZet = '', lastTokN = 0;
   let phoneUrl = '', phones = [], lastMode = '', armEpoch = -1, polling = false, qrFor = '', serverOk = true, online = false;
   let lastLocked = '', lastTurn = null, freeSince = 0;
+  const odobrate = new Set();   // mobily hráčov, ktorých moderátor na úvode odobral
   const tileKey = () => `${S.code}-${S.round}-${S.cur.c}-${S.cur.t}`;
   // poradie prihlásených pre aktuálnu otázku (indexy hráčov)
   const queue = () => S.phase === 'q' && S.cur && S.queueFor === tileKey() ? (S.queue || []) : [];
@@ -7318,7 +7319,9 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
     if (!S || S.phase !== 'setup') return;
     api('state').then(st => {
       serverOk = true;
-      phones = st.players || [];
+      // len mobily, ktoré sú práve pripojené – starí hráči z minulých hier (hraci.json) ani tí,
+      // ktorých moderátor odobral krížikom, nesmú pridávať miesta (inak sa nedalo ísť pod ich počet)
+      phones = (st.players || []).filter(p => p.online && !odobrate.has(p.id));
       const before = S.players.length;
       while (phones.length > S.players.length && S.players.length < MAX_PLAYERS) S.players.push({name: 'Hráč ' + (S.players.length + 1), bind: null});
       if (S.players.length !== before) { store({players: S.players, sound: S.sound}); render(); }
@@ -7347,6 +7350,7 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
 
   const _act = act;
   act = function (a, el) {
+    if (a === 'delplayer' && S.phase === 'setup') { const pl = S.players[+el.dataset.i]; if (pl && pl.phone) odobrate.add(pl.phone); }
     if (a === 'qrtoggle') { S.qrShow = !S.qrShow; render(); return; }
     if (a === 'copyurl') {
       const hotovo = () => toast('Odkaz je skopírovaný – vlož ho kamarátom do správy');
@@ -7355,7 +7359,7 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
       return;
     }
     if (a === 'phonesreset') {
-      api('reset', {}).then(() => { phones = []; S.players.forEach(p => { p.phone = null; }); paintPanel(); toast('Mobily sú odpojené'); }).catch(() => {});
+      api('reset', {}).then(() => { phones = []; odobrate.clear(); S.players.forEach(p => { p.phone = null; }); paintPanel(); toast('Mobily sú odpojené'); }).catch(() => {});
       return;
     }
     return _act(a, el);

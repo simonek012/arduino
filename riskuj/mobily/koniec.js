@@ -453,7 +453,7 @@
     // na úvode: prázdni hráči „Hráč 3…“ bez mobilu navyše sa odoberú, keď sa pripojili mobily
     setInterval(() => {
       if (!S || S.phase !== 'setup') return;
-      const n = RM.server.hraci().length;
+      const n = RM.server.hraci().filter(p => p.online).length;   // starí hráči z minulých hier sa nerátajú
       let zmena = false;
       while (n >= MIN_PLAYERS && S.players.length > Math.max(MIN_PLAYERS, n)) {
         const p = S.players[S.players.length - 1];
