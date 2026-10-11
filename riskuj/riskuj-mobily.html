@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>[hidden]{display:none!important}img{max-width:100%}</style>
-<title>Riskuj v10 – len na mobiloch</title>
+<title>Riskuj v11 – len na mobiloch</title>
 <meta name="theme-color" content="#050920">
 <script>window.RM_CHYBY = [];
 window.addEventListener('error', function (e) {
@@ -40,7 +40,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
    takže zvyšok hry (tv.html) netreba meniť. */
 (function () {
   'use strict';
-  const RM = window.RM = {mode: null, room: '', name: '', status: 'off', peersN: 0, onStatus: null, VERZIA: '10'};
+  const RM = window.RM = {mode: null, room: '', name: '', status: 'off', peersN: 0, onStatus: null, VERZIA: '11'};
   const KODY = 'ABCDEFGHJKLMNPRSTUVXYZ';
   RM.novyKod = () => Array.from({length: 4}, () => KODY[Math.floor(Math.random() * KODY.length)]).join('');
 
@@ -545,6 +545,10 @@ html:not(.rm-ok) .app{display:none}
 #rmFatalErr{color:#ff8080;font-size:14px}
 html.rm-ok #rmFatal{display:none}
 #rmChyba{position:fixed;top:0;left:0;right:0;z-index:200;background:#b00020;color:#fff;font:13px/1.3 system-ui,sans-serif;padding:6px 10px}
+.rm-kamera{display:flex;flex-direction:column;gap:6px}
+.rm-kamera .rm-err{font-size:14px;font-weight:600}
+.rm-cam[hidden]{display:none}
+.rm-qrstav{overflow-wrap:anywhere}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -6991,6 +6995,25 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
 
   /* ---------- QR kódy: kreslenie a skenovanie fotoaparátom (na spojenie bez internetu) ---------- */
   const QR = {
+    // zapne kameru; keď mobil nezvládne zadnú kameru v HD, skúsi akúkoľvek
+    async kamera(video) {
+      if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { const e = new Error('nezabezpečené'); e.name = 'Nezabezpecene'; throw e; }
+      try { return await navigator.mediaDevices.getUserMedia({audio: false, video}); }
+      catch (e) {
+        if (e && (e.name === 'OverconstrainedError' || e.name === 'NotFoundError' || e.name === 'NotReadableError')) return navigator.mediaDevices.getUserMedia({audio: false, video: true});
+        throw e;
+      }
+    },
+    // len vypýta povolenie (moderátor hneď po výbere roly) – kamera sa hneď zase vypne
+    async povol() { const s = await QR.kamera({facingMode: {ideal: 'environment'}}); s.getTracks().forEach(t => t.stop()); },
+    chyba(e) {
+      const n = e && e.name, web = WEB.replace('https://', '');
+      if (n === 'Nezabezpecene' || n === 'NotSupportedError' || n === 'TypeError') return 'V takto otvorenom súbore prehliadač kameru nepovolí. Otvor hru z webu (' + web + ') – stačí raz s internetom, potom ide aj bez neho. Alebo použi „Kamera nejde?“.';
+      if (n === 'NotAllowedError' || n === 'SecurityError' || n === 'PermissionDeniedError') return 'Kamera nie je povolená. Ťukni na ikonu vľavo od adresy → Povolenia / Nastavenia stránky → Kamera → Povoliť a potom „Skúsiť znova“. Ak sa tam povoliť nedá, otvor hru z webu (' + web + ').';
+      if (n === 'NotFoundError' || n === 'OverconstrainedError') return 'Mobil nenašiel kameru.';
+      if (n === 'NotReadableError' || n === 'AbortError') return 'Kameru práve používa iná aplikácia – zavri ju a ťukni „Skúsiť znova“.';
+      return 'Kamera nejde (' + (n || e) + ').';
+    },
     svg(txt) {
       qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
       const q = qrcode(0, 'L'); q.addData(txt); q.make();
@@ -7005,8 +7028,7 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
     },
     // zapne zadný fotoaparát a každý prečítaný kód pošle do naText; vráti funkciu, ktorá kameru vypne
     async skener(video, naText) {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('kamera');
-      const stream = await navigator.mediaDevices.getUserMedia({audio: false, video: {facingMode: {ideal: 'environment'}, width: {ideal: 1280}, height: {ideal: 720}}});
+      const stream = await QR.kamera({facingMode: {ideal: 'environment'}, width: {ideal: 1280}, height: {ideal: 720}});
       let stop = false, det = null;
       try { if ('BarcodeDetector' in window && (await BarcodeDetector.getSupportedFormats()).includes('qr_code')) det = new BarcodeDetector({formats: ['qr_code']}); } catch (e) {}
       video.muted = true; video.setAttribute('playsinline', ''); video.srcObject = stream;
@@ -7093,6 +7115,9 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
         setTimeout(() => { modBtn.classList.remove('armed'); box.querySelector('#rmModTxt').textContent = 'Len jeden z vás: vytvorí hru, ostatným ukáže QR kód a vidí aj odpovede.'; }, 5000);
         return;
       }
+      // kamera treba na pripájanie bez internetu – povolenie sa vypýta hneď teraz (po ťuknutí to prehliadač dovolí)
+      RM.kamera = 'cakam';
+      QR.povol().then(() => { RM.kamera = 'ok'; }, e => { RM.kamera = QR.chyba(e); }).then(() => { if (RM.onStatus) RM.onStatus(); });
       let room = ls('rm-room') || '';
       if (!/^[A-Z]{4}$/.test(room)) { room = RM.novyKod(); ls('rm-room', room); }
       RM.nastav({mode: 'mod', room});
@@ -7130,7 +7155,7 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
       err(''); if (!meno()) return;
       box.querySelector('#rmSkener').hidden = false; box.querySelector('#rmSken').hidden = true;
       try { skenStop = await QR.skener(box.querySelector('#rmSkener video'), naskenovane); }
-      catch (e) { skenKoniec(); err('Kamera nejde – povoľ ju prehliadaču, alebo zadaj kód hry nižšie.'); }
+      catch (e) { skenKoniec(); err(QR.chyba(e) + ' Kód hry môžeš zadať aj nižšie.'); }
     };
     box.querySelector('#rmSkenX').onclick = skenKoniec;
     box.querySelector('#rmBezNetu').onclick = () => {
@@ -7171,6 +7196,9 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
       const zle = RM.server.hraci().filter(p => p.v !== RM.VERZIA).map(p => p.name);
       return zle.length ? `⚠ ${zle.join(', ')} ${zle.length > 1 ? 'majú' : 'má'} iný (starší) súbor. Nech naskenuje${zle.length > 1 ? 'jú' : ''} tvoj QR kód fotoaparátom (alebo pošli súbor verzie ${RM.VERZIA}).` : '';
     };
+    const kameraHtml = () => RM.kamera === 'ok' ? '<span class="hint">📷 Kamera je povolená (na pripájanie bez internetu).</span>'
+      : RM.kamera === 'cakam' ? '<span class="hint">📷 Čakám na povolenie kamery…</span>'
+      : `${RM.kamera ? `<p class="rm-err">📷 ${h(RM.kamera)}</p>` : ''}<button class="rm-go2 rm-maly" type="button" data-act="rm-kamera">📷 Povoliť kameru (na pripájanie bez internetu)</button>`;
     const roomHtml = () => `<section class="rm-room" id="rmRoom"><h3>📱 Hra len na mobiloch</h3>
         ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-kod">Kód hry: <b>${h(RM.room)}</b></div>`}
         <p class="hint rm-stav" id="rmRoomStav">${h(stavText())}</p>
@@ -7190,6 +7218,7 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
           <li>Keď sú všetci v zozname, spusti hru. Ty vidíš aj odpovede, hráči majú v mobile tabuľu, otázky a tlačidlo.</li>
         </ol>`}
         <button class="rm-go2${RM.status === 'reconnecting' || RM.status === 'error' ? '' : ' rm-maly'}" type="button" data-act="rm-qr">📶 Pripojiť hráča bez internetu (QR kód)</button>
+        <div class="rm-kamera" id="rmKamera">${kameraHtml()}</div>
         <div class="pchips" id="plist"></div>
         <label class="check"><input type="checkbox" id="rmZvuk"${zvukHraci ? ' checked' : ''}> Zvuky a melódie hrať na mobiloch hráčov (keď nie ste v jednej miestnosti)</label>
         <div class="rm-row"><button class="lnk" type="button" data-act="phonesreset">Odpojiť všetky mobily</button><button class="lnk" type="button" data-act="rm-novykod">Nový kód hry</button><button class="lnk" type="button" data-act="rm-leave">Zmeniť rolu</button></div>
@@ -7205,6 +7234,11 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
     const _act = act;
     act = function (a, el) {
       if (a === 'rm-qr') return otvorQr();
+      if (a === 'rm-kamera') {
+        RM.kamera = 'cakam'; RM.onStatus();
+        QR.povol().then(() => { RM.kamera = 'ok'; }, e => { RM.kamera = QR.chyba(e); }).then(() => RM.onStatus());
+        return;
+      }
       if (a === 'rm-poslat') {
         const url = qrHry(RM.room);
         if (navigator.share) { navigator.share({title: 'Riskuj', text: 'Poď hrať Riskuj!', url}).catch(() => {}); return; }
@@ -7250,6 +7284,7 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
       bolNet = bezNetu;
       const st = document.getElementById('rmRoomStav'); if (st) st.textContent = stavText();
       const vz = document.getElementById('rmVerzia'); if (vz) vz.textContent = verziaText();
+      const kz = document.getElementById('rmKamera'); if (kz && kz.dataset.k !== String(RM.kamera)) { kz.dataset.k = String(RM.kamera); kz.innerHTML = kameraHtml(); }
       paintInfo();
     };
     setInterval(() => { paintInfo(); if (!qrBox.hidden) qrHraci(); }, 2000);
@@ -7260,11 +7295,12 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
     qrBox.innerHTML = `<div class="rm-in">
       <div class="rm-hlava"><h3>📶 Pripojiť bez internetu</h3><button class="btn" type="button" id="rmQrX">Hotovo</button></div>
       <p class="hint">Všetci na <b>jednej Wi-Fi</b> (stačí hotspot z tvojho mobilu, aj bez dát).</p>
-      <p class="rm-krok"><b>1.</b> Hráč ťukne <b>Bez internetu</b> a naskenuje tento kód:</p>
+      <p class="rm-krok"><b>1.</b> Hráč ťukne <b>Som hráč</b>, napíše meno, ťukne <b>📷 Naskenovať QR kód</b> a naskenuje tento kód:</p>
       <div class="rm-qrkod" id="rmQrKod"></div>
       <p class="rm-krok"><b>2.</b> Potom namier fotoaparát na kód, ktorý sa ukáže v mobile hráča:</p>
       <div class="rm-cam"><video muted playsinline></video></div>
       <p class="rm-qrstav" id="rmQrStav"></p>
+      <button class="rm-go2" type="button" id="rmQrKam" hidden>🔄 Skúsiť znova zapnúť kameru</button>
       <div class="pchips" id="rmQrHraci"></div>
       <details class="rm-vloz"><summary>Kamera nejde?</summary>
         <p class="hint">Odfoť kód z mobilu hráča inou aplikáciou (napr. Google Lens), skopíruj text a vlož ho sem.</p>
@@ -7307,13 +7343,23 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
       qrBox.hidden = false; qrStav(''); qrHraci();
       qrBox.querySelector('#rmQrKod').innerHTML = '<span class="hint">Pripravujem kód…</span>';
       // najprv kamera – s povolenou kamerou dá prehliadač do kódu aj skutočnú adresu mobilu v sieti
-      if (!qrStop) {
-        try { qrStop = await QR.skener(qrBox.querySelector('video'), qrText); }
-        catch (e) { qrStav('Kamera nejde – povoľ ju prehliadaču, alebo použi „Kamera nejde?“ nižšie.'); qrBox.querySelector('.rm-vloz').open = true; }
-      }
+      await qrKamera();
       if (qrBox.hidden) { if (qrStop) { qrStop(); qrStop = null; } return; }
       novaPonuka();
     }
+    async function qrKamera() {
+      if (qrStop) return;
+      const zn = qrBox.querySelector('#rmQrKam');
+      try {
+        qrStop = await QR.skener(qrBox.querySelector('video'), qrText);
+        zn.hidden = true; RM.kamera = 'ok'; qrStav(''); qrBox.querySelector('.rm-cam').hidden = false;
+      } catch (e) {
+        RM.kamera = QR.chyba(e); qrStav(RM.kamera);
+        qrBox.querySelector('.rm-cam').hidden = true;      // čierny obdĺžnik namiesto kamery by len zavadzal
+        zn.hidden = false; qrBox.querySelector('.rm-vloz').open = true;
+      }
+    }
+    qrBox.querySelector('#rmQrKam').onclick = () => { qrStav(''); qrKamera(); };
     qrBox.querySelector('#rmQrX').onclick = () => { qrBox.hidden = true; if (qrStop) { qrStop(); qrStop = null; } render(); };
     qrBox.querySelector('#rmQrVloz').onclick = () => { const t = qrBox.querySelector('#rmQrText'); qrText(t.value); t.value = ''; };
     RM.otvorQr = otvorQr;
@@ -7426,6 +7472,7 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
         <p class="rm-qrstav bad" id="rmParErr"></p>
         <div id="rmPar1" class="rm-krokbox"><p class="rm-krok"><b>1.</b> Moderátor ťukne <b>Pripojiť hráča bez internetu</b>. Naskenuj kód z jeho mobilu:</p>
           <div class="rm-cam big"><video muted playsinline></video></div>
+          <button class="rm-go2" type="button" id="rmParKam" hidden>🔄 Skúsiť znova zapnúť kameru</button>
           <details class="rm-vloz"><summary>Kamera nejde?</summary>
             <p class="hint">Odfoť kód moderátora inou aplikáciou (napr. Google Lens), skopíruj text a vlož ho sem.</p>
             <textarea id="rmParText" rows="3" spellcheck="false" autocapitalize="off"></textarea>
@@ -7459,9 +7506,10 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
         krok(1); posledny = '';
         if (stop) return;
         try { stop = await QR.skener(par.querySelector('video'), spracuj); }
-        catch (e) { chyba('Kamera nejde – povoľ ju prehliadaču, alebo použi „Kamera nejde?“ nižšie.'); par.querySelector('.rm-vloz').open = true; }
+        catch (e) { chyba(QR.chyba(e)); par.querySelector('.rm-vloz').open = true; par.querySelector('#rmParKam').hidden = false; par.querySelector('#rmPar1 .rm-cam').hidden = true; }
         if (par.hidden) zastav();
       };
+      par.querySelector('#rmParKam').onclick = () => { chyba(''); par.querySelector('#rmParKam').hidden = true; par.querySelector('#rmPar1 .rm-cam').hidden = false; skenuj(); };
       par.querySelector('#rmParVloz').onclick = () => { const t = par.querySelector('#rmParText'); posledny = ''; spracuj(t.value); t.value = ''; };
       par.querySelector('#rmParZnova').onclick = () => { chyba(''); skenuj(); };
       const odist2 = par.querySelector('#rmParOdist');
