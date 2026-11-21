@@ -936,9 +936,9 @@ function noteFreq(n) {
   return 440 * Math.pow(2, ((+m[3] + 1) * 12 + semi - 69) / 12);
 }
 function audioCtx() { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); return ac; }
-let ytP = null, ytReady = null, ytTok = 0;
+let ytP = null, ytReady = null, ytTok = 0, ytLast = null; // ytLast = kde pesnička skončila (na „Dohrať celú“)
 function stopAudio() {
-  ytTok++; if (ytP) { try { ytP.destroy(); } catch (e) {} ytP = null; }
+  ytTok++; if (ytP) { try { const d = ytP.getVideoData && ytP.getVideoData(); ytLast = {id: d && d.video_id, t: ytP.getCurrentTime()}; } catch (e) {} try { ytP.destroy(); } catch (e) {} ytP = null; }
   melNodes.forEach(o => { try { o.stop(); } catch (e) {} }); melNodes = [];
   if (audioEl) { try { audioEl.pause(); } catch (e) {} }
   clearTimeout(audioStopT);
@@ -1008,6 +1008,12 @@ async function ytStart(m, vdur, len) {
   return start;
 }
 const ytm = (a, ids) => ({yt: ids.split(' '), t: a.replace(/\s*\(.*$/, ''), ar: (a.match(/\(([^)]*)\)/) || [])[1] || ''});
+function playYtFull(m) {   // dohrá pesničku do konca odtiaľ, kde skončila
+  const ids = [].concat(m.yt);
+  if (ytP) { try { const d = ytP.getVideoData(); if (d && ids.includes(d.video_id)) { clearTimeout(audioStopT); ytP.playVideo(); return; } } catch (e) {} }
+  const at = ytLast && ids.includes(ytLast.id) ? ytLast.t : null;
+  playYt(at != null ? Object.assign({}, m, {yt: [ytLast.id].concat(ids.filter(x => x !== ytLast.id)), start: at}) : m, 0);
+}
 async function playYt(m, seconds) {
   stopAudio(); const tok = ++ytTok, ids = [].concat(m.yt); let k = 0;
   await ytApi(); if (tok !== ytTok) return;
@@ -1019,7 +1025,7 @@ async function playYt(m, seconds) {
     else { p.mute(); p.playVideo(); let d = 0; for (let w = 0; w < 30 && !(d = p.getDuration()); w++) await new Promise(r => setTimeout(r, 100));
       const st = await ytStart(m, d, 25); if (tok !== ytTok) return; p.seekTo(st, true); p.unMute(); p.setVolume(100); p.playVideo(); }
     if (tok !== ytTok) return;
-    clearTimeout(audioStopT); audioStopT = setTimeout(() => { if (tok === ytTok && ytP) try { ytP.pauseVideo(); } catch (e) {} }, seconds * 1000);
+    clearTimeout(audioStopT); if (seconds) audioStopT = setTimeout(() => { if (tok === ytTok && ytP) try { ytP.pauseVideo(); } catch (e) {} }, seconds * 1000);
   };
   ytP = new YT.Player('ytP', {width: 320, height: 180, videoId: ids[0], playerVars: {autoplay: 0, controls: 0, playsinline: 1, rel: 0},
     events: {onReady: e => { go(e.target).catch(() => {}); },
@@ -1039,7 +1045,7 @@ async function playCustomAudio(m, seconds = 15) {
 function playMedia(m, long) {
   if (!m) return;
   if (m.mel) playMelody(m, long ? 60 : 20);
-  else if (m.yt) playYt(m, long ? 60 : 20);
+  else if (m.yt) { if (long === 2) playYtFull(m); else playYt(m, long ? 60 : 20); }
   else if (m.custom && m.kind === 'audio') playCustomAudio(m, long ? 40 : 15);
 }
 
@@ -1168,7 +1174,7 @@ function mediaHtml(T) {
   const done = S.revealed || S.resolved;
   if (m.mel || m.yt || (m.custom && m.kind === 'audio')) {
     return `<div class="eq${done ? ' still' : ''}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>` +
-      (ctrls() ? `<div class="mod"><button class="mbtn gold" data-act="replay">▶ Prehrať znova <kbd>P</kbd></button><button class="mbtn" data-act="replaylong">${m.mel || m.yt ? '▶ Pustiť na minútu' : '▶ Pustiť dlhšie'}</button><button class="mbtn" data-act="stopmedia">■ Stop</button></div>` : '');
+      (ctrls() ? `<div class="mod"><button class="mbtn gold" data-act="replay">▶ Prehrať znova <kbd>P</kbd></button><button class="mbtn" data-act="replaylong">${m.mel || m.yt ? '▶ Pustiť na minútu' : '▶ Pustiť dlhšie'}</button>${m.yt ? '<button class="mbtn" data-act="playfull">▶ Dohrať celú</button>' : ''}<button class="mbtn" data-act="stopmedia">■ Stop</button></div>` : '');
   }
   if (m.flag || m.img || (m.custom && m.kind === 'image')) {
     return `<canvas class="reveal" id="reveal" width="960" height="640" aria-label="Obrázok sa postupne zaostruje"></canvas>` +
@@ -8148,6 +8154,7 @@ function act(a, el) {
     case 'undo': undo(); break;
     case 'replay': if (S.phase === 'q' && S.qShown !== false) { fx('media', 0); render(); } break;
     case 'replaylong': if (S.phase === 'q' && S.qShown !== false) { fx('media', 1); render(); } break;
+    case 'playfull': if (S.phase === 'q' && S.qShown !== false) { fx('media', 2); render(); } break;
     case 'stopmedia': fx('stop'); render(); break;
     case 'unveil': if (S.phase === 'q') { save(); S.mediaStart = 0; S.unveilAt = Date.now(); render(); } break;
     case 'betok': {
