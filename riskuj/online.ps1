@@ -35,7 +35,7 @@ Get-Process cloudflared -ErrorAction SilentlyContinue | Where-Object { $_.Path -
 Remove-Item $log, "$log.out" -ErrorAction SilentlyContinue
 Write-Host '  Otváram spojenie do internetu...'
 # -NoNewWindow: tunel beží v tomto okne na pozadí a zavrie sa spolu s ním
-$tunel = Start-Process -FilePath $exe -ArgumentList @('tunnel', '--no-autoupdate', '--url', "http://localhost:$Port") `
+$tunel = Start-Process -FilePath $exe -ArgumentList @('tunnel', '--no-autoupdate', '--protocol', 'http2', '--url', "http://localhost:$Port") `
   -NoNewWindow -PassThru -RedirectStandardError $log -RedirectStandardOutput "$log.out"
 
 # 3) počkáme, kým Cloudflare pridelí adresu (býva to do 10 sekúnd)

@@ -118,6 +118,7 @@ kbd{font:700 .85em var(--body);padding:1px 6px;border-radius:5px;background:rgba
 .catchip{border:1px solid var(--line);background:var(--board);border-radius:99px;padding:6px 12px;font-weight:600;font-size:14px}
 .catchip:hover{border-color:var(--gold)}
 .catchip.on{background:var(--gold);color:#241800;border-color:var(--gold)}
+.catchip.off{opacity:.55;text-decoration:line-through;border-color:#c0392b;color:#ff9a8f}
 .edtitle{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:700;color:var(--muted);max-width:460px}
 .edtitle input{font:700 20px var(--body);color:var(--text);background:var(--ground);border:2px solid var(--line);border-radius:10px;padding:10px 12px}
 .edtitle input:focus{outline:none;border-color:var(--gold)}
@@ -353,17 +354,20 @@ function noteFreq(n) {
   return 440 * Math.pow(2, ((+m[3] + 1) * 12 + semi - 69) / 12);
 }
 function audioCtx() { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); return ac; }
+let ytP = null, ytReady = null, ytTok = 0;
 function stopAudio() {
+  ytTok++; if (ytP) { try { ytP.destroy(); } catch (e) {} ytP = null; }
   melNodes.forEach(o => { try { o.stop(); } catch (e) {} }); melNodes = [];
   if (audioEl) { try { audioEl.pause(); } catch (e) {} }
   clearTimeout(audioStopT);
 }
-function playMelody(spec) {
+function playMelody(spec, seconds = 20) {
   stopAudio();
   try {
-    const a = audioCtx(), beat = 60 / (spec.bpm || 120);
-    let t = a.currentTime + 0.08;
-    spec.mel.trim().split(/\s+/).forEach(tok => {
+    const a = audioCtx(), beat = 60 / (spec.bpm || 120), t0 = a.currentTime + 0.08;
+    let t = t0;
+    const toks = spec.mel.trim().split(/\s+/);
+    do { toks.forEach(tok => {
       const [note, d] = tok.split(':'), dur = parseFloat(d || '1') * beat;
       if (note !== 'r') {
         const f = noteFreq(note);
@@ -379,8 +383,65 @@ function playMelody(spec) {
         });
       }
       t += dur;
-    });
+    }); t += 2 * beat; } while (t - t0 < seconds);
   } catch (e) {}
+}
+function ytApi() {
+  return ytReady = ytReady || new Promise(res => { window.onYouTubeIframeAPIReady = res; const sc = document.createElement('script'); sc.src = 'https://www.youtube.com/iframe_api'; sc.onerror = () => { ytReady = null; toast('Pesnička potrebuje internet'); }; document.head.appendChild(sc); });
+}
+// Kde začať ukážku: synchronizované texty z lrclib.net -> okno v strede piesne, kde sa nespieva názov.
+const ytNorm = x => String(x).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+async function ytStart(m, vdur, len) {
+  const id = [].concat(m.yt)[0], key = 'riskuj-yt-' + id + '-' + len;
+  try { const c = localStorage.getItem(key); if (c != null) return +c; } catch (e) {}
+  const fallback = vdur ? Math.round(vdur * 0.45) : 60;
+  const title = m.t || '', artist = m.ar || '';
+  if (!title) return fallback;
+  let start = fallback;
+  try {
+    const ctl = new AbortController(); setTimeout(() => ctl.abort(), 4000);
+    const q = 'https://lrclib.net/api/search?track_name=' + encodeURIComponent(title) + (artist ? '&artist_name=' + encodeURIComponent(artist.split(/,| a | x | & | feat/)[0]) : '');
+    let res = await (await fetch(q, {signal: ctl.signal})).json();
+    if (!res.some(r => r.syncedLyrics)) res = await (await fetch('https://lrclib.net/api/search?q=' + encodeURIComponent(title + ' ' + artist), {signal: ctl.signal})).json();
+    const hit = res.find(r => r.syncedLyrics && (!vdur || Math.abs(r.duration - vdur) < 40)) || res.find(r => r.syncedLyrics);
+    if (hit) {
+      const lines = hit.syncedLyrics.split('\n').map(l => { const x = l.match(/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/); return x ? {t: +x[1] * 60 + +x[2], s: ytNorm(x[3])} : null; }).filter(Boolean);
+      const tw = ytNorm(title).split(' ').filter(w => w.length > 2), tn = ytNorm(title);
+      const bad = l => l.s && (l.s.includes(tn) || (tw.length && tw.filter(w => (' ' + l.s + ' ').includes(' ' + w + ' ')).length >= Math.max(1, Math.ceil(tw.length / 2))));
+      const ldur = hit.duration || (lines.length ? lines[lines.length - 1].t + 10 : 0), off = vdur && vdur - ldur > 3 ? (vdur - ldur) / 2 : 0;
+      const badT = lines.filter(bad).map((l, k) => l.t);
+      const ends = lines.map((l, k) => [l.t, (lines[k + 1] || {t: ldur}).t]);
+      const badSpans = ends.filter((e, k) => bad(lines[k]));
+      const ok = st => st > 8 && st + len < ldur - 5 && !badSpans.some(([a, b]) => b > st - 1 && a < st + len + 1);
+      const cands = [...new Set(lines.map(l => Math.max(0, l.t - 1)).concat(ends.map(e => e[1])))].filter(ok);
+      if (cands.length) { cands.sort((a, b) => Math.abs(a - ldur * 0.5) - Math.abs(b - ldur * 0.5)); start = Math.round(cands[0] + off); }
+      else if (badT.length) { // názov je všade – vyber najdlhšiu medzeru medzi refrénmi
+        const pts = [0, ...badT, ldur]; let best = [0, 0];
+        for (let k = 1; k < pts.length; k++) if (pts[k] - pts[k - 1] > best[1] - best[0]) best = [pts[k - 1], pts[k]];
+        start = Math.round(best[0] + 3 + off);
+      }
+    }
+  } catch (e) {}
+  try { localStorage.setItem(key, String(start)); } catch (e) {}
+  return start;
+}
+const ytm = (a, ids) => ({yt: ids.split(' '), t: a.replace(/\s*\(.*$/, ''), ar: (a.match(/\(([^)]*)\)/) || [])[1] || ''});
+async function playYt(m, seconds) {
+  stopAudio(); const tok = ++ytTok, ids = [].concat(m.yt); let k = 0;
+  await ytApi(); if (tok !== ytTok) return;
+  let box = document.getElementById('ytBox');
+  if (!box) { box = document.createElement('div'); box.id = 'ytBox'; box.style.cssText = 'position:fixed;left:-10000px;top:0;width:320px;height:180px;overflow:hidden'; document.body.appendChild(box); }
+  box.innerHTML = '<div id="ytP"></div>';
+  const go = async p => {
+    if (m.start != null) { p.seekTo(+m.start, true); p.playVideo(); }
+    else { p.mute(); p.playVideo(); let d = 0; for (let w = 0; w < 30 && !(d = p.getDuration()); w++) await new Promise(r => setTimeout(r, 100));
+      const st = await ytStart(m, d, 25); if (tok !== ytTok) return; p.seekTo(st, true); p.unMute(); p.setVolume(100); p.playVideo(); }
+    if (tok !== ytTok) return;
+    clearTimeout(audioStopT); audioStopT = setTimeout(() => { if (tok === ytTok && ytP) try { ytP.pauseVideo(); } catch (e) {} }, seconds * 1000);
+  };
+  ytP = new YT.Player('ytP', {width: 320, height: 180, videoId: ids[0], playerVars: {autoplay: 0, controls: 0, playsinline: 1, rel: 0},
+    events: {onReady: e => { go(e.target).catch(() => {}); },
+      onError: e => { if (++k < ids.length) { e.target.cueVideoById(ids[k]); setTimeout(() => go(e.target).catch(() => {}), 600); } else toast('Pesničku sa nepodarilo prehrať'); }}});
 }
 async function playCustomAudio(m, seconds = 15) {
   stopAudio();
@@ -395,7 +456,8 @@ async function playCustomAudio(m, seconds = 15) {
 }
 function playMedia(m, long) {
   if (!m) return;
-  if (m.mel) playMelody(m);
+  if (m.mel) playMelody(m, long ? 60 : 20);
+  else if (m.yt) playYt(m, long ? 60 : 20);
   else if (m.custom && m.kind === 'audio') playCustomAudio(m, long ? 40 : 15);
 }
 
@@ -522,9 +584,9 @@ function startMedia() {
 function mediaHtml(T) {
   const m = T.m; if (!m) return '';
   const done = S.revealed || S.resolved;
-  if (m.mel || (m.custom && m.kind === 'audio')) {
+  if (m.mel || m.yt || (m.custom && m.kind === 'audio')) {
     return `<div class="eq${done ? ' still' : ''}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>` +
-      (ctrls() ? `<div class="mod"><button class="mbtn gold" data-act="replay">▶ Prehrať znova <kbd>P</kbd></button>${m.custom ? '<button class="mbtn" data-act="replaylong">▶ Pustiť dlhšie</button>' : ''}<button class="mbtn" data-act="stopmedia">■ Stop</button></div>` : '');
+      (ctrls() ? `<div class="mod"><button class="mbtn gold" data-act="replay">▶ Prehrať znova <kbd>P</kbd></button><button class="mbtn" data-act="replaylong">${m.mel || m.yt ? '▶ Pustiť na minútu' : '▶ Pustiť dlhšie'}</button><button class="mbtn" data-act="stopmedia">■ Stop</button></div>` : '');
   }
   if (m.flag || m.img || (m.custom && m.kind === 'image')) {
     return `<canvas class="reveal" id="reveal" width="960" height="640" aria-label="Obrázok sa postupne zaostruje"></canvas>` +
@@ -534,7 +596,7 @@ function mediaHtml(T) {
   if (m.roles) return `<div class="roles" id="roles" aria-label="Postavy, ktoré herec stvárnil"></div>`;
   return '';
 }
-const mediaIcon = m => !m ? '' : m.roles ? '🎭' : (m.mel || m.kind === 'audio') ? '🎵' : (m.flag || m.img || m.kind === 'image') ? '🖼️' : m.emoji ? '😀' : '';
+const mediaIcon = m => !m ? '' : m.roles ? '🎭' : (m.mel || m.yt || m.kind === 'audio') ? '🎵' : (m.flag || m.img || m.kind === 'image') ? '🖼️' : m.emoji ? '😀' : '';
 </script>
 <script>
 /* každá téma: 5 úrovní (1 000 … 5 000), v každej úrovni 2 otázky [otázka, odpoveď] */
@@ -1038,6 +1100,61 @@ BANK["Hádaj melódiu: klasika"] = [
   [[Q_MEL, "Toccata a fúga d mol (Bach)", {mel: "A5:.25 G5:.25 A5:1.5 r:.5 G5:.25 F5:.25 E5:.25 D5:.25 C#5:1 D5:2", bpm: 60, wave: 'square'}],
    [Q_MEL, "Largo z Novosvetskej symfónie (Dvořák)", {mel: "E4:1.5 G4:.5 G4:2 E4:1.5 D4:.5 C4:2 D4:1 E4:1 G4:1 E4:1 D4:3", bpm: 66}]]
 ];
+/* ---------- HUDBA Z YOUTUBE (skrytý prehrávač, hrá len na TV, treba internet) ---------- */
+const Q_YT = 'Aká je to pesnička? (názov aj interpret)';
+const yts = (a, ids) => [Q_YT, a, ytm(a, ids)];
+KIND["Hádaj pesničku: CZ/SK hity"] = 'audio';
+(() => { const y = yts;
+BANK["Hádaj pesničku: CZ/SK hity"] = [
+  [y("Jožin z bažin (Ivan Mládek)", 'VjpoDmAamZw tUebTCYQCQk oaaFNybwhPg'), y("Holky z naší školky (Kotvald a Hložek)", 'JqpzWUA-UWs KFxlL6cltBg hHNN4CF-OFs'), y("Voda, čo ma drží nad vodou (Elán)", 'd4JX0Sql3P0 ebJP4db6DKc W4hhiurVmm0'), y("Kdepak ty ptáčku hnízdo máš (Karel Gott)", 'ZditZtssrBY DS_DUSu0gRs oDZ1O7UMdPs'), y("Včelka Mája (Karel Gott)", 'u19rlA_VOOM Dfu4sQbtl7w NK5jOVXqjlA'), y("Dole v dole (Kabát)", 'UsPJswNkpQk HVK1Pxl2ZvI'), y("Kráľovná bielych tenisiek (Elán)", 'WUie_mPmXgM OyGiEpLDk_A 7HpfKum4Idw')],
+  [y("Lady Carneval (Karel Gott)", 'TRL2TWO2_ng arM6nnv4mCs x8lNj5Y_Nw0'), y("Holubí dům (Jiří Schelinger)", 'Pgg3OZKSQyI K7-Apk3tcjE'), y("Céčka, sbírá céčka (Michal David)", 'QpxnOrmn8ZU mjhxIw9RY-A jhUddg3tlww'), y("Černí andělé (Lucie)", 'AxUzovpFzq0 3f5cfBYjI44 4AEU2aQSVMM'), y("Dlouhej kouř (Chinaski)", 'QFf8S_JHWK0 E_XynYB-h9o izjM3g2x_MI')],
+  [y("Pohoda (Kabát)", 'tknsoxpQ-Kw 5ICWhbAmIaw'), y("Amerika (Lucie)", '9SW-q1XPkMQ'), y("Čaba, neblázni (Elán)", 'glb33DUAfB4 Hi5LHQBp5W4'), y("Až (Katapult)", 'wJF8wA9ICl4 lYw3lULCJ2Q 92Iw8j_npDY'), y("Ty a tvoja sestra (No Name)", 'krgnackBy1o'), y("Měls mě vůbec rád (Ewa Farna)", 'gxTH8SBB3j0 e5kwAEqJU0c')],
+  [y("Atlantída (Miro Žbirka)", '2Na_6czhCZI gxSdOovpELc ENfil6UC8yk'), y("Láska je láska (Lucie Bílá)", 'qjQcXgQuQgQ vFgsLLFKj5c'), y("Jasná zpráva (Olympic)", 'L1i93JCpTLo _tUUcbZTEXQ CNZRy5M-hFY'), y("Pravda víťazí (Tublatanka)", 'FOw8iG1suLI JMHS9o8KIGU ifzd0UMwfKg'), y("Želva (Olympic)", 'tmp3DVwrcCY kOuUX1nNfJg _PVIhHNJ40Q'), y("Inzerát (Kryštof)", 'nZdIXqy4fYc Omp4lnFoMr4 OXaywy-_jdg')],
+  [y("Modlitba pro Martu (Marta Kubišová)", '8IzKWTcK1po Xn4Qjw4KebM paIHpL0Z6VQ'), y("Klára (Chinaski)", 'qhgphCYCnjo d8ZTDTH0Gjs'), y("Ľudia nie sú zlí (IMT Smile)", 'baq2b9f-wV4 p4UI_Lq6CE4'), y("Půlnoční (Václav Neckář)", 'Iu7l4BCtuds _9IZ08Ni3Gw DE8CHSJu4sc'), y("Nebude to ľahké (Richard Müller)", 'kWO_55CctbI x5lFM-iWBBU 2sNkF_nZI2c')]
+];
+})();
+KIND["Hádaj pesničku: svetové pop hity"] = 'audio';
+(() => { const y = yts;
+BANK["Hádaj pesničku: svetové pop hity"] = [
+  [y("Gangnam Style (PSY)", 'SW_iujvUAzQ cGc_NfiTxng 4AgDYTuZWOw'), y("Despacito (Luis Fonsi feat. Daddy Yankee)", 'kJQP7kiw5Fk 8wU7WB_ocSU'), y("Shape of You (Ed Sheeran)", 'JGwWNGJdvx8 _dK2tDK9grQ'), y("Macarena (Los del Río)", 'zWaymcVmJ-A uOnAKM0ymGY mRNABRFlwMk'), y("Waka Waka (Shakira)", 'pRpeEdMmmQ0 Ntn1-SocNiY')],
+  [y("Barbie Girl (Aqua)", 'ZyhrYis509A OS7DGZFfemo'), y("Wannabe (Spice Girls)", 'gJLIiF15wjQ D9Dj_5c6vPQ'), y("Bohemian Rhapsody (Queen)", 'fJ9rUzIMcZQ hywYx5UxqaA ghpSgaYezR0'), y("We Will Rock You (Queen)", '-tJYN-eG1zk ipDEXJHEfTI zFt-FSEJ5oE'), y("Dragostea din tei (O-Zone)", 'YnopHCL1Jk8 jRx5PrAlUdY 08avCcjjWR0')],
+  [y("Blue – Da Ba Dee (Eiffel 65)", '68ugkg9RePc 4iwHb189X84 zA52uNzx7Y4'), y("...Baby One More Time (Britney Spears)", 'C-u5WLJ9Yk4 hitIxB22QcI'), y("Uptown Funk (Mark Ronson feat. Bruno Mars)", 'OPf0YbXqDm0 6s8bQdj7bkg'), y("Seven Nation Army (The White Stripes)", '0J2QdDbelmY Pk_aLqtnKLE D_QLxj8jCF0'), y("Dancing Queen (ABBA)", 'xFrGuyw1V8s BSxDs0F8BFY TJLAJWSEd6U')],
+  [y("Rolling in the Deep (Adele)", 'rYEDA3JcQqw x9Qv47HpEqw'), y("Blinding Lights (The Weeknd)", '4NRXx6U8ABQ uHvw2aX-rt8'), y("Smells Like Teen Spirit (Nirvana)", 'hTWKbfoikeg hqcoStdsQog lOPZZAPJfVg'), y("Wake Me Up (Avicii)", 'IcrbM1l_BoI J1pidmOxAMA 5y_KJAg8bHI')],
+  [y("Smoke on the Water (Deep Purple)", 'Q2FzZSBD5LE pIkX3UqGfIc vok9qNsmjtA'), y("Satisfaction (The Rolling Stones)", 'eUpb-ALfUzc uEecvfEE7Gk m4PW7JFHH6w'), y("Popcorn (Hot Butter)", 'YK3ZP6frAMc uS3_SgILyy8 7Xp0ImY7rUQ')]
+];
+})();
+KIND["Hádaj pesničku: hity 80. rokov"] = 'audio';
+(() => { const y = yts;
+BANK["Hádaj pesničku: hity 80. rokov"] = [
+  [y("Billie Jean (Michael Jackson)", 'Zi_XLOBDo_Y OZGtRvYF-A4 lr1gApNmFog'), y("Thriller (Michael Jackson)", 'sOnqjkJTMaA 4V90AmXnguw'), y("Eye of the Tiger (Survivor)", 'btPJPFnesV4 PuxADhIKd5o LD--wGkgwZw'), y("The Final Countdown (Europe)", '9jK-NcRmVcw NNiTxUEnmKI AcKEVS8YNQE'), y("Never Gonna Give You Up (Rick Astley)", 'dQw4w9WgXcQ LLFhKaqnWwk'), y("Ghostbusters (Ray Parker Jr.)", 'Fe93CLbHjxQ TgNWyBXBC0E')],
+  [y("Take On Me (a-ha)", 'djV11Xbc914 uAqW9uJi2-g xny1UDqBOh0'), y("Livin' on a Prayer (Bon Jovi)", 'lDK9QqIzhwk lMGaiSqOp58'), y("Girls Just Want to Have Fun (Cyndi Lauper)", 'PIb6AZdTr-A KpAeXj454pA'), y("Like a Prayer (Madonna)", '79fzeNUqQbQ 2VnYzJmI31M'), y("Cheri Cheri Lady (Modern Talking)", 'eNvUS-6PTbs pzbH4IquOlU'), y("Axel F (Harold Faltermeyer)", 'Qx2gvHjNhQ0 sIBErxRSIaE huPtPwnYP8k')],
+  [y("Sweet Child o' Mine (Guns N' Roses)", '1w7OgIMMRc4 Z6Yxe4ak_rM oMfMUfgjiLg'), y("Another One Bites the Dust (Queen)", 'rY0WxgSXdEE eqyUAtzS_6M HSCWPjlH2-0'), y("Wake Me Up Before You Go-Go (Wham!)", 'pIgZ7gMze7A Uj2K3rerzT4'), y("I Wanna Dance with Somebody (Whitney Houston)", 'eH3giaIzONA 6xzN8Nt0Pok'), y("Rock Me Amadeus (Falco)", 'y-H895vrIU8 kVNPwmFkf-Q wwJ3gvYW0JI')],
+  [y("Every Breath You Take (The Police)", 'OMOGaugKpzs iOT_zuDHvVk'), y("Africa (Toto)", 'FTQbiNvZqaY Kb7lAMjFuA0'), y("Sweet Dreams (Eurythmics)", 'qeMFqkcPYcg eRhg7qPLeN8'), y("Total Eclipse of the Heart (Bonnie Tyler)", 'lcOxhH8N3Bo d7VrQod3ad8')],
+  [y("Don't Stop Believin' (Journey)", '1k8craCGpgs VcjzHMhBtf0'), y("Footloose (Kenny Loggins)", 'ltrMfT4Qz5Y hq3Q3FfJkK4'), y("Jump (Van Halen)", 'SwYN7mTi6HM sh9wsrL43RY')]
+];
+})();
+KIND["Hádaj pesničku: CZ/SK hity 2"] = 'audio';
+(() => { const y = yts;
+BANK["Hádaj pesničku: CZ/SK hity 2"] = [
+  [y("Horehronie (Kristína)", 'kghCqyMLPFA _0CaeDo-wEY'), y("Trezor (Karel Gott)", 'Jd2p0HmgPBk edQfIwp8Hok c-IxXblfXHs'), y("Kaskadér (Elán)", 'ryl1XEwg3c8 2rLSbT7SLGs'), y("Colu pijeme colu (Michal David)", 'SGzp34qR-c0 cfu4JQy2MXY tK-oZQgihyI'), y("Chci zas v tobě spát (Lucie)", '08DlOhdKvwY pE7EkRE7MYA f9wtz9PVU64')],
+  [y("Kristínka iba spí (Peter Nagy)", '3ZjmrEC7uXg awVl18Ku9T0 V6oYk4NVNac'), y("Prvá (No Name)", 'LKi-326G-bs 7mzphyr90Nw gCZBYxW4kNE'), y("Malá dáma (Kabát)", '4ybLPVcwBdA ZNXa_-AUej4'), y("Ty a já (Kryštof)", '2lx4vLeqL3U 8WmxKggI7QU'), y("Medvídek (Lucie)", 'Q2RIN8evuqs J9q_oq6f19E 0sDYNf3m0cE')],
+  [y("Zhorí všetko čo mám (Desmod)", 'E7dNKE3yWJ0 kbVW2XAEzAo s8IBLKh0jJ0'), y("Do nebe (Tomáš Klus)", 'mU0RelVJqBE Lzt1Nl2Y5sQ 02f48UBeTfY'), y("Každý ráno (Chinaski)", 'jtrn_bcRm7Y hEEI3Ds7Ig4'), y("Dlouhá noc (Helena Vondráčková)", 'keoVENYhyYY z30_ElASsx8'), y("Zaľúbil sa chlapec (Elán)", 'zku-4aNAdjA 1mg8smHlBfU')],
+  [y("Slavíci z Madridu (Waldemar Matuška)", 'jWTpivYjPbg Ifimsaport8 16iv2BGGgBU'), y("Osmý den (Olympic)", 'Y5pZULnIe64 M2tfgF11BTE'), y("Žeravé znamenie osudu (Tublatanka)", '-NoTKug1GRA WLwclXE6sCQ 4L0gr4Y48eM'), y("Biely kvet (Miro Žbirka)", 'S1W55JDE5Lk zTD51KfsFEY'), y("Šrouby a matice (Mandrage)", 'xzi2vbGOJ7g')],
+  [y("Lhůta záruční (Slza)", 'gNpJu_yzZmU RK35YjB6V4M'), y("Ztrácíš (Marek Ztracený)", 'tyn4qauJdAk QAy4scssJ4c'), y("Spomaľ (Peha)", 'YyfjLCajbCw MV1uJt09a0c'), y("Držím ti miesto (Team)", 'L2mDPXlt7ZM bfcWb5QIfY8 sA0P8MibBAI'), y("Duhová víla (Hana Zagorová a Petr Rezek)", 'WLGTJX_Ko4s 3V8r3M1JseU 55MQYeEnUBw'), y("Dej mi víc své lásky (Olympic)", 'VePxRghpXG0 oq31uMlpHFo')]
+];
+})();
+/* klasika: skutočné nahrávky orchestrov z YouTube, štart = sekunda so známou melódiou */
+const Q_KL = 'Aká je to skladba? (názov aj skladateľ)';
+KIND["Hádaj skladbu: klasika z nahrávok"] = 'audio';
+(() => { const k = (a, ids, st) => [Q_KL, a, Object.assign(ytm(a, ids), {start: st || 0})];
+BANK["Hádaj skladbu: klasika z nahrávok"] = [
+  [k("Malá nočná hudba (Mozart)", 'UhPBT0dA_oA oy2zDJPIgwc UzEX0-nwN4Y'), k("5. symfónia – Osudová (Beethoven)", '6cbFlkRu54I xK2YGMISH8I 4aAne1Ol7R0'), k("Jar zo Štyroch ročných období (Vivaldi)", 'B6W_DD_z2EE _GUXuU-v49U 24d4Wu0sJtA'), k("Turecký pochod (Mozart)", 'aeEmGvm7kDk A_THdzBnHy0 n2Tru4Qa3pc'), k("Kankán – Pekelný galop z Orfea v podsvetí (Offenbach)", 'zWytgJy-u8w Wh5g75svRJ4')],
+  [k("Ranná nálada z Peer Gynta (Grieg)", 'J-1Bob1dU18 8fATAQtY9ag 7lKo6TYDXCQ'), k("Predohra ku Carmen (Bizet)", 'cvny0Mssa04 1d4-nDVCN6U HFT0HEBTu8E'), k("Labutie jazero (Čajkovskij)", 'wUyCmlf319g 4eMKbOfSCeQ RIck7OCm6UU'), k("Aleluja z Mesiáša (Händel)", 'usfiAsWR4qU IUZEtVbJT5c iqc4GTpXJYQ'), k("Jazda Valkýr (Wagner)", 'C933mn-pR6Y ww51QgjMJC0 GGU1P6lBW6Q', 20)],
+  [k("Tak vravel Zarathustra (Richard Strauss)", 'V8ik3QSTqZ4 exveTEjJa5E Szdziw4tI9o'), k("O Fortuna z Carmina Burana (Orff)", 'Ia6ZBd4ehmU GXFSK0ogeg4 EJC-_j3SnXk'), k("Kánon D dur (Pachelbel)", '9nX_ReyaetE NlprozGcs80 Ptk_1Dc2iPY', 40), k("Tanec cukrovej víly z Luskáčika (Čajkovskij)", 'sdduPpnqre4 B9zRToy-mwk zV1qLYukTH8'), k("Šabľový tanec (Chačaturian)", 'N6EL_Nh1ubU mUQHGpxrz-8 gqg3l3r_DRI')],
+  [k("Bolero (Ravel)", 'cmNEvSFWftc Dh9bUD-hC0A', 480), k("Labuť z Karnevalu zvierat (Saint-Saëns)", '3qrKjywjo7Q b44-5M4e9nI'), k("Uhorský tanec č. 5 (Brahms)", '91EyYvG7sl8 Nzo3atXtm54 ynCEvFaJCZg'), k("Symfónia č. 40 g mol (Mozart)", 'Wx8qoMmc9EI l45DAuXYSIs BJPmYURJk4c'), k("Humoreska č. 7 (Dvořák)", '2B9kZ2jguwk dr5hpNs_Ukw IZly_IRJEsA')],
+  [k("Svit mesiaca – Clair de lune (Debussy)", 'WNcsUNKlAKw -Bxpm0EmOMU'), k("Gymnopédia č. 1 (Satie)", '2WfaotSK3mI Lg6UNRcZLBw S-Xm7s9eGxU'), k("Caprice č. 24 (Paganini)", 'YxPTb0I3SrU WMLoBXgPil8 CjDz-r65xUU'), k("Minútový valčík (Chopin)", '3H0SRv8QNwk ToeH-sSM_Ik hKILwVH_MdM'), k("Vltava z Mojej vlasti (Smetana)", 'uI8iTETiSqU QRF4DruNVwM l6kqu2mk-Kw', 70), k("Sinfonietta – fanfáry (Janáček)", 'wcTxSOOFi08 PAE7s3GTzoM')]
+];
+})();
 KIND["Hádaj melódiu: pesničky"] = 'audio';
 BANK["Hádaj melódiu: pesničky"] = [
   [[Q_MEL, "Happy Birthday (Veľa šťastia, zdravia)", {mel: "G4:.75 G4:.25 A4 G4 C5 B4:2 G4:.75 G4:.25 A4 G4 D5 C5:2", bpm: 110}],
@@ -3784,6 +3901,38 @@ BANK["Svetové vojny"] = [
    ["Ako sa volal posledný rakúsko-uhorský cisár a kráľ?", "Karol I."],
    ["Ktorý slovenský parašutista sa zúčastnil na atentáte na Heydricha?", "Jozef Gabčík"]]
 ];
+BANK["Vznik Československa 1918"] = [
+  [["Ktorého dňa vzniklo Československo?", "28. októbra 1918"],
+   ["Kto bol prvým prezidentom Československa?", "Tomáš Garrigue Masaryk"],
+   ["Ktorý Slovák patril spolu s Masarykom a Benešom k trojici zakladateľov Československa?", "Milan Rastislav Štefánik"],
+   ["Koľko rokov uplynulo v roku 2026 od vzniku Československa?", "108"],
+   ["Ktorá ríša sa rozpadla, keď vzniklo Československo?", "Rakúsko-Uhorsko"],
+   ["V ktorom meste vyhlásili 28. októbra 1918 samostatný štát?", "V Prahe"]],
+  [["Ako sa volá deklarácia, ktorou sa Slováci 30. októbra 1918 prihlásili k spoločnému štátu?", "Martinská deklarácia"],
+   ["V ktorom meste prijali deklaráciu slovenského národa 30. októbra 1918?", "V Turčianskom Svätom Martine"],
+   ["Ako ľudovo hovorili prvému prezidentovi Masarykovi?", "Tatíček"],
+   ["Ktorá vojna sa končila, keď vzniklo Československo?", "Prvá svetová vojna"],
+   ["Ako zahynul Milan Rastislav Štefánik v máji 1919?", "Pri páde lietadla pri Ivanke pri Dunaji"],
+   ["Ako sa volali dobrovoľnícke vojská Čechov a Slovákov, ktoré bojovali v 1. svetovej vojne za samostatný štát?", "Československé légie"]],
+  [["Ktorý Slovák bol v Prahe medzi „mužmi 28. októbra“, ktorí vyhlásili samostatný štát?", "Vavro Šrobár"],
+   ["Ako sa volala exilová organizácia, ktorú od roku 1916 viedol Masaryk a ktorá sa stala dočasnou vládou?", "Československá národná rada"],
+   ["Ako sa volá vyhlásenie nezávislosti, ktoré Masaryk vydal 18. októbra 1918 v USA?", "Washingtonská deklarácia"],
+   ["Kto bol prvým predsedom vlády Československa?", "Karel Kramář"],
+   ["V ktorom americkom meste podpísali v máji 1918 krajania dohodu o spoločnom štáte Čechov a Slovákov?", "V Pittsburghu"],
+   ["V ktorom roku prijali prvú ústavu Československa?", "1920"]],
+  [["Kto bol prvým ministrom zahraničných vecí Československa?", "Edvard Beneš"],
+   ["Akú funkciu mal Milan Rastislav Štefánik v prvej československej vláde?", "Minister vojny"],
+   ["Ktorá mierová zmluva z roku 1920 určila hranice Slovenska s Maďarskom?", "Trianonská zmluva"],
+   ["Ktorá bitka z roku 1917 na Ukrajine je najslávnejšou bitkou československých légií?", "Bitka pri Zborove"],
+   ["Do ktorého mesta sa vo februári 1919 presťahovala slovenská vláda zo Žiliny?", "Do Bratislavy"],
+   ["Ktorého dňa sa Masaryk vrátil do vlasti ako prezident?", "21. decembra 1918"]],
+  [["Ako sa po slovensky volala Bratislava predtým, než dostala v roku 1919 nové meno?", "Prešporok"],
+   ["Ako sa volá prvý zákon republiky z 28. októbra 1918, ktorý ponechal v platnosti staré zákony?", "Recepčný zákon"],
+   ["Vymenuj aspoň troch z piatich „mužov 28. októbra“.", "Antonín Švehla, Alois Rašín, Jiří Stříbrný, František Soukup a Vavro Šrobár"],
+   ["V ktorom meste sa narodil Tomáš Garrigue Masaryk?", "V Hodoníne"],
+   ["V ktorej obci sa narodil Milan Rastislav Štefánik?", "V Košariskách"],
+   ["Na ktorom kopci je pochovaný Štefánik v mohyle, ktorú postavil Dušan Jurkovič?", "Na Bradle"]]
+];
 BANK["Československo"] = [
   [["Ako sa volalo hlavné mesto Československa?", "Praha"],
    ["Z ktorých dvoch piesní sa skladala hymna Československa?", "Kde domov můj a Nad Tatrou sa blýska"],
@@ -6016,6 +6165,293 @@ BANK["Krajina podľa jedál"] = [
    jed("Libanon", ["Kibbeh", "Fattoush", "Hummus", "Tabbouleh"]),
    jed("Švédsko", ["Surströmming", "Škoricové slimáky kanelbullar", "Smörgåsbord", "Mäsové guľky köttbullar"])]
 ];
+/* ---------- NOVÉ KATEGÓRIE (2026-11-21) ---------- */
+BANK["Zavádzajúce otázky: dejiny"] = [
+  [["Krištof Kolumbus, janovský moreplavec, ktorý v roku 1492 doplával do Ameriky, je najznámejší objaviteľ v dejinách. Ako sa však volala jeho vlajková loď?", "Santa María"],
+   ["Napoleon Bonaparte, francúzsky cisár, ktorého porazili pri Waterloo a ktorý zomrel vo vyhnanstve na Svätej Helene, je povestný svojou malou postavou. Na ktorom ostrove sa narodil?", "Na Korzike"],
+   ["Prvým človekom, ktorý v júli 1969 vystúpil na Mesiac a povedal vetu o malom kroku pre človeka, bol Neil Armstrong. Ako sa volal astronaut, ktorý na Mesiac vystúpil hneď po ňom?", "Buzz Aldrin"],
+   ["Berlínsky múr rozdeľoval mesto na východ a západ a padol v novembri 1989, po čom sa Nemecko zjednotilo. V ktorom roku múr postavili?", "V roku 1961"],
+   ["Egyptské pyramídy v Gíze sú jediný zo siedmich divov starovekého sveta, ktorý stojí dodnes. Ktorý z divov sveta stál v egyptskej Alexandrii?", "Maják na ostrove Faros"]],
+  [["Július Caesar prekročil s vojskom rieku Rubikon, povedal „Kocky sú hodené“ a stal sa doživotným diktátorom Ríma. V ktorom mesiaci roku 44 pred Kr. ho zavraždili?", "V marci (15. marca – Idy marcové)"],
+   ["Anglický kráľ Henrich VIII. mal šesť manželiek a dvom z nich dal sťať hlavu. Ako sa volala jeho dcéra, ktorá sa stala slávnou „panenskou kráľovnou“?", "Alžbeta I."],
+   ["Leonardo da Vinci, taliansky génius z Florencie, namaľoval Monu Lisu a navrhoval lietajúce stroje. V ktorej krajine zomrel?", "Vo Francúzsku (Amboise, 1519)"],
+   ["Prvá svetová vojna sa začala po atentáte na následníka trónu Františka Ferdinanda d'Este v Sarajeve v roku 1914. Ako sa volal mladík, ktorý strieľal?", "Gavrilo Princip"],
+   ["Thomas Alva Edison je známy ako vynálezca žiarovky a mal vyše tisíc patentov. Ako sa volal jeho rival, srbský vynálezca, ktorý presadzoval striedavý prúd?", "Nikola Tesla"],
+   ["Titanic, najväčšia loď svojej doby, sa v apríli 1912 potopil po zrážke s ľadovcom a zahynulo vyše 1 500 ľudí. Z ktorého anglického prístavu vyplával na svoju prvú plavbu?", "Zo Southamptonu"]],
+  [["Veľký čínsky múr sa ťahá tisíce kilometrov a stavali ho stáročia, aby chránil Čínu pred nájazdníkmi zo severu. Za vlády ktorej dynastie vznikla väčšina múru, ktorý stojí dnes?", "Dynastia Ming"],
+   ["Marie Curie-Skłodowská ako prvá žena získala Nobelovu cenu, dostala ju dvakrát a celý život pracovala v Paríži. V ktorom meste sa narodila?", "Vo Varšave"],
+   ["Wolfgang Amadeus Mozart, zázračné dieťa zo Salzburgu, zložil vyše 600 diel a hral už ako malý chlapec pred cisárovnou. Koľko rokov mal, keď zomrel?", "35 rokov"],
+   ["Bitka pri Slavkove v roku 1805 sa volá aj bitka troch cisárov a Napoleon v nej porazil Rakúšanov a Rusov. Pod akým nemeckým menom Slavkova je táto bitka známa vo svete?", "Austerlitz"],
+   ["Ameriku objavil pre Európu Krištof Kolumbus v roku 1492, takže by sa logicky mohla volať Kolumbia. Podľa ktorého moreplavca však dostala meno?", "Amerigo Vespucci"]],
+  [["Johannes Gutenberg vynašiel okolo roku 1450 kníhtlač s pohyblivými písmenami a jeho najslávnejšou tlačou je Biblia. V ktorom nemeckom meste pôsobil?", "V Mohuči (Mainz)"],
+   ["Ľudovít XIV., francúzsky „Kráľ Slnko“, dal postaviť Versailles a vládol neuveriteľných 72 rokov. Koľko rokov mal, keď sa stal kráľom?", "4 roky"],
+   ["Ruská cárovná Katarína Veľká rozšírila ríšu až k Čiernemu moru a dopisovala si s Voltairom. Z ktorej krajiny pôvodom pochádzala?", "Z Nemecka (narodila sa v pruskom Štetíne)"],
+   ["Jurij Gagarin sa v apríli 1961 stal prvým človekom vo vesmíre a pred ním Sovieti poslali na obežnú dráhu psicu Lajku. Ako sa volala loď, v ktorej Gagarin letel?", "Vostok 1"],
+   ["Waterloo, kde Napoleon v roku 1815 definitívne prehral, je aj názov hitu, s ktorým švédska skupina ABBA vyhrala Eurovíziu. V ktorej dnešnej krajine Waterloo leží?", "V Belgicku"]],
+  [["Alexander Veľký, macedónsky kráľ, ktorého učil Aristoteles, dobyl ríšu od Grécka až po Indiu a nikdy neprehral bitku. V ktorom meste zomrel?", "V Babylone"],
+   ["Kleopatra, posledná vládkyňa starovekého Egypta, mala vzťah s Caesarom aj s Antoniom a je symbolom egyptskej kráľovnej. Akého pôvodu však bola jej rodina?", "Grécko-macedónskeho (dynastia Ptolemaiovcov)"],
+   ["Storočná vojna medzi Anglickom a Francúzskom, v ktorej bojovala aj Jana z Arku, má už v názve, ako dlho trvala. Koľko rokov trvala v skutočnosti?", "116 rokov (1337 – 1453)"],
+   ["Tridsaťročná vojna spustošila strednú Európu a začala sa v roku 1618 pražskou defenestráciou, keď vyhodili miestodržiteľov z okna. Akým mierom sa skončila v roku 1648?", "Vestfálskym mierom"],
+   ["Marco Polo, benátsky cestovateľ, prešiel Hodvábnou cestou až ku dvoru Kublajchána a v Číne strávil vyše 15 rokov. Kde nadiktoval svoj slávny cestopis?", "Vo väzení v Janove"]]
+];
+BANK["Zavádzajúce otázky: Slovensko"] = [
+  [["Gerlachovský štít je s 2 654 metrami najvyšší vrch Slovenska aj celých Karpát a leží vo Vysokých Tatrách. Ktorý je najvyšší vrch Nízkych Tatier?", "Ďumbier"],
+   ["Dunaj tečie cez Bratislavu, je druhou najdlhšou riekou Európy a tvorí časť našej hranice s Maďarskom. Ktorá je najdlhšia rieka, ktorá tečie iba po Slovensku?", "Váh"],
+   ["Bryndzové halušky sú slovenské národné jedlo a bryndza sa robí z ovčieho syra. Ako sa volajú oravské syrové „nite“ zapletené do vrkočov?", "Korbáčiky"],
+   ["Bratislava je hlavné mesto Slovenska a ako jediná metropola na svete hraničí s dvoma štátmi. Ktoré mesto je druhé najväčšie na Slovensku?", "Košice"],
+   ["Slovensko vstúpilo do Európskej únie a do NATO v roku 2004 a predtým platilo slovenskými korunami. V ktorom roku zaviedlo euro?", "V roku 2009"]],
+  [["Bojnický zámok je najnavštevovanejší a podľa mnohých najrozprávkovejší zámok na Slovensku. Ktorý hrad je však najväčší na Slovensku?", "Spišský hrad"],
+   ["Milan Rastislav Štefánik bol generál, astronóm a pilot, narodil sa v Košariskách a zahynul pri Ivanke pri Dunaji. Na ktorom kopci je pochovaný v mohyle?", "Na Bradle"],
+   ["Slovenskí hokejisti vyhrali majstrovstvá sveta v roku 2002 vo švédskom Göteborgu a víťazný gól strelil Peter Bondra. S kým hrali finále?", "S Ruskom (4:3)"],
+   ["Juraj Jánošík, najznámejší slovenský zbojník, ktorý bral bohatým a dával chudobným, pochádzal z Terchovej. V ktorom meste ho popravili?", "V Liptovskom Mikuláši (1713)"],
+   ["Slovenská vlajka je biela, modrá a červená a v štátnom znaku je biely dvojkríž na modrom trojvrší. Ktoré tri pohoria podľa tradície trojvršie znázorňuje?", "Tatra, Fatra a Matra"],
+   ["Samostatná Slovenská republika vznikla 1. januára 1993 rozdelením Česko-Slovenska a premiérom bol vtedy Vladimír Mečiar. Kto bol prvým prezidentom Slovenskej republiky?", "Michal Kováč"]],
+  [["Vysoké Tatry sú najmenšie veľhory na svete a ich najvyšším vrchom je Gerlachovský štít. Ktorý tatranský štít je symbolom Slovenska a bol na našich centových minciach?", "Kriváň"],
+   ["Andy Warhol, kráľ pop-artu, ktorý maľoval plechovky polievky a Marilyn Monroe, sa narodil v americkom Pittsburghu. Z ktorej slovenskej obce pochádzali jeho rodičia?", "Z Mikovej"],
+   ["Dobšinská ľadová jaskyňa je zapísaná v UNESCO a ľad v nej vydrží celý rok. V ktorom národnom parku leží?", "V Slovenskom raji"],
+   ["Banská Štiavnica bola v 18. storočí tretím najväčším mestom Uhorska a vznikla v nej prvá banícka akadémia. Ktoré iné stredoslovenské mesto razilo slávne zlaté dukáty?", "Kremnica"],
+   ["Ľudovít Štúr sa v roku 1843 dohodol na fare v Hlbokom s Hurbanom a Hodžom na spisovnej slovenčine. Z ktorého nárečia ju vytvoril?", "Zo stredoslovenského"]],
+  [["Na futbalových majstrovstvách sveta 2010 Slovensko vyradilo obhajcu titulu Taliansko 3:2 a v tíme boli Hamšík, Škrtel aj Pekarík. Kto strelil Talianom dva góly?", "Róbert Vittek"],
+   ["Jozef Murgaš z Tajova je známy ako priekopník bezdrôtovej telegrafie a v Amerike si dal patentovať viacero vynálezov. Čím bol však povolaním?", "Kňaz (a maliar)"],
+   ["Pavol Országh Hviezdoslav je náš najväčší básnik, pochádzal z Oravy a napísal Hájnikovu ženu. Akým povolaním sa živil?", "Advokát (právnik)"],
+   ["Jaskyňa Domica pri Rožňave je známa podzemnou plavbou na člnkoch a patrí do jedného jaskynného systému. Ako sa volá jej maďarská časť?", "Baradla"],
+   ["Štrbské pleso je najznámejšie a Veľké Hincovo pleso najväčšie a najhlbšie tatranské pleso. Ktorá je najväčšia vodná nádrž na Slovensku?", "Oravská priehrada"]],
+  [["Ivan Bella sa v roku 1999 stal prvým Slovákom vo vesmíre, keď letel na stanicu Mir. Ktorý americký astronaut s koreňmi na Kysuciach bol posledným človekom, čo kráčal po Mesiaci?", "Eugene Cernan"],
+   ["Najnižší bod Slovenska je pri Kline nad Bodrogom (94 m n. m.), kde rieka Bodrog opúšťa naše územie. Sútokom ktorých dvoch riek Bodrog vzniká?", "Ondavy a Latorice"],
+   ["Bratislavský hrad má štyri veže, ľudia mu hovoria „prevrátený stôl“ a sídlila v ňom Mária Terézia. V ktorom kostole v Bratislave korunovali uhorských kráľov?", "V Dóme svätého Martina"],
+   ["Hron je druhá najdlhšia rieka Slovenska a pramení pod Kráľovou hoľou. Ktoré tri ďalšie rieky podľa známeho rčenia pramenia pod Kráľovou hoľou?", "Čierny Váh, Hnilec a Hornád"],
+   ["Stan Mikita, hokejová legenda Chicaga, vyhral Stanleyho pohár a ako dieťa odišiel do Kanady. V ktorej slovenskej obci sa narodil?", "V Sokolčiach"]]
+];
+BANK["Čo bolo skôr?"] = [
+  [["Čo bolo skôr: prvý let bratov Wrightovcov, alebo potopenie Titanicu?", "Let Wrightovcov (1903; Titanic 1912)"],
+   ["Čo bolo skôr: pristátie človeka na Mesiaci, alebo pád Berlínskeho múru?", "Pristátie na Mesiaci (1969; múr 1989)"],
+   ["Čo bolo skôr: vznik Slovenskej republiky, alebo vstup Slovenska do EÚ?", "Vznik SR (1993; EÚ 2004)"],
+   ["Čo bolo skôr: prvý iPhone, alebo prvý film o Harrym Potterovi?", "Film Harry Potter (2001; iPhone 2007)"],
+   ["Čo bolo skôr: Kolumbus v Amerike, alebo Gutenbergova kníhtlač?", "Kníhtlač (okolo 1450; Kolumbus 1492)"]],
+  [["Čo vzniklo skôr: Facebook, alebo YouTube?", "Facebook (2004; YouTube 2005)"],
+   ["Čo vzniklo skôr: Socha slobody, alebo Eiffelova veža?", "Socha slobody (1886; Eiffelovka 1889)"],
+   ["Čo vzniklo skôr: Coca-Cola, alebo Kofola?", "Coca-Cola (1886; Kofola 1960)"],
+   ["Čo bolo skôr: eurá v peňaženkách, alebo Wikipédia?", "Wikipédia (2001; eurobankovky a mince 2002)"],
+   ["Čo bolo skôr: prvý zvukový celovečerný film, alebo Mickey Mouse v Parníku Willie?", "Zvukový film (Jazzový spevák 1927; Mickey 1928)"]],
+  [["Čo vzniklo skôr: Oxfordská univerzita, alebo aztécke mesto Tenochtitlán?", "Oxford (vyučovalo sa tam od 1096; Tenochtitlán 1325)"],
+   ["Čo bolo skôr: Kleopatra, alebo Veľká pyramída v Gíze?", "Pyramída (asi 2560 pred Kr.; Kleopatra žila 69 – 30 pred Kr.)"],
+   ["Čo vzniklo skôr: Karlova univerzita v Prahe, alebo Univerzita Komenského v Bratislave?", "Karlova univerzita (1348; UK 1919)"],
+   ["Čo bolo skôr: Bellov telefón, alebo Edisonova žiarovka?", "Telefón (1876; žiarovka 1879)"],
+   ["Čo vzniklo skôr: firma Nintendo, alebo prvá svetová vojna?", "Nintendo (1889, vyrábalo hracie karty; vojna 1914)"]],
+  [["Čo bolo skôr: vyhynutie posledných mamutov, alebo stavba Veľkej pyramídy?", "Pyramída (asi 2560 pred Kr.; posledné mamuty žili do asi 2000 pred Kr.)"],
+   ["Čo vzniklo skôr: Harvardova univerzita, alebo Newtonov zákon gravitácie?", "Harvard (1636; Newton 1687)"],
+   ["Čo bolo skôr: Martinská deklarácia, alebo koniec 1. svetovej vojny?", "Martinská deklarácia (30. 10. 1918; prímerie 11. 11. 1918)"],
+   ["Čo bolo skôr: ústava USA, alebo Francúzska revolúcia?", "Ústava USA (1787; revolúcia 1789)"],
+   ["Čo bolo skôr: prvé olympijské hry v Olympii, alebo založenie Ríma?", "Olympijské hry (776 pred Kr.; Rím 753 pred Kr.)"]],
+  [["Čo žilo skôr: Tyrannosaurus rex, alebo Stegosaurus?", "Stegosaurus (asi pred 150 mil. rokov; T. rex pred 68 – 66 mil. rokov)"],
+   ["Čo vzniklo skôr: Sacherova torta, alebo Coca-Cola?", "Sacherova torta (1832; Coca-Cola 1886)"],
+   ["Čo bolo skôr: patent na fax, alebo telefón?", "Fax (Alexander Bain 1843; telefón 1876)"],
+   ["Čo bolo skôr: objavenie Ameriky, alebo prvé turecké obliehanie Viedne?", "Objavenie Ameriky (1492; Viedeň 1529)"],
+   ["Čo bolo skôr: vysvätenie Dómu sv. Martina v Bratislave, alebo objavenie Ameriky?", "Vysvätenie Dómu (1452; Amerika 1492)"]]
+];
+BANK["Slovenské značky a výrobky"] = [
+  [["Ktorý hnedý nápoj vznikol v Československu ako náhrada Coca-Coly?", "Kofola"],
+   ["Ako sa volajú oblátky z Liptovského Hrádku, pomenované podľa našich veľhôr?", "Tatranky"],
+   ["Ako sa volá slovenská hroznová limonáda?", "Vinea"],
+   ["Ktoré slovenské pivo má na etikete zlatého vtáka?", "Zlatý Bažant"],
+   ["Ktorá kórejská automobilka vyrába autá pri Žiline?", "Kia"]],
+  [["Ktorý koncern vyrába autá v Bratislave – Devínskej Novej Vsi?", "Volkswagen"],
+   ["Ktorá automobilka postavila v roku 2018 továreň v Nitre?", "Jaguar Land Rover"],
+   ["Ktorá automobilka vyrába autá v Trnave?", "Stellantis (Peugeot, Citroën)"],
+   ["Ako sa volajú oblátky so senickej Sedity s orieškovou náplňou?", "Horalky"],
+   ["Ako sa volá antivírus, ktorý vznikol v Bratislave (známy aj ako NOD32)?", "ESET"]],
+  [["Ako sa volá borievkový destilát typický pre Slovensko?", "Borovička"],
+   ["Ktorý bylinný likér je pomenovaný podľa doliny s jaskyňami v Nízkych Tatrách?", "Demänovka"],
+   ["Ako sa volá firma Štefana Kleina, ktorej lietajúce auto AirCar dostalo osvedčenie letovej spôsobilosti?", "KleinVision"],
+   ["Ktoré bratislavské štúdio vytvorilo mobilnú hru TrainStation?", "Pixel Federation"],
+   ["Ako sa volá ovocný destilát z hrušiek?", "Hruškovica"]],
+  [["Aký vynález si dal patentovať Štefan Banič z Neštichu v roku 1914?", "Padák"],
+   ["Ako sa volá značka pneumatík z Púchova?", "Matador"],
+   ["Ako sa volala značka chladničiek a mrazničiek zo Zlatých Moraviec?", "Calex"],
+   ["Ktoré šumivé víno sa vyrába v Seredi?", "Hubert"],
+   ["Ako sa volá slovenská firma, ktorá v roku 2014 predstavila lietajúce auto Juraja Vaculíka a Štefana Kleina?", "AeroMobil"]],
+  [["V ktorom meste sídli Sedita, výrobca Horaliek?", "V Senici"],
+   ["V ktorom meste sa vyrábajú Tatranky?", "V Liptovskom Hrádku"],
+   ["V ktorom meste je pivovar Zlatý Bažant?", "V Hurbanove"],
+   ["Ktorý slovenský drevený hudobný nástroj až do 2 metrov je v zozname UNESCO?", "Fujara"],
+   ["Ako sa volá sieť obchodov – spotrebné družstvo, ktoré má predajne skoro v každej slovenskej dedine?", "COOP Jednota"]]
+];
+BANK["Mláďatá a samice zvierat"] = [
+  [["Ako sa volá mláďa kravy?", "Teľa"], ["Ako sa volá mláďa koňa?", "Žriebä"], ["Ako sa volá mláďa ovce?", "Jahňa"], ["Ako sa volá mláďa sliepky?", "Kuriatko (kurča)"], ["Ako sa volá mláďa psa?", "Šteňa"]],
+  [["Ako sa volá mláďa kozy?", "Kozľa"], ["Ako sa volá samica psa?", "Suka (fena)"], ["Ako sa volá samec ovce?", "Baran"], ["Ako sa volá samica koňa?", "Kobyla"], ["Ako sa volá samec mačky?", "Kocúr"]],
+  [["Ako sa volá samec kozy?", "Cap"], ["Ako sa volá samica srnca?", "Srna"], ["Ako sa volá samica jeleňa?", "Jelenica"], ["Ako sa volá samec morky?", "Moriak"], ["Ako sa volá samec kačice?", "Kačer"]],
+  [["Ako sa volá samec husi?", "Gunár"], ["Ako sa volá mláďa husi?", "Húsa"], ["Ako sa volá mláďa kačice?", "Káčatko"], ["Ako sa volá mláďa medveďa?", "Medvieďa"], ["Ako sa volá samica zajaca?", "Zajačica"]],
+  [["Ako sa volá mláďa (larva) žaby?", "Žubrienka"], ["Ako sa volá vykastrovaný žrebec?", "Valach"], ["Ako sa volá vykastrovaný kohút?", "Kapún"], ["Ako sa volá samec včely?", "Trúd"], ["Ako sa volá vykastrovaný samec prasaťa?", "Bravec"]]
+];
+BANK["Slovenské filmy a seriály"] = [
+  [["Ktorý rozprávkový film z roku 1985 je o pani Zime, ktorá trasie periny, a o Jakubkovi?", "Perinbaba"],
+   ["Ktorý zbojník z Hýb je hrdinom kultovej slovenskej komédie z roku 1975?", "Pacho"],
+   ["Ako sa volá seriál Markízy o obyvateľoch jedného bratislavského paneláku?", "Panelák"],
+   ["Ako sa volá obľúbený seriál STV a RTVS o dedine, ktorého názov je cestička z kameňa?", "Kamenný chodníček"],
+   ["Ktorého zbojníka si zahral Václav Jiráček vo filme Agnieszky Holland z roku 2009?", "Jánošíka"]],
+  [["Ktorý slovenský režisér nakrútil filmy Perinbaba a Bathory?", "Juraj Jakubisko"],
+   ["V ktorej slovenskej rozprávke povie princezná otcovi, že ho má rada ako soľ?", "Soľ nad zlato"],
+   ["Ktorý film z roku 1965 natočený v Sabinove získal Oscara?", "Obchod na korze"],
+   ["Ktorý film Petra Bebjaka z roku 2017 je o pašovaní cigariet cez ukrajinskú hranicu?", "Čiara"],
+   ["Ako sa volali filmové ateliéry v Bratislave, kde vznikla väčšina slovenských filmov?", "Koliba"]],
+  [["Ktorý herec hral Tona Brtka vo filme Obchod na korze?", "Jozef Kroner"],
+   ["Ako sa volá film z roku 2021 o úteku Rudolfa Vrbu a Alfréda Wetzlera z Osvienčimu?", "Správa"],
+   ["O kom bol prvý slovenský celovečerný hraný film z roku 1921?", "O Jánošíkovi"],
+   ["Ktorý režisér nakrútil komédiu Pacho, hybský zbojník?", "Martin Ťapák"],
+   ["Ako sa volá kriminálny seriál Markízy, ktorý sa odohrával v centre Bratislavy?", "Kriminálka Staré Mesto"]],
+  [["Ako sa volá slovenská filmová cena, ktorú nesie aj názov filmu Štefana Uhra?", "Slnko v sieti"],
+   ["Ako sa volá filmový festival, ktorý sa roky konal v Trenčianskych Tepliciach a dnes v Košiciach?", "Art Film Fest"],
+   ["Ako sa volá film Martina Šulíka z roku 1995 o Jakubovi, ktorý sa nasťahuje do starého domu so záhradou?", "Záhrada"],
+   ["Kto hral Jánošíka vo filme Paľa Bielika z rokov 1962 – 1963?", "František Kuchta"],
+   ["Kto zložil hudbu k filmu Perinbaba?", "Petr Hapka"]],
+  [["Ktorá talianska herečka, manželka Felliniho, hrala Perinbabu?", "Giulietta Masina"],
+   ["Ktorá poľská herečka hrala pani Lautmannovú v Obchode na korze?", "Ida Kamińska"],
+   ["V ktorom roku dostal Obchod na korze Oscara?", "1966"],
+   ["Ktorý režisér nakrútil filmy Čiara aj Správa?", "Peter Bebjak"],
+   ["Ktorí dvaja režiséri spolu nakrútili Obchod na korze?", "Ján Kadár a Elmar Klos"]]
+];
+BANK["Život za socializmu"] = [
+  [["Ako sa volali obchody, kde sa dal kúpiť západný tovar za bony?", "Tuzex"],
+   ["Ako sa volali deti v organizácii s červenou šatkou?", "Pionieri"],
+   ["Ktorý motocykel sa vyrábal v Týnci nad Sázavou?", "Jawa"],
+   ["Ako sa volalo malé auto z NDR s plastovou karosériou?", "Trabant"],
+   ["Ako sa volalo veľké hromadné cvičenie na pražskom Strahove?", "Spartakiáda"]],
+  [["Ktorý sviatok práce sa oslavoval povinnými sprievodmi?", "1. máj"],
+   ["Ako sa volali poukážky, za ktoré sa nakupovalo v Tuzexe?", "Bony"],
+   ["Ako sa volala organizácia pre mládež – skratka SZM?", "Socialistický zväz mládeže"],
+   ["Ktorá škodovka z rokov 1976 – 1990 mala motor vzadu a volali ju aj „stodvadsiatka“?", "Škoda 120 (105/120)"],
+   ["Ktorá bratislavská mestská časť je najväčšie panelákové sídlisko na Slovensku?", "Petržalka"]],
+  [["Ktorý prezident vládol v ČSSR v rokoch 1975 – 1989?", "Gustáv Husák"],
+   ["Ako sa volá obdobie po roku 1968, keď sa obnovil tvrdý režim?", "Normalizácia"],
+   ["V ktorom mesiaci roku 1968 vtrhli do Československa vojská Varšavskej zmluvy?", "V auguste (21. augusta)"],
+   ["Ako sa volal pokus o „socializmus s ľudskou tvárou“ v roku 1968?", "Pražská jar"],
+   ["Ktorý Slovák viedol komunistickú stranu počas Pražskej jari?", "Alexander Dubček"]],
+  [["Koľko rokov trvala v 80. rokoch bežná základná vojenská služba?", "2 roky"],
+   ["Ako sa volala tajná polícia – skratkou?", "ŠtB (Štátna bezpečnosť)"],
+   ["Ako sa volal dokument z roku 1977, ktorý podpísal aj Václav Havel?", "Charta 77"],
+   ["Ako sa volá pokojná demonštrácia veriacich v Bratislave 25. marca 1988?", "Sviečková manifestácia"],
+   ["Ktoré ovocie bolo vzácnosťou a kupovalo sa hlavne na Vianoce?", "Banány (a pomaranče)"]],
+  [["Odkedy bolo Československo federáciou českej a slovenskej republiky?", "Od 1. januára 1969"],
+   ["Ako sa volal 8-bitový počítač zo Skalice, kompatibilný so ZX Spectrum?", "Didaktik"],
+   ["Ako sa volal hlavný denník komunistickej strany na Slovensku?", "Pravda"],
+   ["Ako sa volal obchodný dom otvorený v roku 1968 na Kamennom námestí v Bratislave?", "Prior"],
+   ["Ktorý domáci počítač vyrábala Tesla Piešťany?", "PMD 85"]]
+];
+BANK["Detektívky a záhady"] = [
+  [["Ktorý detektív má pomocníka doktora Watsona?", "Sherlock Holmes"],
+   ["Ako sa volá belgický detektív s fúzikmi od Agathy Christie?", "Hercule Poirot"],
+   ["Kto napísal príbehy o Sherlockovi Holmesovi?", "Arthur Conan Doyle"],
+   ["Ktorý poručík v pršiplášti vždy hovorí „ešte jedna vec“?", "Columbo"],
+   ["Ktorej spisovateľke hovoria kráľovná detektívok?", "Agatha Christie"]],
+  [["Na ktorej londýnskej ulici býval Sherlock Holmes (číslo 221B)?", "Baker Street"],
+   ["Ako sa volá stará dáma-detektívka Agathy Christie?", "Slečna Marplová"],
+   ["Ako sa volal úhlavný nepriateľ Sherlocka Holmesa?", "Profesor Moriarty"],
+   ["Ktorý francúzsky komisár s fajkou je hrdinom Georgesa Simenona?", "Maigret"],
+   ["Ako sa volá americký seriál o kriminalistoch z Las Vegas – skratkou?", "CSI"]],
+  [["V ktorom vlaku riešil Poirot vraždu?", "V Orient exprese"],
+   ["Ako sa volá Poirotov priateľ a pomocník?", "Kapitán Hastings"],
+   ["Ako sa volá agentka FBI v Mlčaní jahniat?", "Clarice Starlingová"],
+   ["Ako sa volal londýnsky vrah z roku 1888, ktorého nikdy nechytili?", "Jack Rozparovač"],
+   ["Ako sa volá kniha Agathy Christie, v ktorej na ostrove postupne zomrie desať ľudí?", "A potom nezostal žiadny (Desať malých černoškov)"]],
+  [["Ktorý detektív Edgara Allana Poea je považovaný za prvého detektíva v literatúre?", "C. Auguste Dupin"],
+   ["Ako sa volá starší brat Sherlocka Holmesa?", "Mycroft"],
+   ["Ktorý švédsky spisovateľ napísal trilógiu Millennium?", "Stieg Larsson"],
+   ["Ako sa volá súkromný detektív z kníh Raymonda Chandlera?", "Philip Marlowe"],
+   ["Na ktorom ostrove pracuje komisár Montalbano?", "Na Sicílii"]],
+  [["Na aký hudobný nástroj hrával Sherlock Holmes?", "Na husle"],
+   ["Ako sa volá prvý príbeh o Sherlockovi Holmesovi?", "Štúdia v šarlátovej"],
+   ["Ktorý nórsky spisovateľ píše detektívky o Harrym Holeovi?", "Jo Nesbø"],
+   ["Ako sa volá detektív v Maltézskom sokolovi od Dashiella Hammetta?", "Sam Spade"],
+   ["Kto napísal detektívky o pátrovi Brownovi?", "G. K. Chesterton"]]
+];
+BANK["Sladkosti a dezerty"] = [
+  [["Z čoho sa vyrába čokoláda?", "Z kakaových bôbov"],
+   ["Ako sa volá taliansky dezert s mascarpone, piškótami a kávou?", "Tiramisu"],
+   ["Ako sa volá americká torta zo smotanového syra na sušienkovom korpuse?", "Cheesecake"],
+   ["Aké vianočné pečivo v tvare polmesiaca sa obaľuje vo vanilkovom cukre?", "Vanilkové rožky"],
+   ["Ako sa volá francúzsky maslový rožok z lístkového cesta?", "Croissant"]],
+  [["Ako sa volá viedenská čokoládová torta s marhuľovým džemom?", "Sacherova torta"],
+   ["Ako sa volá francúzsky krém s pripáleným cukrom navrchu?", "Crème brûlée"],
+   ["Ako sa volá turecký dezert z tenkého cesta s orechmi a medom?", "Baklava"],
+   ["Ako sa volá taliansky smotanový dezert, ktorého názov znamená „varená smotana“?", "Panna cotta"],
+   ["Ako sa volá trubica z cesta pečená na ražni, posypaná cukrom a orechmi?", "Trdelník"]],
+  [["Ako sa volajú farebné francúzske sušienky z mandľovej múky s krémom?", "Makrónky (macarons)"],
+   ["Ktorý dezert z pusiniek a ovocia je pomenovaný po ruskej baletke?", "Pavlova"],
+   ["Ktorý dezert s broskyňou a zmrzlinou je pomenovaný po austrálskej speváčke?", "Broskyňa Melba"],
+   ["Z ktorej krajiny pochádzajú košíčky s krémom pastel de nata?", "Z Portugalska"],
+   ["Ako sa volá taliansky vianočný koláč z Milána s hrozienkami?", "Panettone"]],
+  [["Ako sa volá zákusok z lístkového cesta s vysokou vrstvou vanilkového krému?", "Krémeš"],
+   ["Aké ovocie patrí do Schwarzwaldskej torty?", "Čerešne"],
+   ["Ako sa volá maďarská torta s tvrdou karamelovou vrstvou navrchu?", "Dobošova torta"],
+   ["Ako sa volajú vyprážané tyčinky z cesta, posypané cukrom so škoricou, typické pre Španielsko?", "Churros"],
+   ["Ako sa volá rakúsky trhaný sladký omeletový dezert?", "Kaiserschmarrn (cisársky trhanec)"]],
+  [["Ako sa volá japonský dezert z lepkavého ryžového cesta?", "Mochi"],
+   ["Ako sa volá francúzska svadobná veža z plnených guľôčok spojených karamelom?", "Croquembouche"],
+   ["Ako sa volajú turecké želé kocky obalené v práškovom cukre?", "Lokum"],
+   ["Ako sa volajú brazílske čokoládové guľôčky v posýpke?", "Brigadeiro"],
+   ["Akú náplň majú tradičné bratislavské rožky?", "Orechovú alebo makovú"]]
+];
+BANK["Mobily, aplikácie a sociálne siete"] = [
+  [["Ktorá firma vyrába iPhone?", "Apple"],
+   ["Ako sa volá aplikácia na krátke videá, ktorú vlastní čínska firma?", "TikTok"],
+   ["Ktorá sociálna sieť má modré logo s malým písmenom f?", "Facebook"],
+   ["Ktorá sieť na zdieľanie fotiek má v logu farebný fotoaparát?", "Instagram"],
+   ["Ako sa volá mobilný operačný systém od Googlu?", "Android"]],
+  [["Ako sa volá Twitter od roku 2023?", "X"],
+   ["Kto založil Facebook?", "Mark Zuckerberg"],
+   ["Ktorá četovacia aplikácia má zelené logo s telefónom?", "WhatsApp"],
+   ["Ktorá fínska firma vyrábala legendárny mobil 3310?", "Nokia"],
+   ["Ktorý juhokórejský výrobca má telefóny Galaxy?", "Samsung"]],
+  [["V ktorom roku predstavil Steve Jobs prvý iPhone?", "V roku 2007"],
+   ["Ako sa volá hra, v ktorej ľudia v roku 2016 chytali pokémonov po uliciach?", "Pokémon GO"],
+   ["Ktorá aplikácia má v logu bieleho ducha na žltom pozadí?", "Snapchat"],
+   ["Ktorá firma kúpila Instagram v roku 2012?", "Facebook (dnes Meta)"],
+   ["Ako sa volá hlasová asistentka v iPhone?", "Siri"]],
+  [["Ako sa volá fínska hra, v ktorej strieľate vtáky prakom na prasatá?", "Angry Birds"],
+   ["Ako sa volá technológia na platenie mobilom priložením k terminálu (skratka)?", "NFC"],
+   ["Z ktorého jazyka pochádza slovo emoji?", "Z japončiny"],
+   ["Koľko znakov mohol mať pôvodne jeden tweet?", "140"],
+   ["Čo znamená skratka SMS?", "Short Message Service (krátka textová správa)"]],
+  [["Ktorú aplikáciu založil Rus Pavel Durov?", "Telegram"],
+   ["Ako sa volá úplne prvé video na YouTube z roku 2005?", "Me at the zoo"],
+   ["V ktorom roku bola odoslaná prvá SMS?", "V roku 1992"],
+   ["Ako sa volá hlasová asistentka od Amazonu?", "Alexa"],
+   ["Ako sa volá čínska firma, ktorá vlastní TikTok?", "ByteDance"]]
+];
+BANK["Rozprávkové bytosti a strašidlá"] = [
+  [["Ako sa volá vodná bytosť, ktorá zbiera dušičky do hrnčekov?", "Vodník"],
+   ["Ako sa volá bytosť, ktorá pije ľudskú krv a bojí sa cesnaku?", "Upír"],
+   ["Ako sa volá bytosť z lampy, ktorá plní tri želania?", "Džin"],
+   ["Ako sa volá okrídlený plaz, ktorý chrlí oheň?", "Drak"],
+   ["Ako sa volá človek, ktorý sa za splnu mení na vlka?", "Vlkolak"]],
+  [["Ako sa volajú krásne bytosti, ktoré v noci tancujú na lúkach?", "Víly"],
+   ["Kto v rozprávke o Snehulienke býval v chalúpke v počte sedem?", "Trpaslíci"],
+   ["Ako sa volá biely kôň s jedným rohom na čele?", "Jednorožec"],
+   ["Ako sa volá bájny vták, ktorý vstáva z popola?", "Fénix"],
+   ["Ako sa volá bytosť – napoly žena, napoly ryba?", "Morská panna"]],
+  [["Ako sa volá bytosť, ktorá v lete napoludnie strašila na poliach?", "Poludnica"],
+   ["Ako sa volá ženská príšera s hadmi namiesto vlasov?", "Medúza"],
+   ["Ako sa volá trojhlavý pes, ktorý stráži podsvetie?", "Kerberos"],
+   ["Ako sa volá bytosť – napoly človek, napoly kôň?", "Kentaur"],
+   ["Ako sa volá škandinávsky obor, ktorý sa skrýva pod mostami?", "Troll"]],
+  [["Ako sa volá hlinený obor z pražskej povesti, ktorého oživil rabín Löw?", "Golem"],
+   ["Ako sa volá svetielko nad močiarom, ktoré láka pocestných do bahna?", "Bludička"],
+   ["Ako sa volá írsky škriatok s hrncom zlata na konci dúhy?", "Leprikón"],
+   ["Ako sa volá bájny tvor s telom leva a hlavou a krídlami orla?", "Grif (gryf)"],
+   ["Ako sa volá socha s telom leva a hlavou človeka pri pyramídach?", "Sfinga"]],
+  [["Ako sa volá írska bytosť, ktorej nárek predpovedá smrť?", "Banshee"],
+   ["Ako sa volá kráľ hadov, ktorého pohľad zabíja?", "Bazilišek"],
+   ["Ako sa volá slovanská bytosť, ktorá v noci sedí spiacim na hrudi a dusí ich?", "Mora (zmora)"],
+   ["Ako sa volá obrovská morská príšera s chápadlami zo severských povestí?", "Kraken"],
+   ["Ako sa volá chlpatý lesný obor zo Severnej Ameriky, nazývaný aj Sasquatch?", "Bigfoot"]]
+];
+BANK["Slávne dvojice"] = [
+  [["Pat a …?", "Mat"], ["Tom a …?", "Jerry"], ["Bolek a …?", "Lolek"], ["Asterix a …?", "Obelix"], ["Romeo a …?", "Júlia"]],
+  [["Laurel a …?", "Hardy"], ["Bonnie a …?", "Clyde"], ["Ako sa volá pomocník Batmana?", "Robin"], ["Ako sa volá ušatý priateľ Shreka?", "Somár (Oslík)"], ["Timon a …?", "Pumbaa"]],
+  [["Maťko a …?", "Kubko"], ["Spejbl a …?", "Hurvínek"], ["Křemílek a …?", "Vochomůrka"], ["Simon a … (americké hudobné duo)?", "Garfunkel"], ["Tristan a …?", "Izolda"]],
+  [["S kým spolu skúmala rádioaktivitu Marie Curie?", "S manželom Pierrom Curiem"], ["Watson a Crick objavili štruktúru čoho?", "DNA"], ["Lewis a … (výprava naprieč Amerikou 1804 – 1806)?", "Clark"], ["Marx a …?", "Engels"], ["Orfeus a …?", "Eurydika"]],
+  [["Kastor a …?", "Pollux"], ["Abélard a …?", "Heloisa"], ["Gilbert a … (anglické operety)?", "Sullivan"], ["Torvillová a … (krasokorčuliari z olympiády 1984)?", "Dean"], ["Čo vyrábajú Ben & Jerry's?", "Zmrzlinu"]]
+];
 </script>
 <script>
 const app = document.getElementById('app');
@@ -6119,7 +6555,7 @@ function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = 
 const shuf = (a, r) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const CODE_CHARS = 'ABCDEFGHJKLMNPRSTUVXYZ';
 const newCode = () => Array.from({length: 4}, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
-const validCode = c => /^[A-Z]{4}([0-7]([0-9]([0-9A-Z]{2})*)?)?(-[0-6]{2})?$/.test(c);   // -12 na konci = počet polí Riskuj! v 1. a 2. kole
+const validCode = c => /^[A-Z]{4}([0-7]([0-9]([0-9A-Z]{2})*)?)?(\.([0-9A-Z]{2})+)?(-[0-6]{2})?$/.test(c);   // -12 na konci = počet polí Riskuj! v 1. a 2. kole
 /* ---------- počet polí Riskuj! nastaviteľný pred hrou ---------- */
 const RISK_KEY = 'riskuj-pocet-poli';
 function riskPocty() { try { const v = JSON.parse(localStorage.getItem(RISK_KEY)); if (Array.isArray(v) && v.length === 2) return v.map(x => Math.max(0, Math.min(6, +x || 0))); } catch (e) {} return [1, 2]; }
@@ -6146,11 +6582,13 @@ function parseCode(code) {
   const rm = /-([0-6])([0-6])$/.exec(code), risk = rm ? [+rm[1], +rm[2]] : [1, 2];
   code = code.replace(/-[0-6]{2}$/, '');
   const all = Object.keys(BANK).sort();
+  const xm = /\.((?:[0-9A-Z]{2})+)$/.exec(code), excl = xm ? xm[1].match(/.{2}/g).map(x => all[parseInt(x, 36)]).filter(Boolean) : [];
+  code = code.replace(/\.(?:[0-9A-Z]{2})+$/, '');
   const mask = code.length > 4 ? +code[4] : 7; // 1 = hudba, 2 = obrázky, 4 = interaktívne
   const nCustom = code.length > 5 ? +code[5] : 0;
   const n = code.length >= 8 ? parseInt(code.slice(6, 8), 36) || 0 : 0;
   const picks = (code.slice(8).match(/.{2}/g) || []).map(x => all[parseInt(x, 36)]).filter(Boolean);
-  return {all, mask, nCustom, n, picks, risk};
+  return {all, mask, nCustom, n, picks, risk, excl};
 }
 const hashStr = s => { let h = 2166136261; for (const ch of s) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 // Pevne zamiešaný „balíček“ kategórií každého typu – rovnaký na každom zariadení.
@@ -6159,12 +6597,12 @@ function deckOf(kind, exclude) {
 }
 function buildGame(code, sets) {
   const r = mulberry32(seedOf(code));
-  const {mask, nCustom, n, picks, risk} = parseCode(code);
+  const {mask, nCustom, n, picks, risk, excl} = parseCode(code);
   // Proti opakovaniu: hra č. n berie z balíčka ďalšie kategórie v poradí. Kategória sa vráti,
   // až keď sa vystriedajú všetky; „kolo balíčka“ (lap) potom vyberie iné varianty jej otázok.
   const lap = {};
   const take = (kind, stride, count) => {
-    const d = deckOf(kind, picks), out = [];
+    const d = deckOf(kind, picks.concat(excl)), out = [];
     for (let i = 0; i < Math.min(count, d.length); i++) {
       const pos = n * stride + i, c = d[pos % d.length];
       if (out.includes(c)) break;
@@ -6327,6 +6765,10 @@ function loadSets() { try { return JSON.parse(localStorage.getItem(SETS_KEY)) ||
 function saveSets() { try { localStorage.setItem(SETS_KEY, JSON.stringify(SETS)); } catch (e) {} }
 function loadPicks() { try { return JSON.parse(localStorage.getItem(PICKS_KEY)) || []; } catch (e) { return []; } }
 function savePicks(p) { try { localStorage.setItem(PICKS_KEY, JSON.stringify(p)); } catch (e) {} }
+// vylúčené kategórie (pravý klik v zozname) – v hre sa nepoužijú, kým ich nevrátiš
+const EXCL_KEY = 'riskuj-vylucene';
+function loadExcl() { try { return (JSON.parse(localStorage.getItem(EXCL_KEY)) || []).filter(k => BANK[k]); } catch (e) { return []; } }
+function saveExcl(x) { try { localStorage.setItem(EXCL_KEY, JSON.stringify(x)); } catch (e) {} }
 const setItems = id => CUSTOM.filter(i => i.setId === id).sort((a, b) => a.pos - b.pos);
 const emptyRow = (level = 0) => ({id: null, type: 'text', blob: null, name: '', question: '', answer: '', start: 0, level});
 const itemLevel = (it, idx) => it.level != null ? it.level : Math.min(4, it.pos != null ? it.pos : idx); // staršie otázky: poradie = úroveň
@@ -6397,11 +6839,13 @@ function pickerHtml() {
   const valid = p.filter(k => k.startsWith('set:') ? SETS.some(s => 'set:' + s.id === k) : !!BANK[k]);
   const all = Object.keys(BANK).sort((a, b) => a.localeCompare(b, 'sk'));
   const icon = c => ({audio: '🎵 ', visual: '🖼️ ', fun: '🧩 '})[KIND[c]] || '';
-  const chip = (k, label) => `<button class="catchip${valid.includes(k) ? ' on' : ''}" type="button" data-act="catpick" data-k="${esc(k)}">${label}</button>`;
+  const ex = loadExcl();
+  const chip = (k, label) => `<button class="catchip${valid.includes(k) ? ' on' : ''}${ex.includes(k) ? ' off' : ''}" type="button" data-act="catpick" data-k="${esc(k)}" title="Ľavý klik: vybrať do hry · Pravý klik: vylúčiť z hry">${ex.includes(k) ? '🚫 ' : ''}${label}</button>`;
   const sets = SETS.slice().sort((a, b) => a.order - b.order);
   return `<h3>Kategórie v hre</h3>
     <p class="hint">Najbližšia hra je <b>č. ${gameNoNow() + 1}</b>. Kategórie sa neopakujú, kým sa nevystriedajú všetky, a keď sa vrátia, prídu v nich iné otázky. <button class="lnk" type="button" data-act="decreset">Začať od začiatku</button></p>
-    <p>${valid.length ? `Vybraté: <b>${valid.length} z 12</b>. Zvyšné miesta sa doplnia náhodne.` : 'Nič nie je vybraté, takže všetkých 12 kategórií bude <b>náhodných</b>.'} Kliknutím kategóriu vyberieš, ďalším kliknutím výber zrušíš.</p>
+    <p>${valid.length ? `Vybraté: <b>${valid.length} z 12</b>. Zvyšné miesta sa doplnia náhodne.` : 'Nič nie je vybraté, takže všetkých 12 kategórií bude <b>náhodných</b>.'} Kliknutím kategóriu vyberieš, ďalším kliknutím výber zrušíš. <b>Pravým kliknutím</b> ju vylúčiš – v hre nebude.</p>
+    ${ex.length ? `<p>Vylúčené: <b>${ex.length}</b> <button class="lnk" type="button" data-act="exclclear">Vrátiť všetky vylúčené</button></p>` : ''}
     ${sets.length ? `<span class="eyebrow">Tvoje kategórie</span><div class="catgrid">${sets.map(s => chip('set:' + s.id, '📁 ' + esc(s.title))).join('')}</div>` : ''}
     <span class="eyebrow">Všetky kategórie</span><div class="catgrid">${all.map(c => chip(c, icon(c) + esc(c))).join('')}</div>
     ${valid.length ? '<div><button class="btn" data-act="catclear" type="button">Zrušiť výber – všetko náhodne</button></div>' : ''}`;
@@ -6416,7 +6860,8 @@ function gameConfig() {
     .map(s => ({title: s.title, items: setItems(s.id).map((i, x) => ({id: i.id, type: i.type, answer: i.answer, question: i.question, start: i.start, level: itemLevel(i, x)}))}))
     .filter(s => s.items.length).slice(0, 9);
   const builtins = p.filter(k => BANK[k]).slice(0, 12 - sets.length);
-  return {sets, suffix: String(sets.length) + nextGameNo().toString(36).toUpperCase().padStart(2, '0') + builtins.map(c => all.indexOf(c).toString(36).toUpperCase().padStart(2, '0')).join('')};
+  const ex = loadExcl().filter(c => !builtins.includes(c)), two = c => all.indexOf(c).toString(36).toUpperCase().padStart(2, '0');
+  return {sets, suffix: String(sets.length) + nextGameNo().toString(36).toUpperCase().padStart(2, '0') + builtins.map(two).join('') + (ex.length ? '.' + ex.map(two).join('') : '')};
 }
 async function saveEdit() {
   const E = EDIT, title = (E.title || '').trim();
@@ -6529,16 +6974,27 @@ function customAct(a, el) {
     }
     case 'catpick': {
       const k = el.dataset.k; let p = loadPicks().filter(x => x.startsWith('set:') ? SETS.some(s => 'set:' + s.id === x) : !!BANK[x]);
+      if (loadExcl().includes(k)) saveExcl(loadExcl().filter(x => x !== k));
       if (p.includes(k)) p = p.filter(x => x !== k);
       else if (p.length >= 12) { toast('Vybrať môžeš najviac 12 kategórií'); return true; }
       else p.push(k);
       savePicks(p); updateCustom(); return true;
     }
     case 'catclear': savePicks([]); updateCustom(); return true;
+    case 'exclclear': saveExcl([]); updateCustom(); toast('Všetky kategórie sú znova v hre'); return true;
     case 'decreset': try { localStorage.setItem(GAMENO_KEY, '0'); } catch (e) {} updateCustom(); toast('Poradie kategórií začína odznova'); return true;
   }
   return false;
 }
+app.addEventListener('contextmenu', e => {
+  const el = e.target.closest && e.target.closest('.catchip[data-k]');
+  if (!el || !BANK[el.dataset.k]) return;
+  e.preventDefault();
+  const k = el.dataset.k, x = loadExcl();
+  if (x.includes(k)) { saveExcl(x.filter(c => c !== k)); toast('„' + k + '“ je znova v hre'); }
+  else { saveExcl(x.concat(k)); savePicks(loadPicks().filter(c => c !== k)); toast('„' + k + '“ nebude v hre'); }
+  updateCustom();
+});
 app.addEventListener('input', e => {
   if (!EDIT) return;
   if (e.target.id === 'ed_title') { EDIT.title = e.target.value; return; }
@@ -7219,7 +7675,9 @@ window.claude?.hot?.snapshot?.(() => S);
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
 </script>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>/* qrcodejs 1.0.0 (MIT, davidshimjs) – vložené, aby QR kódy išli aj bez internetu */
+var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this.parsedData=[];for(var b=[],d=0,e=this.data.length;e>d;d++){var f=this.data.charCodeAt(d);f>65536?(b[0]=240|(1835008&f)>>>18,b[1]=128|(258048&f)>>>12,b[2]=128|(4032&f)>>>6,b[3]=128|63&f):f>2048?(b[0]=224|(61440&f)>>>12,b[1]=128|(4032&f)>>>6,b[2]=128|63&f):f>128?(b[0]=192|(1984&f)>>>6,b[1]=128|63&f):b[0]=f,this.parsedData=this.parsedData.concat(b)}this.parsedData.length!=this.data.length&&(this.parsedData.unshift(191),this.parsedData.unshift(187),this.parsedData.unshift(239))}function b(a,b){this.typeNumber=a,this.errorCorrectLevel=b,this.modules=null,this.moduleCount=0,this.dataCache=null,this.dataList=[]}function i(a,b){if(void 0==a.length)throw new Error(a.length+"/"+b);for(var c=0;c<a.length&&0==a[c];)c++;this.num=new Array(a.length-c+b);for(var d=0;d<a.length-c;d++)this.num[d]=a[d+c]}function j(a,b){this.totalCount=a,this.dataCount=b}function k(){this.buffer=[],this.length=0}function m(){return"undefined"!=typeof CanvasRenderingContext2D}function n(){var a=!1,b=navigator.userAgent;return/android/i.test(b)&&(a=!0,aMat=b.toString().match(/android ([0-9]\.[0-9])/i),aMat&&aMat[1]&&(a=parseFloat(aMat[1]))),a}function r(a,b){for(var c=1,e=s(a),f=0,g=l.length;g>=f;f++){var h=0;switch(b){case d.L:h=l[f][0];break;case d.M:h=l[f][1];break;case d.Q:h=l[f][2];break;case d.H:h=l[f][3]}if(h>=e)break;c++}if(c>l.length)throw new Error("Too long data");return c}function s(a){var b=encodeURI(a).toString().replace(/\%[0-9a-fA-F]{2}/g,"a");return b.length+(b.length!=a?3:0)}a.prototype={getLength:function(){return this.parsedData.length},write:function(a){for(var b=0,c=this.parsedData.length;c>b;b++)a.put(this.parsedData[b],8)}},b.prototype={addData:function(b){var c=new a(b);this.dataList.push(c),this.dataCache=null},isDark:function(a,b){if(0>a||this.moduleCount<=a||0>b||this.moduleCount<=b)throw new Error(a+","+b);return this.modules[a][b]},getModuleCount:function(){return this.moduleCount},make:function(){this.makeImpl(!1,this.getBestMaskPattern())},makeImpl:function(a,c){this.moduleCount=4*this.typeNumber+17,this.modules=new Array(this.moduleCount);for(var d=0;d<this.moduleCount;d++){this.modules[d]=new Array(this.moduleCount);for(var e=0;e<this.moduleCount;e++)this.modules[d][e]=null}this.setupPositionProbePattern(0,0),this.setupPositionProbePattern(this.moduleCount-7,0),this.setupPositionProbePattern(0,this.moduleCount-7),this.setupPositionAdjustPattern(),this.setupTimingPattern(),this.setupTypeInfo(a,c),this.typeNumber>=7&&this.setupTypeNumber(a),null==this.dataCache&&(this.dataCache=b.createData(this.typeNumber,this.errorCorrectLevel,this.dataList)),this.mapData(this.dataCache,c)},setupPositionProbePattern:function(a,b){for(var c=-1;7>=c;c++)if(!(-1>=a+c||this.moduleCount<=a+c))for(var d=-1;7>=d;d++)-1>=b+d||this.moduleCount<=b+d||(this.modules[a+c][b+d]=c>=0&&6>=c&&(0==d||6==d)||d>=0&&6>=d&&(0==c||6==c)||c>=2&&4>=c&&d>=2&&4>=d?!0:!1)},getBestMaskPattern:function(){for(var a=0,b=0,c=0;8>c;c++){this.makeImpl(!0,c);var d=f.getLostPoint(this);(0==c||a>d)&&(a=d,b=c)}return b},createMovieClip:function(a,b,c){var d=a.createEmptyMovieClip(b,c),e=1;this.make();for(var f=0;f<this.modules.length;f++)for(var g=f*e,h=0;h<this.modules[f].length;h++){var i=h*e,j=this.modules[f][h];j&&(d.beginFill(0,100),d.moveTo(i,g),d.lineTo(i+e,g),d.lineTo(i+e,g+e),d.lineTo(i,g+e),d.endFill())}return d},setupTimingPattern:function(){for(var a=8;a<this.moduleCount-8;a++)null==this.modules[a][6]&&(this.modules[a][6]=0==a%2);for(var b=8;b<this.moduleCount-8;b++)null==this.modules[6][b]&&(this.modules[6][b]=0==b%2)},setupPositionAdjustPattern:function(){for(var a=f.getPatternPosition(this.typeNumber),b=0;b<a.length;b++)for(var c=0;c<a.length;c++){var d=a[b],e=a[c];if(null==this.modules[d][e])for(var g=-2;2>=g;g++)for(var h=-2;2>=h;h++)this.modules[d+g][e+h]=-2==g||2==g||-2==h||2==h||0==g&&0==h?!0:!1}},setupTypeNumber:function(a){for(var b=f.getBCHTypeNumber(this.typeNumber),c=0;18>c;c++){var d=!a&&1==(1&b>>c);this.modules[Math.floor(c/3)][c%3+this.moduleCount-8-3]=d}for(var c=0;18>c;c++){var d=!a&&1==(1&b>>c);this.modules[c%3+this.moduleCount-8-3][Math.floor(c/3)]=d}},setupTypeInfo:function(a,b){for(var c=this.errorCorrectLevel<<3|b,d=f.getBCHTypeInfo(c),e=0;15>e;e++){var g=!a&&1==(1&d>>e);6>e?this.modules[e][8]=g:8>e?this.modules[e+1][8]=g:this.modules[this.moduleCount-15+e][8]=g}for(var e=0;15>e;e++){var g=!a&&1==(1&d>>e);8>e?this.modules[8][this.moduleCount-e-1]=g:9>e?this.modules[8][15-e-1+1]=g:this.modules[8][15-e-1]=g}this.modules[this.moduleCount-8][8]=!a},mapData:function(a,b){for(var c=-1,d=this.moduleCount-1,e=7,g=0,h=this.moduleCount-1;h>0;h-=2)for(6==h&&h--;;){for(var i=0;2>i;i++)if(null==this.modules[d][h-i]){var j=!1;g<a.length&&(j=1==(1&a[g]>>>e));var k=f.getMask(b,d,h-i);k&&(j=!j),this.modules[d][h-i]=j,e--,-1==e&&(g++,e=7)}if(d+=c,0>d||this.moduleCount<=d){d-=c,c=-c;break}}}},b.PAD0=236,b.PAD1=17,b.createData=function(a,c,d){for(var e=j.getRSBlocks(a,c),g=new k,h=0;h<d.length;h++){var i=d[h];g.put(i.mode,4),g.put(i.getLength(),f.getLengthInBits(i.mode,a)),i.write(g)}for(var l=0,h=0;h<e.length;h++)l+=e[h].dataCount;if(g.getLengthInBits()>8*l)throw new Error("code length overflow. ("+g.getLengthInBits()+">"+8*l+")");for(g.getLengthInBits()+4<=8*l&&g.put(0,4);0!=g.getLengthInBits()%8;)g.putBit(!1);for(;;){if(g.getLengthInBits()>=8*l)break;if(g.put(b.PAD0,8),g.getLengthInBits()>=8*l)break;g.put(b.PAD1,8)}return b.createBytes(g,e)},b.createBytes=function(a,b){for(var c=0,d=0,e=0,g=new Array(b.length),h=new Array(b.length),j=0;j<b.length;j++){var k=b[j].dataCount,l=b[j].totalCount-k;d=Math.max(d,k),e=Math.max(e,l),g[j]=new Array(k);for(var m=0;m<g[j].length;m++)g[j][m]=255&a.buffer[m+c];c+=k;var n=f.getErrorCorrectPolynomial(l),o=new i(g[j],n.getLength()-1),p=o.mod(n);h[j]=new Array(n.getLength()-1);for(var m=0;m<h[j].length;m++){var q=m+p.getLength()-h[j].length;h[j][m]=q>=0?p.get(q):0}}for(var r=0,m=0;m<b.length;m++)r+=b[m].totalCount;for(var s=new Array(r),t=0,m=0;d>m;m++)for(var j=0;j<b.length;j++)m<g[j].length&&(s[t++]=g[j][m]);for(var m=0;e>m;m++)for(var j=0;j<b.length;j++)m<h[j].length&&(s[t++]=h[j][m]);return s};for(var c={MODE_NUMBER:1,MODE_ALPHA_NUM:2,MODE_8BIT_BYTE:4,MODE_KANJI:8},d={L:1,M:0,Q:3,H:2},e={PATTERN000:0,PATTERN001:1,PATTERN010:2,PATTERN011:3,PATTERN100:4,PATTERN101:5,PATTERN110:6,PATTERN111:7},f={PATTERN_POSITION_TABLE:[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],G15:1335,G18:7973,G15_MASK:21522,getBCHTypeInfo:function(a){for(var b=a<<10;f.getBCHDigit(b)-f.getBCHDigit(f.G15)>=0;)b^=f.G15<<f.getBCHDigit(b)-f.getBCHDigit(f.G15);return(a<<10|b)^f.G15_MASK},getBCHTypeNumber:function(a){for(var b=a<<12;f.getBCHDigit(b)-f.getBCHDigit(f.G18)>=0;)b^=f.G18<<f.getBCHDigit(b)-f.getBCHDigit(f.G18);return a<<12|b},getBCHDigit:function(a){for(var b=0;0!=a;)b++,a>>>=1;return b},getPatternPosition:function(a){return f.PATTERN_POSITION_TABLE[a-1]},getMask:function(a,b,c){switch(a){case e.PATTERN000:return 0==(b+c)%2;case e.PATTERN001:return 0==b%2;case e.PATTERN010:return 0==c%3;case e.PATTERN011:return 0==(b+c)%3;case e.PATTERN100:return 0==(Math.floor(b/2)+Math.floor(c/3))%2;case e.PATTERN101:return 0==b*c%2+b*c%3;case e.PATTERN110:return 0==(b*c%2+b*c%3)%2;case e.PATTERN111:return 0==(b*c%3+(b+c)%2)%2;default:throw new Error("bad maskPattern:"+a)}},getErrorCorrectPolynomial:function(a){for(var b=new i([1],0),c=0;a>c;c++)b=b.multiply(new i([1,g.gexp(c)],0));return b},getLengthInBits:function(a,b){if(b>=1&&10>b)switch(a){case c.MODE_NUMBER:return 10;case c.MODE_ALPHA_NUM:return 9;case c.MODE_8BIT_BYTE:return 8;case c.MODE_KANJI:return 8;default:throw new Error("mode:"+a)}else if(27>b)switch(a){case c.MODE_NUMBER:return 12;case c.MODE_ALPHA_NUM:return 11;case c.MODE_8BIT_BYTE:return 16;case c.MODE_KANJI:return 10;default:throw new Error("mode:"+a)}else{if(!(41>b))throw new Error("type:"+b);switch(a){case c.MODE_NUMBER:return 14;case c.MODE_ALPHA_NUM:return 13;case c.MODE_8BIT_BYTE:return 16;case c.MODE_KANJI:return 12;default:throw new Error("mode:"+a)}}},getLostPoint:function(a){for(var b=a.getModuleCount(),c=0,d=0;b>d;d++)for(var e=0;b>e;e++){for(var f=0,g=a.isDark(d,e),h=-1;1>=h;h++)if(!(0>d+h||d+h>=b))for(var i=-1;1>=i;i++)0>e+i||e+i>=b||(0!=h||0!=i)&&g==a.isDark(d+h,e+i)&&f++;f>5&&(c+=3+f-5)}for(var d=0;b-1>d;d++)for(var e=0;b-1>e;e++){var j=0;a.isDark(d,e)&&j++,a.isDark(d+1,e)&&j++,a.isDark(d,e+1)&&j++,a.isDark(d+1,e+1)&&j++,(0==j||4==j)&&(c+=3)}for(var d=0;b>d;d++)for(var e=0;b-6>e;e++)a.isDark(d,e)&&!a.isDark(d,e+1)&&a.isDark(d,e+2)&&a.isDark(d,e+3)&&a.isDark(d,e+4)&&!a.isDark(d,e+5)&&a.isDark(d,e+6)&&(c+=40);for(var e=0;b>e;e++)for(var d=0;b-6>d;d++)a.isDark(d,e)&&!a.isDark(d+1,e)&&a.isDark(d+2,e)&&a.isDark(d+3,e)&&a.isDark(d+4,e)&&!a.isDark(d+5,e)&&a.isDark(d+6,e)&&(c+=40);for(var k=0,e=0;b>e;e++)for(var d=0;b>d;d++)a.isDark(d,e)&&k++;var l=Math.abs(100*k/b/b-50)/5;return c+=10*l}},g={glog:function(a){if(1>a)throw new Error("glog("+a+")");return g.LOG_TABLE[a]},gexp:function(a){for(;0>a;)a+=255;for(;a>=256;)a-=255;return g.EXP_TABLE[a]},EXP_TABLE:new Array(256),LOG_TABLE:new Array(256)},h=0;8>h;h++)g.EXP_TABLE[h]=1<<h;for(var h=8;256>h;h++)g.EXP_TABLE[h]=g.EXP_TABLE[h-4]^g.EXP_TABLE[h-5]^g.EXP_TABLE[h-6]^g.EXP_TABLE[h-8];for(var h=0;255>h;h++)g.LOG_TABLE[g.EXP_TABLE[h]]=h;i.prototype={get:function(a){return this.num[a]},getLength:function(){return this.num.length},multiply:function(a){for(var b=new Array(this.getLength()+a.getLength()-1),c=0;c<this.getLength();c++)for(var d=0;d<a.getLength();d++)b[c+d]^=g.gexp(g.glog(this.get(c))+g.glog(a.get(d)));return new i(b,0)},mod:function(a){if(this.getLength()-a.getLength()<0)return this;for(var b=g.glog(this.get(0))-g.glog(a.get(0)),c=new Array(this.getLength()),d=0;d<this.getLength();d++)c[d]=this.get(d);for(var d=0;d<a.getLength();d++)c[d]^=g.gexp(g.glog(a.get(d))+b);return new i(c,0).mod(a)}},j.RS_BLOCK_TABLE=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],j.getRSBlocks=function(a,b){var c=j.getRsBlockTable(a,b);if(void 0==c)throw new Error("bad rs block @ typeNumber:"+a+"/errorCorrectLevel:"+b);for(var d=c.length/3,e=[],f=0;d>f;f++)for(var g=c[3*f+0],h=c[3*f+1],i=c[3*f+2],k=0;g>k;k++)e.push(new j(h,i));return e},j.getRsBlockTable=function(a,b){switch(b){case d.L:return j.RS_BLOCK_TABLE[4*(a-1)+0];case d.M:return j.RS_BLOCK_TABLE[4*(a-1)+1];case d.Q:return j.RS_BLOCK_TABLE[4*(a-1)+2];case d.H:return j.RS_BLOCK_TABLE[4*(a-1)+3];default:return void 0}},k.prototype={get:function(a){var b=Math.floor(a/8);return 1==(1&this.buffer[b]>>>7-a%8)},put:function(a,b){for(var c=0;b>c;c++)this.putBit(1==(1&a>>>b-c-1))},getLengthInBits:function(){return this.length},putBit:function(a){var b=Math.floor(this.length/8);this.buffer.length<=b&&this.buffer.push(0),a&&(this.buffer[b]|=128>>>this.length%8),this.length++}};var l=[[17,14,11,7],[32,26,20,14],[53,42,32,24],[78,62,46,34],[106,84,60,44],[134,106,74,58],[154,122,86,64],[192,152,108,84],[230,180,130,98],[271,213,151,119],[321,251,177,137],[367,287,203,155],[425,331,241,177],[458,362,258,194],[520,412,292,220],[586,450,322,250],[644,504,364,280],[718,560,394,310],[792,624,442,338],[858,666,482,382],[929,711,509,403],[1003,779,565,439],[1091,857,611,461],[1171,911,661,511],[1273,997,715,535],[1367,1059,751,593],[1465,1125,805,625],[1528,1190,868,658],[1628,1264,908,698],[1732,1370,982,742],[1840,1452,1030,790],[1952,1538,1112,842],[2068,1628,1168,898],[2188,1722,1228,958],[2303,1809,1283,983],[2431,1911,1351,1051],[2563,1989,1423,1093],[2699,2099,1499,1139],[2809,2213,1579,1219],[2953,2331,1663,1273]],o=function(){var a=function(a,b){this._el=a,this._htOption=b};return a.prototype.draw=function(a){function g(a,b){var c=document.createElementNS("http://www.w3.org/2000/svg",a);for(var d in b)b.hasOwnProperty(d)&&c.setAttribute(d,b[d]);return c}var b=this._htOption,c=this._el,d=a.getModuleCount();Math.floor(b.width/d),Math.floor(b.height/d),this.clear();var h=g("svg",{viewBox:"0 0 "+String(d)+" "+String(d),width:"100%",height:"100%",fill:b.colorLight});h.setAttributeNS("http://www.w3.org/2000/xmlns/","xmlns:xlink","http://www.w3.org/1999/xlink"),c.appendChild(h),h.appendChild(g("rect",{fill:b.colorDark,width:"1",height:"1",id:"template"}));for(var i=0;d>i;i++)for(var j=0;d>j;j++)if(a.isDark(i,j)){var k=g("use",{x:String(i),y:String(j)});k.setAttributeNS("http://www.w3.org/1999/xlink","href","#template"),h.appendChild(k)}},a.prototype.clear=function(){for(;this._el.hasChildNodes();)this._el.removeChild(this._el.lastChild)},a}(),p="svg"===document.documentElement.tagName.toLowerCase(),q=p?o:m()?function(){function a(){this._elImage.src=this._elCanvas.toDataURL("image/png"),this._elImage.style.display="block",this._elCanvas.style.display="none"}function d(a,b){var c=this;if(c._fFail=b,c._fSuccess=a,null===c._bSupportDataURI){var d=document.createElement("img"),e=function(){c._bSupportDataURI=!1,c._fFail&&_fFail.call(c)},f=function(){c._bSupportDataURI=!0,c._fSuccess&&c._fSuccess.call(c)};return d.onabort=e,d.onerror=e,d.onload=f,d.src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==",void 0}c._bSupportDataURI===!0&&c._fSuccess?c._fSuccess.call(c):c._bSupportDataURI===!1&&c._fFail&&c._fFail.call(c)}if(this._android&&this._android<=2.1){var b=1/window.devicePixelRatio,c=CanvasRenderingContext2D.prototype.drawImage;CanvasRenderingContext2D.prototype.drawImage=function(a,d,e,f,g,h,i,j){if("nodeName"in a&&/img/i.test(a.nodeName))for(var l=arguments.length-1;l>=1;l--)arguments[l]=arguments[l]*b;else"undefined"==typeof j&&(arguments[1]*=b,arguments[2]*=b,arguments[3]*=b,arguments[4]*=b);c.apply(this,arguments)}}var e=function(a,b){this._bIsPainted=!1,this._android=n(),this._htOption=b,this._elCanvas=document.createElement("canvas"),this._elCanvas.width=b.width,this._elCanvas.height=b.height,a.appendChild(this._elCanvas),this._el=a,this._oContext=this._elCanvas.getContext("2d"),this._bIsPainted=!1,this._elImage=document.createElement("img"),this._elImage.style.display="none",this._el.appendChild(this._elImage),this._bSupportDataURI=null};return e.prototype.draw=function(a){var b=this._elImage,c=this._oContext,d=this._htOption,e=a.getModuleCount(),f=d.width/e,g=d.height/e,h=Math.round(f),i=Math.round(g);b.style.display="none",this.clear();for(var j=0;e>j;j++)for(var k=0;e>k;k++){var l=a.isDark(j,k),m=k*f,n=j*g;c.strokeStyle=l?d.colorDark:d.colorLight,c.lineWidth=1,c.fillStyle=l?d.colorDark:d.colorLight,c.fillRect(m,n,f,g),c.strokeRect(Math.floor(m)+.5,Math.floor(n)+.5,h,i),c.strokeRect(Math.ceil(m)-.5,Math.ceil(n)-.5,h,i)}this._bIsPainted=!0},e.prototype.makeImage=function(){this._bIsPainted&&d.call(this,a)},e.prototype.isPainted=function(){return this._bIsPainted},e.prototype.clear=function(){this._oContext.clearRect(0,0,this._elCanvas.width,this._elCanvas.height),this._bIsPainted=!1},e.prototype.round=function(a){return a?Math.floor(1e3*a)/1e3:a},e}():function(){var a=function(a,b){this._el=a,this._htOption=b};return a.prototype.draw=function(a){for(var b=this._htOption,c=this._el,d=a.getModuleCount(),e=Math.floor(b.width/d),f=Math.floor(b.height/d),g=['<table style="border:0;border-collapse:collapse;">'],h=0;d>h;h++){g.push("<tr>");for(var i=0;d>i;i++)g.push('<td style="border:0;border-collapse:collapse;padding:0;margin:0;width:'+e+"px;height:"+f+"px;background-color:"+(a.isDark(h,i)?b.colorDark:b.colorLight)+';"></td>');g.push("</tr>")}g.push("</table>"),c.innerHTML=g.join("");var j=c.childNodes[0],k=(b.width-j.offsetWidth)/2,l=(b.height-j.offsetHeight)/2;k>0&&l>0&&(j.style.margin=l+"px "+k+"px")},a.prototype.clear=function(){this._el.innerHTML=""},a}();QRCode=function(a,b){if(this._htOption={width:256,height:256,typeNumber:4,colorDark:"#000000",colorLight:"#ffffff",correctLevel:d.H},"string"==typeof b&&(b={text:b}),b)for(var c in b)this._htOption[c]=b[c];"string"==typeof a&&(a=document.getElementById(a)),this._android=n(),this._el=a,this._oQRCode=null,this._oDrawing=new q(this._el,this._htOption),this._htOption.text&&this.makeCode(this._htOption.text)},QRCode.prototype.makeCode=function(a){this._oQRCode=new b(r(a,this._htOption.correctLevel),this._htOption.correctLevel),this._oQRCode.addData(a),this._oQRCode.make(),this._el.title=a,this._oDrawing.draw(this._oQRCode),this.makeImage()},QRCode.prototype.makeImage=function(){"function"==typeof this._oDrawing.makeImage&&(!this._android||this._android>=3)&&this._oDrawing.makeImage()},QRCode.prototype.clear=function(){this._oDrawing.clear()},QRCode.CorrectLevel=d}();
+</script>
 <style>
 .phones{display:flex;flex-direction:column;gap:12px;background:var(--board);border:2px solid var(--gold);border-radius:16px;padding:18px}
 .phones h3{font-size:20px}
@@ -7262,6 +7720,10 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
   }
   const zrusene = {};   // id mobilu -> poradové číslo stlačenia, ktoré moderátor zrušil krokom späť
   let lastZet = '', lastTokN = 0;
+  let wifi = null, wifiQr = ''; // Wi-Fi z notebooku (hotspot.bat): {ssid, pass}
+  const wifiText = w => 'WIFI:T:WPA;S:' + w.ssid.replace(/([\\;,:"])/g, '\\$1') + ';P:' + w.pass.replace(/([\\;,:"])/g, '\\$1') + ';;';
+  const wifiHtml = big => wifi ? `<div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div class="qr" id="${big ? 'qrwifig' : 'qrwifi'}"></div><p class="hint" style="margin:0;text-align:center">① Wi-Fi: <b>${esc(wifi.ssid)}</b><br>heslo: <b>${esc(wifi.pass)}</b></p></div>` : '';
+  const paintWifi = (id, size) => { const q = document.getElementById(id); if (q && wifi && window.QRCode && !q.childNodes.length) { try { new QRCode(q, {text: wifiText(wifi), width: size, height: size, colorDark: '#050920', colorLight: '#ffffff'}); } catch (e) {} } };
   let phoneUrl = '', phones = [], lastMode = '', armEpoch = -1, polling = false, qrFor = '', serverOk = true, online = false;
   let lastLocked = '', lastTurn = null, freeSince = 0;
   const odobrate = new Set();   // mobily hráčov, ktorých moderátor na úvode odobral
@@ -7271,6 +7733,7 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
 
   api('info').then(i => {
     const ip = (i.ips || [])[0];
+    wifi = i.wifi && i.wifi.ssid ? i.wifi : null;
     online = !!i.public;                                         // spustené cez online.bat – hráči sú na internete
     phoneUrl = online ? i.public : ip ? `http://${ip}:${i.port}/m` : '';
     const panel = document.getElementById('phones');
@@ -7284,9 +7747,10 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
   }
   function panelHtml() {
     return `<section class="phones" id="phones"><h3>📱 Prihlasovanie cez mobily</h3>
-      <div class="phone-grid"><div class="qr" id="qr"></div><div style="display:flex;flex-direction:column;gap:10px">
+      <div class="phone-grid"><div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">${wifiHtml(false)}<div class="qr" id="qr"></div></div><div style="display:flex;flex-direction:column;gap:10px">
         <p class="hint" style="margin:0">${online
           ? '🌍 <b>Hra cez internet.</b> Pošli hráčom tento odkaz (napr. cez WhatsApp) alebo im odfoť QR kód. Môžu byť kdekoľvek, stačí im internet:'
+          : wifi ? '📶 <b>Wi-Fi z notebooku.</b> ① Hráči naskenujú prvý QR kód (pripojí ich na Wi-Fi), ② potom druhý QR kód alebo v mobile otvoria:'
           : 'Hráči sa pripoja na <b>tú istú Wi-Fi</b> ako tento počítač, naskenujú QR kód alebo v mobile otvoria:'}</p>
         <p class="purl" id="purl"></p>
         ${online ? '<div><button class="lnk" data-act="copyurl">📋 Skopírovať odkaz</button></div>' : ''}
@@ -7299,6 +7763,7 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
     const u = document.getElementById('purl');
     if (u) u.textContent = !serverOk ? 'Server nebeží – spusti start.bat' : (phoneUrl || 'zisťujem adresu…');
     const l = document.getElementById('plist'); if (l) l.innerHTML = listHtml();
+    paintWifi('qrwifi', 170);
     const q = document.getElementById('qr');
     if (q && phoneUrl && (qrFor !== phoneUrl || !q.childNodes.length) && window.QRCode) {
       q.innerHTML = ''; qrFor = phoneUrl;
@@ -7429,7 +7894,7 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
       const ph = p.phone && phones.find(x => x.id === p.phone);
       return `<span class="pchip" style="--pc:${PCOL[i]}"><b>${esc(p.name)}</b> · ${ph && ph.online ? '📱 pripojený' : p.phone ? '📵 odpojený' : 'bez mobilu'}</span>`;
     }).join('');
-    const html = `<div class="qrcard"><div class="qr" id="qrgame"></div><div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+    const html = `<div class="qrcard">${wifiHtml(true)}<div class="qr" id="qrgame"></div><div style="display:flex;flex-direction:column;gap:6px;min-width:0">
         <h3>📱 Pripoj sa mobilom</h3>
         <p class="hint" style="margin:0">Naskenuj QR kód alebo otvor odkaz. Kto vypadol, klikne na svoje meno a pokračuje so svojimi bodmi.</p>
         <p class="purl">${esc(phoneUrl || 'zisťujem adresu…')}</p>
@@ -7443,6 +7908,7 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
       const q = document.getElementById('qrgame');
       if (q && phoneUrl && window.QRCode) { try { new QRCode(q, {text: phoneUrl, width: 260, height: 260, colorDark: '#050920', colorLight: '#ffffff'}); } catch (e) {} }
       else if (q) q.style.display = 'none';
+      paintWifi('qrwifig', 220);
     }
     if (!qrPoll) qrPoll = setInterval(() => {                      // stav mobilov sa priebežne obnovuje
       api('state').then(st => { phones = st.players || []; qrOverlay(); }).catch(() => {});

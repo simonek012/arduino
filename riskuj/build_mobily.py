@@ -137,7 +137,11 @@ for a, b, n in [
     tv = rep(tv, a, b, n)
 # bez internetu nesmie stránka čakať na nič z internetu: QR kód na pripojenie mobilov (cdnjs) tu netreba
 # a písma z Google sa načítajú len popri (keď sú dostupné)
-tv = rep(tv, '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>\n', '')
+QR_CDN = '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>\n'
+if QR_CDN in tv:
+    tv = rep(tv, QR_CDN, '')
+elif '/* qrcodejs 1.0.0' in tv:   # tv.html má qrcodejs už vložené priamo
+    qrgen = ''
 tv = rep(tv, '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap">',
          '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap" media="print" onload="this.media=\'all\'">')
 tv = rep(tv, '<title>Riskuj a nepiskuj! s mobilmi</title>',
@@ -147,7 +151,7 @@ tv = rep(tv, '<title>Riskuj a nepiskuj! s mobilmi</title>',
          '<link rel="apple-touch-icon" href="ikona-192.png">\n<meta name="apple-mobile-web-app-capable" content="yes">\n'
          '<meta name="mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-title" content="Riskuj">\n'
          + CHYBY +
-         f'<script>{peerjs}</script>\n<script>{qrgen}</script>\n<script>{jsqr}</script>\n<script>{hlavicka}</script>\n<style>{css}</style>')
+         f'<script>{peerjs}</script>\n' + (f'<script>{qrgen}</script>\n' if qrgen else '') + f'<script>{jsqr}</script>\n<script>{hlavicka}</script>\n<style>{css}</style>')
 tlacidlo = json.dumps(mob, ensure_ascii=False).replace('</', '<\\/')
 i = tv.rindex('</body>')
 tv = tv[:i] + f'<script>\nwindow.RM_TLACIDLO = {tlacidlo};\n{koniec}</script>\n' + tv[i:]
