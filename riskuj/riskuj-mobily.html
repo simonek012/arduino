@@ -7346,11 +7346,21 @@ function buildGame(code, sets) {
     return {v: (i + 1) * 1000 * mult, q, a, m: m || null, done: false, risk: false};
   })}));
   const b1 = mk(c1, 1), b2 = mk(c2, 2);
-  const place = (b, cnt) => shuf([0, 1, 2, 3, 4, 5], r).slice(0, cnt).forEach(c => {
-    const t = b[c].tiles, idx = 1 + Math.floor(r() * 4);
-    const j = t[idx].empty ? [4, 3, 2, 1].find(x => !t[x].empty) : idx;
-    if (j != null) t[j].risk = true;
-  });
+  // prémia nepadne na interaktívnu otázku (obrázok, postupné slovo, emoji, indície…) – hudba áno
+  const ok = t => !t.empty && (!t.m || t.m.mel || t.m.yt || (t.m.custom && t.m.kind === 'audio'));
+  const place = (b, cnt) => {
+    const cols = shuf([0, 1, 2, 3, 4, 5], r), withOk = cols.filter(c => b[c].tiles.some((t, x) => x && ok(t)));
+    cols.filter(c => !withOk.includes(c)).forEach(c => withOk.push(c));
+    let left = cnt;
+    withOk.slice(0, cnt).forEach(c => {
+      const t = b[c].tiles, idx = 1 + Math.floor(r() * 4);
+      const j = ok(t[idx]) ? idx : [4, 3, 2, 1].find(x => ok(t[x]));
+      if (j != null) { t[j].risk = true; left--; }
+    });
+    // keď niektorý stĺpec nemá vhodnú otázku, prémia ide na inú vhodnú otázku
+    const rest = shuf(b.flatMap(col => col.tiles.filter((t, x) => x && ok(t) && !t.risk)), r);
+    rest.slice(0, Math.max(0, left)).forEach(t => { t.risk = true; });
+  };
   place(b1, risk[0]); place(b2, risk[1]);
   const fin = FINALS.slice().sort((a, b) => hashStr(a[1]) - hashStr(b[1]));
   const f = fin[n % fin.length];
