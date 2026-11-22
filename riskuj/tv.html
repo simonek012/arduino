@@ -6706,6 +6706,7 @@ function stitSplash(i) {
 }
 let ROLE = 'solo', modSeen = 0, lastFx = null, pendingGame = null, pendingLive = false, isUndo = false, finalBeepFor = null, autoJoin = true;
 const SELF_URL = location.origin + '/';
+let MOD_URL = '';
 const WIN_ID = Math.random().toString(36).slice(2);
 const peers = {}; // ďalšie otvorené okná: id -> {role, at}
 const ROLE_NAME = {solo: 'jedna obrazovka', tv: 'TV pre hráčov', mod: 'moderátor'};
@@ -6718,7 +6719,42 @@ function peerStatusHtml() {
     : '<span class="dot"></span> Zatiaľ nevidím žiadne ďalšie okno tejto hry.';
 }
 try { ROLE = sessionStorage.getItem('riskuj-role') || 'solo'; } catch (e) {}
-const bc = 'BroadcastChannel' in window ? new BroadcastChannel('riskuj-duo') : null;
+// Prepojenie okien: v jednom prehliadači cez BroadcastChannel, medzi zariadeniami (moderátor na mobile,
+// TV na počítači) cez server (/api/bc). Každá správa má id, takže sa nedoručí dvakrát.
+const bc = (() => {
+  const real = 'BroadcastChannel' in window ? new BroadcastChannel('riskuj-duo') : null;
+  if (window.RM) return real;   // verzia len na mobiloch má vlastné prepojenie (PeerJS)
+  const onHttp = /^https?:$/.test(location.protocol) && !/claude/.test(location.hostname);
+  if (!real && !onHttp) return null;
+  const seen = new Set(), order = [];
+  const mark = id => { seen.add(id); order.push(id); if (order.length > 600) seen.delete(order.shift()); };
+  let cnt = 0, relay = false, since = -1, w;
+  const deliver = env => { if (!env || !env._mid || seen.has(env._mid)) return; mark(env._mid); if (w.onmessage) w.onmessage({data: env.m}); };
+  w = {onmessage: null, postMessage(m) {
+    const env = {_mid: WIN_ID + '.' + (++cnt), m}; mark(env._mid);
+    if (real) try { real.postMessage(env); } catch (e) {}
+    if (relay) fetch('/api/bc?from=' + WIN_ID, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(env)}).catch(() => {});
+  }};
+  if (real) real.onmessage = e => deliver(e.data);
+  if (onHttp) (async () => {
+    for (let fails = 0; fails < 40;) {
+      let ok = false;
+      try {
+        const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 4000);
+        const r = await fetch('/api/bc?since=' + since + '&from=' + WIN_ID, {cache: 'no-store', signal: ctl.signal}).finally(() => clearTimeout(tm));
+        if (r.ok) {
+          const d = await r.json(); ok = true; fails = 0;
+          if (since >= 0) for (const x of d.msgs || []) if (x.f !== WIN_ID) deliver(x.m);
+          since = d.n;
+          if (!relay) { relay = true; w.postMessage({t: 'ping', id: WIN_ID, role: ROLE}); w.postMessage({t: 'hello'}); if (ROLE === 'mod') w.postMessage({t: 'mod'}); }
+        } else if (!relay) fails = 40;   // server prepájanie nepozná – zostane len BroadcastChannel
+      } catch (e) {}
+      if (!ok && !relay) fails++;
+      await new Promise(res => setTimeout(res, ok ? 200 : 2000));
+    }
+  })();
+  return w;
+})();
 const inGame = () => !!S && !!S.phase && S.phase !== 'setup' && S.phase !== 'cheat';
 const modAlive = () => Date.now() - modSeen < 5000;
 const ctrls = () => ROLE !== 'tv' || !modAlive();
@@ -7297,6 +7333,7 @@ function vSetup() {
           <li>Hru otvor v <b>prehliadači</b> (Chrome alebo Edge), ideálne na adrese localhost. Druhé okno otvoríš tlačidlom vyššie alebo cez Ctrl + N a vložením odkazu <span class="url">${SELF_URL}</span>.</li>
           <li>Druhé okno potiahni myšou na TV, klikni v ňom <b>TV pre hráčov</b> a stlač F11.</li>
           <li>V okne na notebooku klikni <b>Moderátor</b> a spusti hru. Keď sa okná vidia, hore svieti zelená bodka.</li>
+          <li>Moderátor môže byť aj na <b>mobile</b>: na počítači (zrkadlenom na TV) klikni <b>TV pre hráčov</b>, v mobile na tej istej Wi-Fi otvor <span class="url modurl">${esc(MOD_URL || 'adresu z čierneho okna (bez /m na konci)')}</span> a klikni <b>Moderátor</b>.</li>
         </ol></div>
     </section>
     <div class="psets">${S.players.map((p, i) => `<div class="pset" id="pset${i}" style="--pc:${PCOL[i]}">
@@ -7371,8 +7408,8 @@ function vQuestion() {
     const prih = S.prihrane && S.prihrane.komu === S.buzzed ? ` <span class="dim">👉 prihral ${esc(S.players[S.prihrane.od].name)}</span>` : '';
     state = `Odpovedá <span class="who">${esc(S.players[S.buzzed].name)}</span>${stitHtml}${prih}${bar}${c.txt ? `<span class="atime">${c.txt}</span>` : ''}`;
     const rl = T.risk && !S.revealed ? nahradne() : [];   // pri poli Riskuj! môže moderátor otázku vymeniť, kým neukáže odpoveď
-    const swap = rl.length > 1 ? `<button class="mbtn" data-act="swapqprev">◀</button><span class="dim" style="align-self:center">otázka ${poradieNahradnej() + 1} z ${rl.length}</span><button class="mbtn" data-act="swapq">Iná otázka ▶</button>` : '';
-    btns = `${S.qShown === false ? '<button class="mbtn gold" data-act="showq">Ukázať otázku na TV <kbd>medzera</kbd></button>' : ''}${swap}<button class="mbtn ok" data-act="ok">Správne <kbd>→</kbd></button><button class="mbtn bad" data-act="bad">Nesprávne <kbd>←</kbd></button>${S.revealed ? '' : '<button class="mbtn" data-act="reveal">Ukázať odpoveď</button>'}${zetonBtns()}`;
+    const swap = rl.length > 1 ? `<button class="mbtn" data-act="swapqprev">◀${S.qShown === false ? ' <kbd>←</kbd>' : ''}</button><span class="dim" style="align-self:center">otázka ${poradieNahradnej() + 1} z ${rl.length}</span><button class="mbtn" data-act="swapq">Iná otázka ▶${S.qShown === false ? ' <kbd>→</kbd>' : ''}</button>` : '';
+    btns = `${S.qShown === false ? `<button class="mbtn gold" data-act="showq">Ukázať otázku na TV <kbd>${T.risk ? 'Enter' : 'medzera'}</kbd></button>` : ''}${swap}<button class="mbtn ok" data-act="ok">Správne <kbd>→</kbd></button><button class="mbtn bad" data-act="bad">Nesprávne <kbd>←</kbd></button>${S.revealed ? '' : '<button class="mbtn" data-act="reveal">Ukázať odpoveď</button>'}${zetonBtns()}`;
   } else {
     const can = S.players.map((_, i) => i).filter(i => !S.locked.includes(i));
     state = `<span class="dim">Kto sa hlási?</span> ${can.map(i => `<span style="color:${PCOL[i]}">${esc(S.players[i].name)}</span>`).join(' · ')}`;
@@ -7890,6 +7927,12 @@ document.addEventListener('keydown', e => {
     else if (k === 'ArrowLeft') { e.preventDefault(); act('swapqprev'); }
     return;
   }
+  if (tile().risk && S.qShown === false && !S.revealed) {     // pole Riskuj!: kým otázka nie je na TV, šípky listujú otázky a Enter ju ukáže – nič sa nevyhodnotí
+    if (enter) { e.preventDefault(); act('showq'); }
+    else if (k === 'ArrowRight') { e.preventDefault(); act('swapq'); }
+    else if (k === 'ArrowLeft') { e.preventDefault(); act('swapqprev'); }
+    return;
+  }
   if (k === 'Space') { e.preventDefault(); }   // odpoveď medzerník neukazuje
   else if (S.buzzed != null && (k === 'ArrowRight' || enter)) { e.preventDefault(); judge(true); }
   else if (S.buzzed != null && k === 'ArrowLeft') { e.preventDefault(); judge(false); }
@@ -7970,6 +8013,7 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
     wifi = i.wifi && i.wifi.ssid ? i.wifi : null;
     online = !!i.public;                                         // spustené cez online.bat – hráči sú na internete
     phoneUrl = online ? i.public : ip ? `http://${ip}:${i.port}/m` : '';
+    if (ip) { MOD_URL = `http://${ip}:${i.port}/`; document.querySelectorAll('.modurl').forEach(e => { e.textContent = MOD_URL; }); }
     const panel = document.getElementById('phones');
     if (panel) panel.outerHTML = panelHtml();
     paintPanel();

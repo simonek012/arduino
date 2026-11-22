@@ -34,6 +34,9 @@ $finalAnswers = @{}                                    # id -> odpoveď
 $script:zet = @{ kto = '' }
 $tokReq = New-Object System.Collections.ArrayList     # @{ n; id; kind; to; k }
 $script:tokN = 0
+# správy medzi oknami hry (moderátor ↔ TV) – posledných 60
+$bcList = New-Object System.Collections.ArrayList
+$script:bcN = 0
 
 # Hráči sa ukladajú do súboru, aby prežili aj reštart servera.
 function SavePlayers {
@@ -140,8 +143,8 @@ function TryParse($ms) {
 function Handle($client, $req) {
   $path = ($req.path -split '\?')[0]
   $data = $null
-  if ($req.body) { try { $data = $req.body | ConvertFrom-Json } catch {} }
-  if ($req.method -eq 'POST') { $script:ver++ }   # každá zmena stavu ide cez POST
+  if ($req.body -and $path -ne '/api/bc') { try { $data = $req.body | ConvertFrom-Json } catch {} }
+  if ($req.method -eq 'POST' -and $path -ne '/api/bc') { $script:ver++ }   # každá zmena stavu ide cez POST
   # Z internetu je dostupné len to, čo potrebujú mobily. Moderátorská obrazovka a jej
   # ovládanie ostávajú len na tomto počítači – aj holý odkaz otvorí hráčom tlačidlo.
   if ($req.remote) {
@@ -151,6 +154,30 @@ function Handle($client, $req) {
     }
   }
   switch ($path) {
+    # prepojenie okien medzi zariadeniami (moderátor na mobile, TV na počítači): správy sa len preposielajú
+    '/api/bc' {
+      $from = QueryParam $req.path 'from'
+      if ($req.method -eq 'POST') {
+        $script:bcN++
+        [void]$bcList.Add(@{ n = $script:bcN; f = $from; raw = $req.body })
+        while ($bcList.Count -gt 60) { $bcList.RemoveAt(0) }
+        Send $client 200 'application/json; charset=utf-8' ($utf8.GetBytes("{`"n`":$($script:bcN)}")); return
+      }
+      $since = -1; [void][int]::TryParse((QueryParam $req.path 'since'), [ref]$since)
+      $sb = New-Object System.Text.StringBuilder
+      [void]$sb.Append("{`"n`":$($script:bcN),`"msgs`":[")
+      $first = $true
+      if ($since -ge 0) {
+        foreach ($m in $bcList) {
+          if ($m.n -le $since -or $m.f -eq $from) { continue }
+          if (-not $first) { [void]$sb.Append(',') }
+          $first = $false
+          [void]$sb.Append('{"f":"').Append(($m.f -replace '[^A-Za-z0-9]', '')).Append('","m":').Append($m.raw).Append('}')
+        }
+      }
+      [void]$sb.Append(']}')
+      Send $client 200 'application/json; charset=utf-8' ($utf8.GetBytes($sb.ToString())); return
+    }
     '/'           { SendFile $client 'tv.html'; return }
     '/m'          { SendFile $client 'mobil.html'; return }
     '/api/info'   { SendJson $client @{ ips = @(Get-LanIPs); port = $Port; public = $PublicUrl; wifi = @{ ssid = $WifiSsid; pass = $WifiPass } }; return }

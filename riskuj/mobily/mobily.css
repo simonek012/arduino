@@ -124,3 +124,12 @@ html.rm,html.rm body{overscroll-behavior-y:none}
 /* návrat z moderátora na výber roly (druhé ťuknutie potvrdí) */
 .rm-spat{align-self:flex-start;font:inherit;font-weight:800;font-size:17px;border:2px solid var(--line);border-radius:12px;background:transparent;color:var(--text);padding:8px 14px;margin-bottom:6px}
 .rm-spat[data-armed]{border-color:var(--bad);color:var(--bad)}
+
+/* TV: celá obrazovka pre hru, malý stav v rohu */
+html.rm-tv{--bzh:0px}
+html.rm-tv .app{height:100%}
+html.rm-tv .homebtn,html.rm-tv .qrfab{display:none}
+html.rm-tv kbd{display:none}
+#rmTvPill{position:fixed;right:8px;bottom:8px;z-index:45;font:600 12px var(--body);padding:4px 10px;border-radius:99px;background:rgba(5,9,32,.6);color:var(--muted);opacity:.55}
+#rmTvPill button{background:none;border:0;color:var(--muted);text-decoration:underline;font:inherit;padding:0 2px}
+@media (orientation:landscape) and (max-height:600px){html.rm-tv .app{margin-right:0}}

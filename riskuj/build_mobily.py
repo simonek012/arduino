@@ -117,7 +117,7 @@ tv = rep(tv, "const here = ROLE !== 'mod' || !livePeers().some(p => p.role === '
 # texty: nie je tu TV ani počítač, hráči majú všetko v mobile
 for a, b, n in [
     ("const ROLE_NAME = {solo: 'jedna obrazovka', tv: 'TV pre hráčov', mod: 'moderátor'};",
-     "const ROLE_NAME = {solo: 'jedna obrazovka', tv: 'mobil hráča', mod: 'moderátor'};", 1),
+     "const ROLE_NAME = {solo: 'jedna obrazovka', tv: 'mobil hráča', mod: 'moderátor', tvscreen: '📺 TV'};", 1),
     ("'TV · moderátor pripojený' : 'TV · moderátor nie je pripojený'",
      "'📱 moderátor pripojený' : '📱 moderátor nie je pripojený'", 1),
     ('Televízny kvíz pre 2 až 20 hráčov', 'Kvíz pre 2 až 20 hráčov', 1),
@@ -140,8 +140,7 @@ for a, b, n in [
 QR_CDN = '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>\n'
 if QR_CDN in tv:
     tv = rep(tv, QR_CDN, '')
-elif '/* qrcodejs 1.0.0' in tv:   # tv.html má qrcodejs už vložené priamo
-    qrgen = ''
+# pozor: qrgen (qrcode-generator, QR kódy moderátora) je iná knižnica ako qrcodejs v tv.html – treba ju vždy
 tv = rep(tv, '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap">',
          '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap" media="print" onload="this.media=\'all\'">')
 tv = rep(tv, '<title>Riskuj a nepiskuj! s mobilmi</title>',

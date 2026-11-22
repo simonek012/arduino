@@ -348,7 +348,10 @@
         else if (d.k === 'bc') RM.bcIn(d.m);
       }
       // hráč posiela moderátorovi len „ahoj“ a „žijem“ – stav hry riadi výhradne moderátor
-      RM.bcOut = m => { if (m && (m.t === 'hello' || m.t === 'ping') && isOpen()) { try { conn.send({k: 'bc', m}); } catch (e) {} } };
+      RM.bcOut = m => {
+        if (m && m.t === 'ping' && RM.tv) m = Object.assign({}, m, {role: 'tvscreen'});
+        if (m && (m.t === 'hello' || m.t === 'ping') && isOpen()) { try { conn.send({k: 'bc', m}); } catch (e) {} }
+      };
       function connect() {
         if (!peer || peer.destroyed) { create(); return; }
         if (peer.disconnected) { try { peer.reconnect(); } catch (e) {} retry(2500, connect); return; }
