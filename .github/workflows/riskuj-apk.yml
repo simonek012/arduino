@@ -33,7 +33,7 @@ jobs:
             $BT/apksigner verify "../$4"
           }
           postav sk.riskuj.app "Riskuj" riskuj-mobily.html Riskuj.apk
-          postav sk.riskuj.bezdana "Riskuj bez Dana" riskuj-bez-dana.html Riskuj-bez-Dano-Drevo.apk
+          postav sk.riskuj.bezdana "Riskujb" riskuj-bez-dana.html Riskujb.apk
           rm -f k.jks
           ls -la ../*.apk
       - name: Uložiť do vetvy
