@@ -60,7 +60,17 @@ public class MainActivity extends Activity {
             }
         });
         setContentView(web);
-        if (saved == null || web.restoreState(saved) == null) web.loadUrl(getString(getResources().getIdentifier("web_url", "string", getPackageName())));
+        if (saved == null || web.restoreState(saved) == null) web.loadUrl(adresa());
+    }
+
+    /** adresa hry zo strings.xml (tabuľka zdrojov má vždy pôvodný balík sk.riskuj.app) */
+    private String adresa() {
+        try {
+            int id = getResources().getIdentifier("web_url", "string", "sk.riskuj.app");
+            if (id != 0) return getString(id);
+        } catch (Exception e) { }
+        String stranka = getPackageName().endsWith("bezdana") ? "riskuj-bez-dana.html" : "riskuj-mobily.html";
+        return "https://simonek012.github.io/arduino/riskuj/" + stranka + "?app=1";
     }
 
     @Override
