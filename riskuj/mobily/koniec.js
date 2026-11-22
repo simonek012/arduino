@@ -149,7 +149,13 @@
     box.innerHTML = `<div class="rm-in">
       <h1 class="logo" aria-label="Riskuj a nepiskuj!">Riskuj<span class="logo-sub">a nepiskuj!</span></h1>
       <p class="rm-verzia">Verzia ${h(RM.VERZIA)}</p>
-      <p class="rm-lead">${zOdkazu ? 'Si pozvaný do hry. Napíš svoje meno a pripoj sa.' : 'Bez počítača. Jeden mobil má moderátor, ostatní hráči. Ak chcete hru aj na TV, ďalšie zariadenie ťukne Som TV.'}</p>
+      <p class="rm-lead">${zOdkazu ? 'Si pozvaný do hry. Napíš svoje meno a pripoj sa.' : 'Kto si?'}</p>
+      <div class="rm-roles" id="rmRoles">
+        <button type="button" class="rm-role" data-krok="hrac"><span>🙋</span><b>Hráč</b><small>Pripojím sa do hry a mám tlačidlo</small></button>
+        <button type="button" class="rm-role" data-krok="mod"><span>🎤</span><b>Moderátor</b><small>Vytvorím hru a čítam otázky</small></button>
+        <button type="button" class="rm-role" data-krok="tv"><span>📺</span><b>Televízor</b><small>Obrazovka pre všetkých (TV prehliadač alebo Smart View)</small></button>
+      </div>
+      <button type="button" class="rm-spat2" id="rmSpat">← Späť na výber</button>
       <form class="rm-card" id="rmJoin" autocomplete="off">
         <b>🙋 Som hráč</b>
         ${zOdkazu ? `<p class="rm-tip">Pripájaš sa do hry <b>${h(zOdkazu)}</b> – napíš meno a ťukni <b>Pripojiť</b>.</p>` : ''}
@@ -167,7 +173,12 @@
         </div>
         <button class="lnk" type="button" id="rmBezNetu"${zOdkazu ? ' hidden' : ''}>📶 Bez internetu a kamera nejde? Pripojiť ručne</button>
       </form>
-      <button class="rm-big rm-modbtn" type="button" id="rmTv"${zOdkazu ? ' hidden' : ''}><b>📺 Som TV (obrazovka pre hráčov)</b><span>Na televízore alebo na tablete/mobile zrkadlenom cez Smart View. Zadaj vyššie kód hry a ťukni sem.</span></button>
+      <form class="rm-card" id="rmTvForm" autocomplete="off"${zOdkazu ? ' hidden' : ''}>
+        <b>📺 Televízor</b>
+        <p class="rm-tip">Zadaj kód hry z mobilu moderátora. Na TV potom uvidíte tabuľu a otázky a budú z nej hrať zvuky.</p>
+        <div class="rm-kodrow"><input id="rmTvKod" maxlength="4" placeholder="KÓD" autocapitalize="characters" spellcheck="false" aria-label="Kód hry"><button class="rm-go2" type="submit" id="rmTv">Zobraziť hru</button></div>
+        <p class="rm-err" id="rmTvErr"></p>
+      </form>
       <button class="rm-big rm-modbtn" type="button" id="rmMod"${zOdkazu ? ' hidden' : ''}><b>🎤 Som moderátor</b><span id="rmModTxt">Len jeden z vás: vytvorí hru, ostatným ukáže QR kód a vidí aj odpovede.</span></button>
       ${zOdkazu ? '' : '<div class="rm-app" id="rmApp"></div>'}
       ${zOdkazu ? '' : `<p class="rm-tip"><b>S internetom:</b> hráči nepotrebujú súbor – naskenujú QR kód z mobilu moderátora obyčajným fotoaparátom.<br>
@@ -182,8 +193,8 @@
       const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const ako = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
       if (ako || RM.nainstalovana) { appBox.innerHTML = ''; return; }
-      if (!naWebe) { appBox.innerHTML = `<a class="rm-go2" href="${WEB}">📲 Riskuj ako aplikácia – otvoriť z webu</a>`; return; }
-      appBox.innerHTML = RM.instal ? '<button class="rm-go2" type="button" id="rmInstal">📲 Nainštalovať Riskuj ako aplikáciu (ide aj bez signálu)</button>'
+      if (!naWebe) { appBox.innerHTML = `<a class="rm-go2" href="${WEB}">📲 Stiahnuť Riskuj do mobilu (otvorí web)</a>`; return; }
+      appBox.innerHTML = RM.instal ? '<button class="rm-go rm-instal" type="button" id="rmInstal">📲 Stiahnuť Riskuj do mobilu</button><p class="rm-tip">Pribudne ako aplikácia medzi ostatnými, ide aj bez signálu.</p>'
         : ios ? '<p class="rm-tip">📲 <b>Ako aplikácia na iPhone:</b> v Safari ťukni <b>Zdieľať</b> (štvorček so šípkou) → <b>Pridať na plochu</b>. Potom ide aj bez signálu.</p>'
         : '<p class="rm-tip">📲 <b>Ako aplikácia:</b> v Chrome ťukni menu <b>⋮</b> → <b>Inštalovať aplikáciu</b> (alebo Pridať na plochu). Potom ide aj bez signálu.</p>';
       const b = appBox.querySelector('#rmInstal');
@@ -208,12 +219,25 @@
       RM.nastav({mode: 'mod', room});
     };
     const kod = box.querySelector('#rmKod');
-    box.querySelector('#rmTv').onclick = () => {
-      const room = kod.value.trim().toUpperCase(), err = box.querySelector('#rmErr');
-      if (!/^[A-Z]{4}$/.test(room)) { err.textContent = 'Najprv zadaj kód hry (4 písmená z mobilu moderátora), potom ťukni Som TV.'; kod.focus(); return; }
-      ls('rm-last', JSON.stringify({room, name: box.querySelector('#rmMeno').value.trim()}));
+    const tvKod = box.querySelector('#rmTvKod');
+    tvKod.value = kod.value;
+    tvKod.addEventListener('input', () => { const v = tvKod.value.toUpperCase().replace(/[^A-Z]/g, ''); if (v !== tvKod.value) tvKod.value = v; });
+    box.querySelector('#rmTvForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const room = tvKod.value.trim().toUpperCase();
+      if (!/^[A-Z]{4}$/.test(room)) { box.querySelector('#rmTvErr').textContent = 'Kód hry má 4 písmená – nájdeš ho na mobile moderátora.'; tvKod.focus(); return; }
       RM.nastav({mode: 'hrac', tv: 1, room, name: ''});
-    };
+    });
+    // krok 1: výber roly, krok 2: len formulár pre zvolenú rolu
+    const krok = k => { box.dataset.krok = k; box.scrollTop = 0; };
+    if (zOdkazu) box.dataset.odkaz = '1';
+    krok(zOdkazu ? 'hrac' : 'vyber');
+    box.querySelectorAll('.rm-role').forEach(b => b.onclick = () => {
+      if (b.dataset.krok === 'mod') { modBtn.classList.add('armed'); modBtn.onclick(); return; }   // moderátora si vybral zámerne
+      krok(b.dataset.krok);
+      const f = box.querySelector(b.dataset.krok === 'tv' ? '#rmTvKod' : '#rmMeno'); if (f && !f.value) f.focus();
+    });
+    box.querySelector('#rmSpat').onclick = () => krok('vyber');
     kod.addEventListener('input', () => { const v = kod.value.toUpperCase().replace(/[^A-Z]/g, ''); if (v !== kod.value) kod.value = v; });
     box.querySelector('#rmJoin').addEventListener('submit', e => {
       e.preventDefault();

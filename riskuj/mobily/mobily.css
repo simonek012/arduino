@@ -133,3 +133,21 @@ html.rm-tv kbd{display:none}
 #rmTvPill{position:fixed;right:8px;bottom:8px;z-index:45;font:600 12px var(--body);padding:4px 10px;border-radius:99px;background:rgba(5,9,32,.6);color:var(--muted);opacity:.55}
 #rmTvPill button{background:none;border:0;color:var(--muted);text-decoration:underline;font:inherit;padding:0 2px}
 @media (orientation:landscape) and (max-height:600px){html.rm-tv .app{margin-right:0}}
+
+/* úvod: najprv výber roly, potom len formulár pre ňu */
+.rm-roles{display:flex;flex-direction:column;gap:12px}
+.rm-role{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:14px;align-items:center;text-align:left;padding:16px 18px;border-radius:18px;border:2px solid var(--line);background:var(--board);color:var(--text);cursor:pointer}
+.rm-role span{grid-row:1/3;font-size:40px;line-height:1}
+.rm-role b{font-size:24px}
+.rm-role small{color:var(--muted);font-size:15px}
+.rm-role:active,.rm-role:focus-visible{border-color:var(--gold)}
+.rm-spat2{align-self:flex-start;background:none;border:0;color:var(--muted);font:600 16px var(--body);text-decoration:underline;padding:4px 0}
+#rmStart[data-krok=vyber] :is(#rmJoin,#rmTvForm,#rmMod,#rmSpat,.rm-in > .rm-tip){display:none}
+#rmStart[data-krok=hrac] :is(#rmRoles,#rmTvForm,#rmMod,#rmApp,.rm-in > .rm-tip){display:none}
+#rmStart[data-krok=tv] :is(#rmRoles,#rmJoin,#rmMod,#rmApp,.rm-in > .rm-tip){display:none}
+#rmStart .rm-lead{font-size:20px;color:var(--text);font-weight:700}
+#rmStart[data-krok=hrac]:not([data-odkaz]) .rm-lead,#rmStart[data-krok=tv] .rm-lead{display:none}
+#rmStart[data-odkaz] #rmSpat{display:none}
+#rmStart .rm-verzia{font-size:13px;padding:2px 10px;background:none;color:var(--muted);border:1px solid var(--line)}
+#rmTvForm .rm-kodrow{display:flex;gap:8px}
+#rmTvForm input{flex:1}
