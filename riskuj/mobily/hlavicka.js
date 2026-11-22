@@ -122,6 +122,15 @@
     let players = [];
     try { players = (JSON.parse(localStorage.getItem(KEY)) || []).filter(p => p && p.id && p.name); } catch (e) {}
     let buzzes = [], armed = false, locked = [], epoch = 0, buzzN = 0, turn = '';
+    // férové hlásenie: mobil pošle čas stlačenia v hodinách moderátora (zosynchronizované), server chvíľu
+    // počká na pomalšie Wi-Fi a poradie určí podľa skutočného času stlačenia, nie podľa príchodu správy
+    let cak = [], armT = 0;
+    const CAKAJ = 350;
+    const pust = () => {
+      if (!cak.length || Date.now() - cak[0].arr < CAKAJ) return;
+      cak.sort((a, b) => a.at - b.at || a.arr - b.arr).forEach(b => buzzes.push({id: b.id, name: b.name, n: ++buzzN, at: b.at}));
+      cak = [];
+    };
     let finalStage = 'off', finalMax = {}, finalBets = {}, finalAnswers = {}, zet = {kto: ''}, tokReq = [], tokN = 0;
     const lastSeen = {};
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(players.map(p => ({id: p.id, name: p.name})))); } catch (e) {} };
@@ -130,6 +139,7 @@
     const seen = id => { if (find(id)) lastSeen[id] = Date.now(); };
     const q = (path, name) => { const m = new RegExp('[?&]' + name + '=([^&]*)').exec(path); return m ? decodeURIComponent(m[1]) : ''; };
     const state = () => {
+      pust();
       const sent = {};
       players.forEach(p => { sent[p.id] = {bet: p.id in finalBets, answer: p.id in finalAnswers}; });
       return {armed, epoch, buzzes: buzzes.map(b => ({id: b.id, name: b.name, n: b.n})), locked: locked.slice(), turn,
@@ -155,17 +165,21 @@
         case 'buzz': {
           const id = String(data.id || ''), p = find(id);
           let ok = false;
-          if (p && armed && !locked.includes(id) && !buzzes.some(b => b.id === id)) { buzzes.push({id, name: p.name, n: ++buzzN}); ok = true; }
+          if (p && armed && !locked.includes(id) && !buzzes.some(b => b.id === id) && !cak.some(b => b.id === id)) {
+            const teraz = Date.now(); let at = +data.at;
+            if (!isFinite(at) || at > teraz || at < teraz - 2000) at = teraz;   // bez synchronizácie alebo nezmysel: čas príchodu
+            cak.push({id, name: p.name, at: Math.max(at, armT), arr: teraz}); ok = true;
+          }
           seen(id);
-          return {ok, order: buzzes.length};
+          return {ok, order: buzzes.length + cak.length};
         }
-        case 'arm': armed = true; buzzes = []; locked = (data.locked || []).filter(Boolean).map(String); epoch++; turn = ''; return {epoch};
-        case 'unbuzz': { const ids = (data.ids || []).map(String); buzzes = buzzes.filter(b => !ids.includes(b.id)); return {ok: true}; }
+        case 'arm': armed = true; buzzes = []; cak = []; armT = Date.now(); locked = (data.locked || []).filter(Boolean).map(String); epoch++; turn = ''; return {epoch};
+        case 'unbuzz': { const ids = (data.ids || []).map(String); buzzes = buzzes.filter(b => !ids.includes(b.id)); cak = cak.filter(b => !ids.includes(b.id)); return {ok: true}; }
         case 'lock': locked = (data.locked || []).filter(Boolean).map(String); return {ok: true};
         case 'turn': turn = String(data.id || ''); return {ok: true};
         case 'disarm': armed = false; return {ok: true};
-        case 'idle': armed = false; buzzes = []; locked = []; turn = ''; return {ok: true};
-        case 'reset': players = []; buzzes = []; armed = false; locked = []; save(); up(); return {ok: true};
+        case 'idle': armed = false; buzzes = []; cak = []; locked = []; turn = ''; return {ok: true};
+        case 'reset': players = []; buzzes = []; cak = []; armed = false; locked = []; save(); up(); return {ok: true};
         case 'zetony': zet = data && data.kto !== undefined ? data : {kto: ''}; return {ok: true};
         case 'token': {
           const id = String(data.id || ''); let ok = false;
@@ -271,7 +285,7 @@
         if (d.k === 'api') {
           let res, ok = true;
           try { res = RM.server.handle(String(d.path || ''), d.body); } catch (e) { ok = false; }
-          send(c, {k: 'apir', rid: d.rid, ok: ok && res !== undefined, data: res === undefined ? null : res});
+          send(c, {k: 'apir', rid: d.rid, ok: ok && res !== undefined, data: res === undefined ? null : res, st: Date.now()});
         } else if (d.k === 'bc') RM.bcIn(d.m);
       }
       let retryT = 0;
@@ -331,20 +345,31 @@
     } else {
       let peer = null, conn = null, lastIn = 0, rid = 0, retryT = 0;
       const pend = new Map();
+      // rozdiel hodín mobilu a moderátora: z odpovedí s najkratšou cestou (posledných 30), aby Wi-Fi nemenila poradie
+      const hodiny = {off: 0}, vzorky = [];
+      const zmeraj = (t0, st) => {
+        const t1 = Date.now(), rtt = t1 - t0;
+        if (rtt < 0 || rtt > 3000) return;
+        vzorky.push({rtt, off: st - (t0 + t1) / 2});
+        if (vzorky.length > 30) vzorky.shift();
+        hodiny.off = vzorky.reduce((a, b) => b.rtt < a.rtt ? b : a).off;
+      };
+      RM.hodiny = hodiny;
       const retry = (ms, fn) => { clearTimeout(retryT); retryT = setTimeout(fn, ms); };
       const isOpen = () => !!(conn && conn.open);
       RM.api = (path, body) => new Promise((res, rej) => {
         if (path === 'join') body = Object.assign({}, body, {v: RM.VERZIA});   // moderátor tak zistí starý súbor
+        if (path === 'buzz') body = Object.assign({}, body, {at: Date.now() + hodiny.off});   // skutočný čas stlačenia v hodinách moderátora
         if (!isOpen()) { rej(new Error('offline')); return; }
         const id = ++rid;
         const tm = setTimeout(() => { if (pend.has(id)) { pend.delete(id); rej(new Error('timeout')); } }, 5000);
-        pend.set(id, {res: d => { clearTimeout(tm); res(d); }, rej: e => { clearTimeout(tm); rej(e); }});
+        pend.set(id, {t0: Date.now(), res: d => { clearTimeout(tm); res(d); }, rej: e => { clearTimeout(tm); rej(e); }});
         try { conn.send({k: 'api', rid: id, path, body}); } catch (e) { pend.delete(id); clearTimeout(tm); rej(e); }
       });
       function prijmi(d) {
         if (!d) return;
         lastIn = Date.now();
-        if (d.k === 'apir') { const p = pend.get(d.rid); if (p) { pend.delete(d.rid); if (d.ok) p.res(d.data); else p.rej(new Error('api')); } }
+        if (d.k === 'apir') { const p = pend.get(d.rid); if (p) { pend.delete(d.rid); if (d.st) zmeraj(p.t0, d.st); if (d.ok) p.res(d.data); else p.rej(new Error('api')); } }
         else if (d.k === 'bc') RM.bcIn(d.m);
       }
       // hráč posiela moderátorovi len „ahoj“ a „žijem“ – stav hry riadi výhradne moderátor
