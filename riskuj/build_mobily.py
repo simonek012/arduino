@@ -29,6 +29,8 @@ def no_close_tag(name, s):
 tv = (D / 'tv.html').read_text('utf-8')
 # chyby počas behu sa ukážu na obrazovke (dá sa poslať snímka) – skript beží ako prvý
 CHYBY = '''<script>window.RM_CHYBY = [];
+// hláška „Riskuj sa nespustil“ len keď sa hra naozaj nespustila (nie počas načítavania)
+window.addEventListener('load', function () { setTimeout(function () { document.documentElement.classList.add('rm-zlyhal'); }, 4000); });
 window.addEventListener('error', function (e) {
   var t = (e.message || 'chyba') + (e.lineno ? ' (riadok ' + e.lineno + ')' : '');
   RM_CHYBY.push(t);
@@ -39,7 +41,8 @@ window.addEventListener('error', function (e) {
   b.textContent = '⚠ Chyba: ' + t + ' (ťukni pre skrytie)';
 });</script>
 '''
-FATAL = '''<div id="rmFatal"><h2>Riskuj sa nespustil</h2>
+FATAL = '''<div id="rmNacitam">Načítavam Riskuj…</div>
+<div id="rmFatal"><h2>Riskuj sa nespustil</h2>
 <p>Otvor tento súbor v prehliadači <b>Chrome</b> – nie v náhľade WhatsAppu, Messengera, Teams ani v prehliadači súborov.</p>
 <p>Alebo otvor hru z webu: <b>simonek012.github.io/arduino/riskuj/riskuj-mobily.html</b></p>
 <p id="rmFatalErr"></p></div>
@@ -117,7 +120,7 @@ tv = rep(tv, "const here = ROLE !== 'mod' || !livePeers().some(p => p.role === '
 # texty: nie je tu TV ani počítač, hráči majú všetko v mobile
 for a, b, n in [
     ("const ROLE_NAME = {solo: 'jedna obrazovka', tv: 'TV pre hráčov', mod: 'moderátor'};",
-     "const ROLE_NAME = {solo: 'jedna obrazovka', tv: 'mobil hráča', mod: 'moderátor'};", 1),
+     "const ROLE_NAME = {solo: 'jedna obrazovka', tv: 'mobil hráča', mod: 'moderátor', tvscreen: '📺 TV'};", 1),
     ("'TV · moderátor pripojený' : 'TV · moderátor nie je pripojený'",
      "'📱 moderátor pripojený' : '📱 moderátor nie je pripojený'", 1),
     ('Televízny kvíz pre 2 až 20 hráčov', 'Kvíz pre 2 až 20 hráčov', 1),
@@ -137,7 +140,10 @@ for a, b, n in [
     tv = rep(tv, a, b, n)
 # bez internetu nesmie stránka čakať na nič z internetu: QR kód na pripojenie mobilov (cdnjs) tu netreba
 # a písma z Google sa načítajú len popri (keď sú dostupné)
-tv = rep(tv, '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>\n', '')
+QR_CDN = '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>\n'
+if QR_CDN in tv:
+    tv = rep(tv, QR_CDN, '')
+# pozor: qrgen (qrcode-generator, QR kódy moderátora) je iná knižnica ako qrcodejs v tv.html – treba ju vždy
 tv = rep(tv, '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap">',
          '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap" media="print" onload="this.media=\'all\'">')
 tv = rep(tv, '<title>Riskuj a nepiskuj! s mobilmi</title>',
@@ -147,7 +153,7 @@ tv = rep(tv, '<title>Riskuj a nepiskuj! s mobilmi</title>',
          '<link rel="apple-touch-icon" href="ikona-192.png">\n<meta name="apple-mobile-web-app-capable" content="yes">\n'
          '<meta name="mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-title" content="Riskuj">\n'
          + CHYBY +
-         f'<script>{peerjs}</script>\n<script>{qrgen}</script>\n<script>{jsqr}</script>\n<script>{hlavicka}</script>\n<style>{css}</style>')
+         f'<script>{peerjs}</script>\n' + (f'<script>{qrgen}</script>\n' if qrgen else '') + f'<script>{jsqr}</script>\n<script>{hlavicka}</script>\n<style>{css}</style>')
 tlacidlo = json.dumps(mob, ensure_ascii=False).replace('</', '<\\/')
 i = tv.rindex('</body>')
 tv = tv[:i] + f'<script>\nwindow.RM_TLACIDLO = {tlacidlo};\n{koniec}</script>\n' + tv[i:]
@@ -160,6 +166,10 @@ KOPIA.parent.mkdir(exist_ok=True)
 for stara in KOPIA.parent.glob('riskuj-mobily-v*.html'):
     stara.unlink()
 KOPIA.write_text(tv, 'utf-8')
+# verzia bez kategórií Dano Drevo (vlastná stránka a vlastná Android aplikácia)
+BEZ = D / 'riskuj-bez-dana.html'
+BEZ.write_text(rep(tv, 'function boot(data) {\n',
+    "/* verzia bez kategórií Dano Drevo */\nfor (const k of Object.keys(BANK)) if (/Dano Drevo/.test(k)) { delete BANK[k]; if (typeof KIND !== 'undefined') delete KIND[k]; }\nif (typeof loadSets === 'function') { const _ls = loadSets; loadSets = () => _ls().filter(s => !/Dano Drevo/.test(s.title)); SETS = loadSets(); }\nfunction boot(data) {\n"), 'utf-8')
 # verzia.json: nainštalované aplikácie podľa neho zistia, že je nová verzia, a ponúknu „Aktualizovať“
 (D / 'verzia.json').write_text(json.dumps({'verzia': VERZIA}) + '\n', 'utf-8')
 print(f'{OUT.name} + {KOPIA.parent.name}/{KOPIA.name}: {OUT.stat().st_size / 1e6:.1f} MB, verzia {VERZIA}')

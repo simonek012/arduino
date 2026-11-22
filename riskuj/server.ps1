@@ -6,7 +6,9 @@ param(
   [int]$Port = 8080,
   [switch]$LocalOnly,   # len na skúšku: počúva iba na tomto počítači
   [switch]$NoBrowser,
-  [string]$PublicUrl = ''   # verejná adresa z Cloudflare tunela (vyplní online.bat)
+  [string]$PublicUrl = '',  # verejná adresa z Cloudflare tunela (vyplní online.bat)
+  [string]$WifiSsid = '',   # Wi-Fi z notebooku (vyplní hotspot.ps1) – TV ukáže QR kód na pripojenie
+  [string]$WifiPass = ''
 )
 $ErrorActionPreference = 'Stop'
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
@@ -32,6 +34,9 @@ $finalAnswers = @{}                                    # id -> odpoveď
 $script:zet = @{ kto = '' }
 $tokReq = New-Object System.Collections.ArrayList     # @{ n; id; kind; to; k }
 $script:tokN = 0
+# správy medzi oknami hry (moderátor ↔ TV) – posledných 60
+$bcList = New-Object System.Collections.ArrayList
+$script:bcN = 0
 
 # Hráči sa ukladajú do súboru, aby prežili aj reštart servera.
 function SavePlayers {
@@ -53,7 +58,7 @@ function Get-LanIPs {
       if ($ua.Address.AddressFamily -eq 'InterNetwork') { $ua.Address.ToString() }
     }
   }
-  @($list | Sort-Object { if ($_ -like '192.168.*') { 0 } elseif ($_ -like '10.*') { 1 } else { 2 } })
+  @($list | Sort-Object { if ($_ -like '192.168.137.*') { -1 } elseif ($_ -like '192.168.*') { 0 } elseif ($_ -like '10.*') { 1 } else { 2 } })
 }
 
 function Send($client, [int]$code, [string]$type, [byte[]]$body) {
@@ -73,7 +78,8 @@ function SendFile($client, [string]$name) {
   if (Test-Path $f) { Send $client 200 'text/html; charset=utf-8' ([System.IO.File]::ReadAllBytes($f)) }
   else { Send $client 404 'text/plain; charset=utf-8' ($utf8.GetBytes("Chýba súbor $name")) }
 }
-function IsOnline([string]$id) { $lastSeen.ContainsKey($id) -and (([DateTime]::UtcNow - $lastSeen[$id]).TotalSeconds -lt 6) }
+# mobil je „pripojený“, ak sa ozval za posledných 15 s – krátky výpadok signálu ho neodpojí
+function IsOnline([string]$id) { $lastSeen.ContainsKey($id) -and (([DateTime]::UtcNow - $lastSeen[$id]).TotalSeconds -lt 15) }
 # Stav sa číta veľmi často (TV 10× za sekundu, každý mobil 4×), preto sa JSON skladá len pri zmene.
 # Bez ForEach-Object a Where-Object: v PowerShelli 5.1 sú pomalé a server by pri viacerých mobiloch nestíhal.
 $script:ver = 0
@@ -137,8 +143,8 @@ function TryParse($ms) {
 function Handle($client, $req) {
   $path = ($req.path -split '\?')[0]
   $data = $null
-  if ($req.body) { try { $data = $req.body | ConvertFrom-Json } catch {} }
-  if ($req.method -eq 'POST') { $script:ver++ }   # každá zmena stavu ide cez POST
+  if ($req.body -and $path -ne '/api/bc') { try { $data = $req.body | ConvertFrom-Json } catch {} }
+  if ($req.method -eq 'POST' -and $path -ne '/api/bc') { $script:ver++ }   # každá zmena stavu ide cez POST
   # Z internetu je dostupné len to, čo potrebujú mobily. Moderátorská obrazovka a jej
   # ovládanie ostávajú len na tomto počítači – aj holý odkaz otvorí hráčom tlačidlo.
   if ($req.remote) {
@@ -148,9 +154,33 @@ function Handle($client, $req) {
     }
   }
   switch ($path) {
+    # prepojenie okien medzi zariadeniami (moderátor na mobile, TV na počítači): správy sa len preposielajú
+    '/api/bc' {
+      $from = QueryParam $req.path 'from'
+      if ($req.method -eq 'POST') {
+        $script:bcN++
+        [void]$bcList.Add(@{ n = $script:bcN; f = $from; raw = $req.body })
+        while ($bcList.Count -gt 60) { $bcList.RemoveAt(0) }
+        Send $client 200 'application/json; charset=utf-8' ($utf8.GetBytes("{`"n`":$($script:bcN)}")); return
+      }
+      $since = -1; [void][int]::TryParse((QueryParam $req.path 'since'), [ref]$since)
+      $sb = New-Object System.Text.StringBuilder
+      [void]$sb.Append("{`"n`":$($script:bcN),`"msgs`":[")
+      $first = $true
+      if ($since -ge 0) {
+        foreach ($m in $bcList) {
+          if ($m.n -le $since -or $m.f -eq $from) { continue }
+          if (-not $first) { [void]$sb.Append(',') }
+          $first = $false
+          [void]$sb.Append('{"f":"').Append(($m.f -replace '[^A-Za-z0-9]', '')).Append('","m":').Append($m.raw).Append('}')
+        }
+      }
+      [void]$sb.Append(']}')
+      Send $client 200 'application/json; charset=utf-8' ($utf8.GetBytes($sb.ToString())); return
+    }
     '/'           { SendFile $client 'tv.html'; return }
     '/m'          { SendFile $client 'mobil.html'; return }
-    '/api/info'   { SendJson $client @{ ips = @(Get-LanIPs); port = $Port; public = $PublicUrl }; return }
+    '/api/info'   { SendJson $client @{ ips = @(Get-LanIPs); port = $Port; public = $PublicUrl; wifi = @{ ssid = $WifiSsid; pass = $WifiPass } }; return }
     '/api/state'  {
       $me = QueryParam $req.path 'id'
       if ($me -and (FindPlayer $me)) { $lastSeen[$me] = [DateTime]::UtcNow }
@@ -270,6 +300,7 @@ Write-Host '  RISKUJ! S MOBILMI – server beží' -ForegroundColor Yellow
 Write-Host "  Na TV / počítači otvor:   http://localhost:$Port"
 foreach ($a in Get-LanIPs) { Write-Host "  Mobily (rovnaká Wi-Fi):   http://${a}:$Port/m" -ForegroundColor Cyan }
 if ($PublicUrl) { Write-Host "  Mobily cez internet:      $PublicUrl" -ForegroundColor Green }
+if ($WifiSsid) { Write-Host "  Wi-Fi z notebooku:        $WifiSsid   heslo: $WifiPass" -ForegroundColor Green }
 if ($players.Count) { Write-Host "  Zapamätaní hráči: $(($players | ForEach-Object { $_.name }) -join ', ')" }
 Write-Host '  Toto okno nechaj otvorené. Hru ukončíš zatvorením okna.'
 Write-Host ''
@@ -281,6 +312,7 @@ while ($true) {
   while ($listener.Pending()) {
     $c = $listener.AcceptTcpClient()
     $c.NoDelay = $true
+    $c.SendTimeout = 3000   # pomalý mobil nesmie zablokovať server pre ostatných
     [void]$conns.Add(@{ c = $c; buf = (New-Object System.IO.MemoryStream); t = [DateTime]::UtcNow })
   }
   $busy = $false
