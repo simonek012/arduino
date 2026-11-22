@@ -29,6 +29,8 @@ def no_close_tag(name, s):
 tv = (D / 'tv.html').read_text('utf-8')
 # chyby počas behu sa ukážu na obrazovke (dá sa poslať snímka) – skript beží ako prvý
 CHYBY = '''<script>window.RM_CHYBY = [];
+// hláška „Riskuj sa nespustil“ len keď sa hra naozaj nespustila (nie počas načítavania)
+window.addEventListener('load', function () { setTimeout(function () { document.documentElement.classList.add('rm-zlyhal'); }, 4000); });
 window.addEventListener('error', function (e) {
   var t = (e.message || 'chyba') + (e.lineno ? ' (riadok ' + e.lineno + ')' : '');
   RM_CHYBY.push(t);
@@ -39,7 +41,8 @@ window.addEventListener('error', function (e) {
   b.textContent = '⚠ Chyba: ' + t + ' (ťukni pre skrytie)';
 });</script>
 '''
-FATAL = '''<div id="rmFatal"><h2>Riskuj sa nespustil</h2>
+FATAL = '''<div id="rmNacitam">Načítavam Riskuj…</div>
+<div id="rmFatal"><h2>Riskuj sa nespustil</h2>
 <p>Otvor tento súbor v prehliadači <b>Chrome</b> – nie v náhľade WhatsAppu, Messengera, Teams ani v prehliadači súborov.</p>
 <p>Alebo otvor hru z webu: <b>simonek012.github.io/arduino/riskuj/riskuj-mobily.html</b></p>
 <p id="rmFatalErr"></p></div>
