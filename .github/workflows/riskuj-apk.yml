@@ -1,0 +1,39 @@
+# Zostaví Android aplikáciu Riskuj (riskuj/Riskuj.apk) – spustí sa pri zmene v riskuj/android/
+name: Riskuj APK
+on:
+  push:
+    paths: ['riskuj/android/**', '.github/workflows/riskuj-apk.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Zostaviť
+        working-directory: riskuj/android
+        run: |
+          set -e
+          BT=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
+          PLAT=$ANDROID_HOME/platforms/$(ls $ANDROID_HOME/platforms | grep -E '^android-[0-9]+$' | sort -V | tail -1)/android.jar
+          echo "build-tools: $BT  platform: $PLAT"
+          rm -rf build && mkdir -p build/classes
+          $BT/aapt2 compile --dir res -o build/res.zip
+          $BT/aapt2 link -o build/base.apk -I $PLAT --manifest AndroidManifest.xml build/res.zip \
+            --min-sdk-version 24 --target-sdk-version 34 --version-code $GITHUB_RUN_NUMBER --version-name 1.$GITHUB_RUN_NUMBER
+          javac --release 11 -classpath $PLAT -d build/classes $(find src -name '*.java')
+          $BT/d8 --min-api 24 --lib $PLAT --output build $(find build/classes -name '*.class')
+          (cd build && zip -q base.apk classes.dex)
+          $BT/zipalign -f 4 build/base.apk build/aligned.apk
+          keytool -genkeypair -keystore build/k.jks -storepass riskuj -keypass riskuj -alias riskuj -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Riskuj"
+          $BT/apksigner sign --ks build/k.jks --ks-pass pass:riskuj --key-pass pass:riskuj --out ../Riskuj.apk build/aligned.apk
+          $BT/apksigner verify ../Riskuj.apk
+          ls -la ../Riskuj.apk
+      - name: Uložiť do vetvy
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898732+github-actions[bot]@users.noreply.github.com"
+          git add riskuj/Riskuj.apk
+          git commit -m "Riskuj.apk (zostavené automaticky)" || exit 0
+          git push
