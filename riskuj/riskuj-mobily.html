@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>[hidden]{display:none!important}img{max-width:100%}</style>
-<title>Riskuj v18 – len na mobiloch</title>
+<title>Riskuj v19 – len na mobiloch</title>
 <meta name="theme-color" content="#050920">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="ikona-192.png">
@@ -48,7 +48,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
    takže zvyšok hry (tv.html) netreba meniť. */
 (function () {
   'use strict';
-  const RM = window.RM = {mode: null, room: '', name: '', status: 'off', peersN: 0, onStatus: null, VERZIA: '18'};
+  const RM = window.RM = {mode: null, room: '', name: '', status: 'off', peersN: 0, onStatus: null, VERZIA: '19'};
   // Android/Chrome ponúkne inštaláciu ako aplikáciu – udalosť príde skoro, tak ju zachytíme hneď
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); RM.instal = e; if (RM.onInstal) RM.onInstal(); });
   window.addEventListener('appinstalled', () => { RM.instal = null; RM.nainstalovana = true; if (RM.onInstal) RM.onInstal(); });
@@ -164,6 +164,15 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     let players = [];
     try { players = (JSON.parse(localStorage.getItem(KEY)) || []).filter(p => p && p.id && p.name); } catch (e) {}
     let buzzes = [], armed = false, locked = [], epoch = 0, buzzN = 0, turn = '';
+    // férové hlásenie: mobil pošle čas stlačenia v hodinách moderátora (zosynchronizované), server chvíľu
+    // počká na pomalšie Wi-Fi a poradie určí podľa skutočného času stlačenia, nie podľa príchodu správy
+    let cak = [], armT = 0;
+    const CAKAJ = 350;
+    const pust = () => {
+      if (!cak.length || Date.now() - cak[0].arr < CAKAJ) return;
+      cak.sort((a, b) => a.at - b.at || a.arr - b.arr).forEach(b => buzzes.push({id: b.id, name: b.name, n: ++buzzN, at: b.at}));
+      cak = [];
+    };
     let finalStage = 'off', finalMax = {}, finalBets = {}, finalAnswers = {}, zet = {kto: ''}, tokReq = [], tokN = 0;
     const lastSeen = {};
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(players.map(p => ({id: p.id, name: p.name})))); } catch (e) {} };
@@ -172,6 +181,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     const seen = id => { if (find(id)) lastSeen[id] = Date.now(); };
     const q = (path, name) => { const m = new RegExp('[?&]' + name + '=([^&]*)').exec(path); return m ? decodeURIComponent(m[1]) : ''; };
     const state = () => {
+      pust();
       const sent = {};
       players.forEach(p => { sent[p.id] = {bet: p.id in finalBets, answer: p.id in finalAnswers}; });
       return {armed, epoch, buzzes: buzzes.map(b => ({id: b.id, name: b.name, n: b.n})), locked: locked.slice(), turn,
@@ -197,17 +207,21 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         case 'buzz': {
           const id = String(data.id || ''), p = find(id);
           let ok = false;
-          if (p && armed && !locked.includes(id) && !buzzes.some(b => b.id === id)) { buzzes.push({id, name: p.name, n: ++buzzN}); ok = true; }
+          if (p && armed && !locked.includes(id) && !buzzes.some(b => b.id === id) && !cak.some(b => b.id === id)) {
+            const teraz = Date.now(); let at = +data.at;
+            if (!isFinite(at) || at > teraz || at < teraz - 2000) at = teraz;   // bez synchronizácie alebo nezmysel: čas príchodu
+            cak.push({id, name: p.name, at: Math.max(at, armT), arr: teraz}); ok = true;
+          }
           seen(id);
-          return {ok, order: buzzes.length};
+          return {ok, order: buzzes.length + cak.length};
         }
-        case 'arm': armed = true; buzzes = []; locked = (data.locked || []).filter(Boolean).map(String); epoch++; turn = ''; return {epoch};
-        case 'unbuzz': { const ids = (data.ids || []).map(String); buzzes = buzzes.filter(b => !ids.includes(b.id)); return {ok: true}; }
+        case 'arm': armed = true; buzzes = []; cak = []; armT = Date.now(); locked = (data.locked || []).filter(Boolean).map(String); epoch++; turn = ''; return {epoch};
+        case 'unbuzz': { const ids = (data.ids || []).map(String); buzzes = buzzes.filter(b => !ids.includes(b.id)); cak = cak.filter(b => !ids.includes(b.id)); return {ok: true}; }
         case 'lock': locked = (data.locked || []).filter(Boolean).map(String); return {ok: true};
         case 'turn': turn = String(data.id || ''); return {ok: true};
         case 'disarm': armed = false; return {ok: true};
-        case 'idle': armed = false; buzzes = []; locked = []; turn = ''; return {ok: true};
-        case 'reset': players = []; buzzes = []; armed = false; locked = []; save(); up(); return {ok: true};
+        case 'idle': armed = false; buzzes = []; cak = []; locked = []; turn = ''; return {ok: true};
+        case 'reset': players = []; buzzes = []; cak = []; armed = false; locked = []; save(); up(); return {ok: true};
         case 'zetony': zet = data && data.kto !== undefined ? data : {kto: ''}; return {ok: true};
         case 'token': {
           const id = String(data.id || ''); let ok = false;
@@ -313,7 +327,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         if (d.k === 'api') {
           let res, ok = true;
           try { res = RM.server.handle(String(d.path || ''), d.body); } catch (e) { ok = false; }
-          send(c, {k: 'apir', rid: d.rid, ok: ok && res !== undefined, data: res === undefined ? null : res});
+          send(c, {k: 'apir', rid: d.rid, ok: ok && res !== undefined, data: res === undefined ? null : res, st: Date.now()});
         } else if (d.k === 'bc') RM.bcIn(d.m);
       }
       let retryT = 0;
@@ -373,20 +387,31 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     } else {
       let peer = null, conn = null, lastIn = 0, rid = 0, retryT = 0;
       const pend = new Map();
+      // rozdiel hodín mobilu a moderátora: z odpovedí s najkratšou cestou (posledných 30), aby Wi-Fi nemenila poradie
+      const hodiny = {off: 0}, vzorky = [];
+      const zmeraj = (t0, st) => {
+        const t1 = Date.now(), rtt = t1 - t0;
+        if (rtt < 0 || rtt > 3000) return;
+        vzorky.push({rtt, off: st - (t0 + t1) / 2});
+        if (vzorky.length > 30) vzorky.shift();
+        hodiny.off = vzorky.reduce((a, b) => b.rtt < a.rtt ? b : a).off;
+      };
+      RM.hodiny = hodiny;
       const retry = (ms, fn) => { clearTimeout(retryT); retryT = setTimeout(fn, ms); };
       const isOpen = () => !!(conn && conn.open);
       RM.api = (path, body) => new Promise((res, rej) => {
         if (path === 'join') body = Object.assign({}, body, {v: RM.VERZIA});   // moderátor tak zistí starý súbor
+        if (path === 'buzz') body = Object.assign({}, body, {at: Date.now() + hodiny.off});   // skutočný čas stlačenia v hodinách moderátora
         if (!isOpen()) { rej(new Error('offline')); return; }
         const id = ++rid;
         const tm = setTimeout(() => { if (pend.has(id)) { pend.delete(id); rej(new Error('timeout')); } }, 5000);
-        pend.set(id, {res: d => { clearTimeout(tm); res(d); }, rej: e => { clearTimeout(tm); rej(e); }});
+        pend.set(id, {t0: Date.now(), res: d => { clearTimeout(tm); res(d); }, rej: e => { clearTimeout(tm); rej(e); }});
         try { conn.send({k: 'api', rid: id, path, body}); } catch (e) { pend.delete(id); clearTimeout(tm); rej(e); }
       });
       function prijmi(d) {
         if (!d) return;
         lastIn = Date.now();
-        if (d.k === 'apir') { const p = pend.get(d.rid); if (p) { pend.delete(d.rid); if (d.ok) p.res(d.data); else p.rej(new Error('api')); } }
+        if (d.k === 'apir') { const p = pend.get(d.rid); if (p) { pend.delete(d.rid); if (d.st) zmeraj(p.t0, d.st); if (d.ok) p.res(d.data); else p.rej(new Error('api')); } }
         else if (d.k === 'bc') RM.bcIn(d.m);
       }
       // hráč posiela moderátorovi len „ahoj“ a „žijem“ – stav hry riadi výhradne moderátor
@@ -620,6 +645,10 @@ html.rm-tv kbd{display:none}
 #rmStart .rm-verzia{font-size:13px;padding:2px 10px;background:none;color:var(--muted);border:1px solid var(--line)}
 #rmTvForm .rm-kodrow{display:flex;gap:8px}
 #rmTvForm input{flex:1}
+.rm-navod{display:block;text-align:center;text-decoration:none;margin:14px auto 0;max-width:420px}
+/* moderátor: menej textu (pravidlá sú v návode) */
+html.rm header p.tag,html.rm .setup>p.hint,html.rm .riskbox .hint,html.rm section.how,html.rm .types .hint,
+html.rm #customSec>p,html.rm #customSec p.hint,html.rm #bankSec>p.hint,html.rm #pickerSec>p.hint{display:none!important}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -9151,7 +9180,7 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
 
   // spoločné vlastné kategórie: kategorie.json na webe (rovnaký súbor, aký vytvorí „Exportovať do súboru“ v hre na PC)
   // sa po každej zmene sám naimportuje – nové témy tak dostanú všetci bez preinštalovania
-  if (naWebe) fetch('kategorie.json?t=' + Date.now(), {cache: 'no-store'}).then(r => r.ok ? r.text() : null).then(async t => {
+  if (naWebe && !window.RM_BEZ_DANA) fetch('kategorie.json?t=' + Date.now(), {cache: 'no-store'}).then(r => r.ok ? r.text() : null).then(async t => {
     if (!t || typeof importSets !== 'function') return;
     let pod = ''; try { pod = ls('rm-kategorie'); } catch (e) {}
     if (pod === t.length + ':' + t.slice(-64)) return;
@@ -9221,6 +9250,7 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
       </form>
       <button class="rm-big rm-modbtn" type="button" id="rmMod"${zOdkazu ? ' hidden' : ''}><b>🎤 Som moderátor</b><span id="rmModTxt">Len jeden z vás: vytvorí hru, ostatným ukáže QR kód a vidí aj odpovede.</span></button>
       ${zOdkazu ? '' : '<div class="rm-app" id="rmApp"></div>'}
+      <a class="rm-go2 rm-maly rm-navod" href="https://simonek012.github.io/arduino/riskuj/navod.pdf" target="_blank" rel="noopener">📖 Návod a pravidlá hry (PDF)</a>
       ${zOdkazu ? '' : `<p class="rm-tip"><b>S internetom:</b> hráči nepotrebujú súbor – naskenujú QR kód z mobilu moderátora obyčajným fotoaparátom.<br>
         <b>Bez signálu:</b> hráči si vopred stiahnu tento súbor (alebo hru raz otvoria s internetom), všetci sú na hotspote moderátora a pripoja sa cez <b>Bez internetu</b>.</p>`}
     </div>`;
@@ -9363,7 +9393,7 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
         ${naWebe && ulozisko && window.isSecureContext ? '' : `<div class="rm-web"><p class="rm-err">⚠ Hru máš otvorenú ako súbor${!window.isSecureContext ? ' – mobil tu nepovolí kameru' : ''}${!ulozisko ? ' a neuloží rozohranú hru (pri obnovení stránky by sa stratila)' : ''}. Spoľahlivejšie je otvoriť hru z webu (raz s internetom, potom ide aj bez neho):</p>
           <a class="rm-go2" href="${WEB}">🌐 Otvoriť hru z webu</a></div>`}
         ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-qrjoin"><div class="rm-qrkod">${QR.svg(qrHry(RM.room))}</div>
-          <p class="hint">${qrNavod()} Alebo zadá kód <b>${h(RM.room)}</b>.</p>
+          
           <button class="rm-go2 rm-maly" type="button" data-act="rm-poslat">📤 Poslať odkaz hráčom (WhatsApp…)</button></div>`}
         <p class="hint">Verzia ${h(RM.VERZIA)}</p>
         ${RM.status === 'reconnecting' || RM.status === 'error' ? `<ol class="steps">
@@ -9371,16 +9401,11 @@ window.RM_TLACIDLO = "<!doctype html>\n<html lang=\"sk\">\n<head>\n<meta charset
           <li>Hráči si otvoria <b>tento istý súbor</b>, ťuknú <b>Som hráč</b>, napíšu meno a ťuknú <b>📷 Naskenovať QR kód</b>.</li>
           <li>Ty ťukni <b>Pripojiť hráča bez internetu</b> – hráč naskenuje tvoj kód a ty potom jeho (každý hráč zvlášť).</li>
           <li>Keď sú všetci v zozname, spusti hru.</li>
-        </ol>` : `<ol class="steps">
-          <li>Hráči si otvoria <b>tento istý súbor</b> v prehliadači (napr. Chrome) a ťuknú <b>Som hráč</b>.</li>
-          <li>Napíšu meno a naskenujú QR kód vyššie v hre (alebo zadajú kód <b>${h(RM.room)}</b>).</li>
-          <li>Keď sú všetci v zozname, spusti hru. Ty vidíš aj odpovede, hráči majú v mobile tabuľu, otázky a tlačidlo.</li>
-          <li>📺 <b>Chceš hru aj na TV?</b> Na televízore (v jeho prehliadači) alebo na tablete či starom mobile zrkadlenom cez Smart View otvor túto hru, zadaj kód <b>${h(RM.room)}</b> a ťukni <b>Som TV</b>. Zvuky potom hrajú z TV.</li>
-        </ol>`}
+        </ol>` : `<p class="hint">Hráči ťuknú <b>Hráč</b> a zadajú kód <b>${h(RM.room)}</b>. Televízor: ťukni <b>Televízor</b> a zadaj ten istý kód.</p>`}
         <button class="rm-go2${RM.status === 'reconnecting' || RM.status === 'error' ? '' : ' rm-maly'}" type="button" data-act="rm-qr">📶 Pripojiť hráča bez internetu (QR kód)</button>
         <div class="rm-kamera" id="rmKamera">${kameraHtml()}</div>
         <div class="pchips" id="plist"></div>
-        <label class="check"><input type="checkbox" id="rmZvuk"${zvukHraci ? ' checked' : ''}> Zvuky a melódie hrať na mobiloch hráčov (keď nie ste v jednej miestnosti)</label>
+        <label class="check"><input type="checkbox" id="rmZvuk"${zvukHraci ? ' checked' : ''}> Zvuky aj v mobiloch hráčov</label>
         <div class="rm-row"><button class="lnk" type="button" data-act="phonesreset">Odpojiť všetky mobily</button><button class="lnk" type="button" data-act="rm-novykod">Nový kód hry</button><button class="lnk" type="button" data-act="rm-leave">Zmeniť rolu</button></div>
       </section>`;
     const _vSetup = vSetup;

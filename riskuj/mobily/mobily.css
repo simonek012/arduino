@@ -154,3 +154,7 @@ html.rm-tv kbd{display:none}
 #rmStart .rm-verzia{font-size:13px;padding:2px 10px;background:none;color:var(--muted);border:1px solid var(--line)}
 #rmTvForm .rm-kodrow{display:flex;gap:8px}
 #rmTvForm input{flex:1}
+.rm-navod{display:block;text-align:center;text-decoration:none;margin:14px auto 0;max-width:420px}
+/* moderátor: menej textu (pravidlá sú v návode) */
+html.rm header p.tag,html.rm .setup>p.hint,html.rm .riskbox .hint,html.rm section.how,html.rm .types .hint,
+html.rm #customSec>p,html.rm #customSec p.hint,html.rm #bankSec>p.hint,html.rm #pickerSec>p.hint{display:none!important}

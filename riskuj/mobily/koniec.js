@@ -111,7 +111,7 @@
 
   // spoločné vlastné kategórie: kategorie.json na webe (rovnaký súbor, aký vytvorí „Exportovať do súboru“ v hre na PC)
   // sa po každej zmene sám naimportuje – nové témy tak dostanú všetci bez preinštalovania
-  if (naWebe) fetch('kategorie.json?t=' + Date.now(), {cache: 'no-store'}).then(r => r.ok ? r.text() : null).then(async t => {
+  if (naWebe && !window.RM_BEZ_DANA) fetch('kategorie.json?t=' + Date.now(), {cache: 'no-store'}).then(r => r.ok ? r.text() : null).then(async t => {
     if (!t || typeof importSets !== 'function') return;
     let pod = ''; try { pod = ls('rm-kategorie'); } catch (e) {}
     if (pod === t.length + ':' + t.slice(-64)) return;
@@ -181,6 +181,7 @@
       </form>
       <button class="rm-big rm-modbtn" type="button" id="rmMod"${zOdkazu ? ' hidden' : ''}><b>🎤 Som moderátor</b><span id="rmModTxt">Len jeden z vás: vytvorí hru, ostatným ukáže QR kód a vidí aj odpovede.</span></button>
       ${zOdkazu ? '' : '<div class="rm-app" id="rmApp"></div>'}
+      <a class="rm-go2 rm-maly rm-navod" href="https://simonek012.github.io/arduino/riskuj/navod.pdf" target="_blank" rel="noopener">📖 Návod a pravidlá hry (PDF)</a>
       ${zOdkazu ? '' : `<p class="rm-tip"><b>S internetom:</b> hráči nepotrebujú súbor – naskenujú QR kód z mobilu moderátora obyčajným fotoaparátom.<br>
         <b>Bez signálu:</b> hráči si vopred stiahnu tento súbor (alebo hru raz otvoria s internetom), všetci sú na hotspote moderátora a pripoja sa cez <b>Bez internetu</b>.</p>`}
     </div>`;
@@ -323,7 +324,7 @@
         ${naWebe && ulozisko && window.isSecureContext ? '' : `<div class="rm-web"><p class="rm-err">⚠ Hru máš otvorenú ako súbor${!window.isSecureContext ? ' – mobil tu nepovolí kameru' : ''}${!ulozisko ? ' a neuloží rozohranú hru (pri obnovení stránky by sa stratila)' : ''}. Spoľahlivejšie je otvoriť hru z webu (raz s internetom, potom ide aj bez neho):</p>
           <a class="rm-go2" href="${WEB}">🌐 Otvoriť hru z webu</a></div>`}
         ${RM.status === 'reconnecting' || RM.status === 'error' ? '' : `<div class="rm-qrjoin"><div class="rm-qrkod">${QR.svg(qrHry(RM.room))}</div>
-          <p class="hint">${qrNavod()} Alebo zadá kód <b>${h(RM.room)}</b>.</p>
+          
           <button class="rm-go2 rm-maly" type="button" data-act="rm-poslat">📤 Poslať odkaz hráčom (WhatsApp…)</button></div>`}
         <p class="hint">Verzia ${h(RM.VERZIA)}</p>
         ${RM.status === 'reconnecting' || RM.status === 'error' ? `<ol class="steps">
@@ -331,16 +332,11 @@
           <li>Hráči si otvoria <b>tento istý súbor</b>, ťuknú <b>Som hráč</b>, napíšu meno a ťuknú <b>📷 Naskenovať QR kód</b>.</li>
           <li>Ty ťukni <b>Pripojiť hráča bez internetu</b> – hráč naskenuje tvoj kód a ty potom jeho (každý hráč zvlášť).</li>
           <li>Keď sú všetci v zozname, spusti hru.</li>
-        </ol>` : `<ol class="steps">
-          <li>Hráči si otvoria <b>tento istý súbor</b> v prehliadači (napr. Chrome) a ťuknú <b>Som hráč</b>.</li>
-          <li>Napíšu meno a naskenujú QR kód vyššie v hre (alebo zadajú kód <b>${h(RM.room)}</b>).</li>
-          <li>Keď sú všetci v zozname, spusti hru. Ty vidíš aj odpovede, hráči majú v mobile tabuľu, otázky a tlačidlo.</li>
-          <li>📺 <b>Chceš hru aj na TV?</b> Na televízore (v jeho prehliadači) alebo na tablete či starom mobile zrkadlenom cez Smart View otvor túto hru, zadaj kód <b>${h(RM.room)}</b> a ťukni <b>Som TV</b>. Zvuky potom hrajú z TV.</li>
-        </ol>`}
+        </ol>` : `<p class="hint">Hráči ťuknú <b>Hráč</b> a zadajú kód <b>${h(RM.room)}</b>. Televízor: ťukni <b>Televízor</b> a zadaj ten istý kód.</p>`}
         <button class="rm-go2${RM.status === 'reconnecting' || RM.status === 'error' ? '' : ' rm-maly'}" type="button" data-act="rm-qr">📶 Pripojiť hráča bez internetu (QR kód)</button>
         <div class="rm-kamera" id="rmKamera">${kameraHtml()}</div>
         <div class="pchips" id="plist"></div>
-        <label class="check"><input type="checkbox" id="rmZvuk"${zvukHraci ? ' checked' : ''}> Zvuky a melódie hrať na mobiloch hráčov (keď nie ste v jednej miestnosti)</label>
+        <label class="check"><input type="checkbox" id="rmZvuk"${zvukHraci ? ' checked' : ''}> Zvuky aj v mobiloch hráčov</label>
         <div class="rm-row"><button class="lnk" type="button" data-act="phonesreset">Odpojiť všetky mobily</button><button class="lnk" type="button" data-act="rm-novykod">Nový kód hry</button><button class="lnk" type="button" data-act="rm-leave">Zmeniť rolu</button></div>
       </section>`;
     const _vSetup = vSetup;

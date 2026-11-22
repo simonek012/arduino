@@ -38,7 +38,8 @@ public class MainActivity extends Activity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
                 Uri u = r.getUrl();
-                if ("simonek012.github.io".equals(u.getHost())) return false;
+                String cesta = u.getPath() == null ? "" : u.getPath().toLowerCase();
+                if ("simonek012.github.io".equals(u.getHost()) && !cesta.endsWith(".pdf") && !cesta.endsWith(".apk")) return false;
                 try { startActivity(new Intent(Intent.ACTION_VIEW, u)); } catch (Exception e) { }
                 return true;   // WhatsApp, YouTube… otvorí v iných aplikáciách
             }
@@ -51,6 +52,9 @@ public class MainActivity extends Activity {
                     v.loadUrl(r.getUrl().toString());
                 }
             }
+        });
+        web.setDownloadListener((url, ua, cd, mime, len) -> {   // PDF návod a súbory otvorí v inej aplikácii
+            try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception e) { }
         });
         web.setWebChromeClient(new WebChromeClient() {
             @Override
