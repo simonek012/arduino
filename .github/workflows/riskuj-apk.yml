@@ -18,22 +18,28 @@ jobs:
           BT=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
           PLAT=$ANDROID_HOME/platforms/$(ls $ANDROID_HOME/platforms | grep -E '^android-[0-9]+$' | sort -V | tail -1)/android.jar
           echo "build-tools: $BT  platform: $PLAT"
-          rm -rf build && mkdir -p build/classes
-          $BT/aapt2 compile --dir res -o build/res.zip
-          $BT/aapt2 link -o build/base.apk -I $PLAT --manifest AndroidManifest.xml build/res.zip \
-            --min-sdk-version 24 --target-sdk-version 34 --version-code $GITHUB_RUN_NUMBER --version-name 1.$GITHUB_RUN_NUMBER
-          javac --release 11 -classpath $PLAT -d build/classes $(find src -name '*.java')
-          $BT/d8 --min-api 24 --lib $PLAT --output build $(find build/classes -name '*.class')
-          (cd build && zip -q base.apk classes.dex)
-          $BT/zipalign -f 4 build/base.apk build/aligned.apk
-          keytool -genkeypair -keystore build/k.jks -storepass riskuj -keypass riskuj -alias riskuj -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Riskuj"
-          $BT/apksigner sign --ks build/k.jks --ks-pass pass:riskuj --key-pass pass:riskuj --out ../Riskuj.apk build/aligned.apk
-          $BT/apksigner verify ../Riskuj.apk
-          ls -la ../Riskuj.apk
+          keytool -genkeypair -keystore k.jks -storepass riskuj -keypass riskuj -alias riskuj -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Riskuj"
+          postav() {   # $1 = balík, $2 = názov, $3 = stránka, $4 = výsledný súbor
+            rm -rf build && mkdir -p build/classes build/res && cp -r res/* build/res/
+            sed -i "s#<string name=\"app_name\">[^<]*#<string name=\"app_name\">$2#; s#riskuj-mobily.html#$3#" build/res/values/strings.xml
+            $BT/aapt2 compile --dir build/res -o build/res.zip
+            $BT/aapt2 link -o build/base.apk -I $PLAT --manifest AndroidManifest.xml build/res.zip --rename-manifest-package $1 \
+              --min-sdk-version 24 --target-sdk-version 34 --version-code $GITHUB_RUN_NUMBER --version-name 1.$GITHUB_RUN_NUMBER
+            javac --release 11 -classpath $PLAT -d build/classes $(find src -name '*.java')
+            $BT/d8 --min-api 24 --lib $PLAT --output build $(find build/classes -name '*.class')
+            (cd build && zip -q base.apk classes.dex)
+            $BT/zipalign -f 4 build/base.apk build/aligned.apk
+            $BT/apksigner sign --ks k.jks --ks-pass pass:riskuj --key-pass pass:riskuj --out "../$4" build/aligned.apk
+            $BT/apksigner verify "../$4"
+          }
+          postav sk.riskuj.app "Riskuj" riskuj-mobily.html Riskuj.apk
+          postav sk.riskuj.bezdana "Riskuj bez Dana" riskuj-bez-dana.html Riskuj-bez-Dano-Drevo.apk
+          rm -f k.jks
+          ls -la ../*.apk
       - name: Uložiť do vetvy
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898732+github-actions[bot]@users.noreply.github.com"
-          git add riskuj/Riskuj.apk
+          git add riskuj/*.apk
           git commit -m "Riskuj.apk (zostavené automaticky)" || exit 0
           git push

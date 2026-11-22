@@ -18,7 +18,6 @@ import android.webkit.WebViewClient;
 
 /** Riskuj ako aplikácia: otvorí hru z webu (vždy najnovšia verzia), bez signálu z pamäte. */
 public class MainActivity extends Activity {
-    static final String WEB = "https://simonek012.github.io/arduino/riskuj/riskuj-mobily.html?app=1";
     private WebView web;
     private PermissionRequest cakajuca;
 
@@ -61,7 +60,7 @@ public class MainActivity extends Activity {
             }
         });
         setContentView(web);
-        if (saved == null || web.restoreState(saved) == null) web.loadUrl(WEB);
+        if (saved == null || web.restoreState(saved) == null) web.loadUrl(getString(getResources().getIdentifier("web_url", "string", getPackageName())));
     }
 
     @Override

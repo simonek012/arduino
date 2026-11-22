@@ -166,6 +166,10 @@ KOPIA.parent.mkdir(exist_ok=True)
 for stara in KOPIA.parent.glob('riskuj-mobily-v*.html'):
     stara.unlink()
 KOPIA.write_text(tv, 'utf-8')
+# verzia bez kategórií Dano Drevo (vlastná stránka a vlastná Android aplikácia)
+BEZ = D / 'riskuj-bez-dana.html'
+BEZ.write_text(rep(tv, 'function boot(data) {\n',
+    "/* verzia bez kategórií Dano Drevo */\nfor (const k of Object.keys(BANK)) if (/Dano Drevo/.test(k)) { delete BANK[k]; if (typeof KIND !== 'undefined') delete KIND[k]; }\nif (typeof loadSets === 'function') { const _ls = loadSets; loadSets = () => _ls().filter(s => !/Dano Drevo/.test(s.title)); SETS = loadSets(); }\nfunction boot(data) {\n"), 'utf-8')
 # verzia.json: nainštalované aplikácie podľa neho zistia, že je nová verzia, a ponúknu „Aktualizovať“
 (D / 'verzia.json').write_text(json.dumps({'verzia': VERZIA}) + '\n', 'utf-8')
 print(f'{OUT.name} + {KOPIA.parent.name}/{KOPIA.name}: {OUT.stat().st_size / 1e6:.1f} MB, verzia {VERZIA}')
